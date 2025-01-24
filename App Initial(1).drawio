@@ -1,0 +1,109 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:134.0) Gecko/20100101 Firefox/134.0" version="26.0.6">
+  <diagram name="Page-1" id="4LuAz9bXdVaC4NbRR8ua">
+    <mxGraphModel dx="1313" dy="663" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="2200" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="J_2AckYuHz9zf3VuoYmc-1" value="&lt;font style=&quot;font-size: 31px;&quot;&gt;Backend&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry width="850" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="J_2AckYuHz9zf3VuoYmc-2" value="&lt;div&gt;NoSQL family server (Writing needs to have semaphore)&lt;/div&gt;&lt;div&gt;Writes on acceptance&lt;br&gt;&lt;/div&gt;" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="15" y="80" width="150" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="J_2AckYuHz9zf3VuoYmc-3" value="NoSQL Friends server (Writing needs to have semaphore or just load balencing?)" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="15" y="230" width="90" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="J_2AckYuHz9zf3VuoYmc-4" value="SQL workouts and muscles (Static, not edited by users)" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="20" y="330" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="J_2AckYuHz9zf3VuoYmc-5" value="SQL workout server" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="20" y="420" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="J_2AckYuHz9zf3VuoYmc-7" value="AI API" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="385" y="90" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="J_2AckYuHz9zf3VuoYmc-8" value="In take API program" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="770" y="510" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="J_2AckYuHz9zf3VuoYmc-9" value="Accounts SQL" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="20" y="510" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="J_2AckYuHz9zf3VuoYmc-10" value="Notification through FCM API (FREE)" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="280" y="90" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="J_2AckYuHz9zf3VuoYmc-11" value="AI Microservice" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="440" y="342" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="J_2AckYuHz9zf3VuoYmc-12" value="Notification Microservice" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="440" y="437" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="J_2AckYuHz9zf3VuoYmc-13" value="Save workout MicroService" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="440" y="547" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="J_2AckYuHz9zf3VuoYmc-14" value="Friends microservice" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="440" y="657" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="J_2AckYuHz9zf3VuoYmc-15" value="Nutrition SQL" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="20" y="620" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="J_2AckYuHz9zf3VuoYmc-16" value="Nutrition microservice" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="440" y="767" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="J_2AckYuHz9zf3VuoYmc-17" value="Health Data SQL" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="20" y="730" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="J_2AckYuHz9zf3VuoYmc-18" value="Account processing" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="610" y="555" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="J_2AckYuHz9zf3VuoYmc-19" value="Current workout processing" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="610" y="455" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="J_2AckYuHz9zf3VuoYmc-20" value="Preworkout processing" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="610" y="355" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="J_2AckYuHz9zf3VuoYmc-21" value="Health Data Microservice" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="440" y="252" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="J_2AckYuHz9zf3VuoYmc-22" value="Food Scanner processing" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="610" y="665" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="J_2AckYuHz9zf3VuoYmc-23" value="Gym Data NoSQL" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="20" y="840" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="J_2AckYuHz9zf3VuoYmc-24" value="Food SQL or API?" style="whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="20" y="950" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="J_2AckYuHz9zf3VuoYmc-25" value="&lt;font style=&quot;font-size: 36px;&quot;&gt;Frontend&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry y="1040" width="850" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="J_2AckYuHz9zf3VuoYmc-27" value="&lt;div&gt;Tabs:&lt;/div&gt;&lt;div&gt;Nutrition&lt;/div&gt;&lt;div&gt;Workout&lt;/div&gt;&lt;div&gt;Social&lt;/div&gt;&lt;div&gt;Account&lt;/div&gt;&lt;div&gt;Health&lt;/div&gt;&lt;div&gt;home&lt;br&gt;&lt;/div&gt;etc" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry y="1170" width="120" height="410" as="geometry" />
+        </mxCell>
+        <mxCell id="J_2AckYuHz9zf3VuoYmc-28" value="Nutrition:&lt;br&gt;&lt;div&gt;Caloric intake&lt;/div&gt;&lt;div&gt;Recommended intake&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;add food&lt;/div&gt;&lt;div&gt;scan food&lt;/div&gt;&lt;div&gt;edit food&lt;/div&gt;&lt;div&gt;add meal&lt;/div&gt;&lt;div&gt;delete meal&lt;/div&gt;&lt;div&gt;delete food&lt;/div&gt;&lt;div&gt;create meal (foods together)&lt;/div&gt;&lt;div&gt;macros&lt;/div&gt;&lt;div&gt;nutrient goals (FDA)&lt;br&gt;&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="130" y="1170" width="120" height="230" as="geometry" />
+        </mxCell>
+        <mxCell id="J_2AckYuHz9zf3VuoYmc-29" value="&lt;div&gt;Workout:&lt;/div&gt;&lt;div&gt;start workout&lt;/div&gt;&lt;div&gt;create workout&lt;/div&gt;&lt;div&gt;delete workout&lt;/div&gt;&lt;div&gt;AI created workout&lt;/div&gt;&lt;div&gt;Social Workouts&lt;/div&gt;&lt;div&gt;add exercise&lt;/div&gt;&lt;div&gt;delete exercise&lt;/div&gt;&lt;div&gt;modify exercise&lt;/div&gt;&lt;div&gt;create exercise&lt;/div&gt;&lt;div&gt;add set&lt;/div&gt;&lt;div&gt;add weight&lt;/div&gt;&lt;div&gt;add reps&lt;/div&gt;&lt;div&gt;add perceived difficulty&lt;/div&gt;&lt;div&gt;add timer&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="130" y="1410" width="120" height="270" as="geometry" />
+        </mxCell>
+        <mxCell id="J_2AckYuHz9zf3VuoYmc-31" value="&lt;div&gt;Social:&lt;/div&gt;&lt;div&gt;friends and families&lt;br&gt;&lt;/div&gt;&lt;div&gt;family&lt;/div&gt;&lt;div&gt;recent activity&lt;/div&gt;&lt;div&gt;????&lt;br&gt;&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="280" y="1170" width="120" height="230" as="geometry" />
+        </mxCell>
+        <mxCell id="J_2AckYuHz9zf3VuoYmc-32" value="&lt;div&gt;Account:&lt;/div&gt;&lt;div&gt;profile pic&lt;/div&gt;&lt;div&gt;display name&lt;/div&gt;&lt;div&gt;real name&lt;/div&gt;&lt;div&gt;DOB&lt;/div&gt;&lt;div&gt;height&lt;/div&gt;&lt;div&gt;weight&lt;/div&gt;&lt;div&gt;body measurements&lt;/div&gt;&lt;div&gt;BCR&lt;/div&gt;&lt;div&gt;change password&lt;/div&gt;&lt;div&gt;Stats&lt;/div&gt;&lt;div&gt;logout&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="280" y="1420" width="120" height="260" as="geometry" />
+        </mxCell>
+        <mxCell id="J_2AckYuHz9zf3VuoYmc-33" value="&lt;div&gt;Health:&lt;/div&gt;&lt;div&gt;Maybe move some over from Account?&lt;br&gt;&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="420" y="1420" width="120" height="260" as="geometry" />
+        </mxCell>
+        <mxCell id="J_2AckYuHz9zf3VuoYmc-34" value="&lt;div&gt;Home:&lt;/div&gt;&lt;div&gt;??? ideas???&lt;br&gt;&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="420" y="1170" width="120" height="240" as="geometry" />
+        </mxCell>
+        <mxCell id="J_2AckYuHz9zf3VuoYmc-36" value="&lt;div&gt;&lt;font style=&quot;font-size: 15px;&quot;&gt;Family Challenges&lt;/font&gt;&lt;/div&gt;&lt;div&gt;&lt;font style=&quot;font-size: 15px;&quot;&gt;Family v family challenges&lt;/font&gt;&lt;/div&gt;&lt;div&gt;&lt;font style=&quot;font-size: 15px;&quot;&gt;Stat sharing via family&lt;/font&gt;&lt;/div&gt;&lt;div&gt;&lt;font style=&quot;font-size: 15px;&quot;&gt;Streak Counter&lt;/font&gt;&lt;/div&gt;&lt;div&gt;&lt;font style=&quot;font-size: 15px;&quot;&gt;Home gym notification&lt;/font&gt;&lt;/div&gt;&lt;div&gt;&lt;font style=&quot;font-size: 15px;&quot;&gt;Progress Photos&lt;/font&gt;&lt;/div&gt;&lt;div&gt;&lt;font style=&quot;font-size: 15px;&quot;&gt;Family achievements&lt;/font&gt;&lt;/div&gt;&lt;div&gt;&lt;font style=&quot;font-size: 15px;&quot;&gt;&lt;br&gt;&lt;/font&gt;&lt;/div&gt;&lt;div&gt;&lt;font style=&quot;font-size: 15px;&quot;&gt;&lt;br&gt;&lt;/font&gt;&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="80" y="1840" width="690" height="340" as="geometry" />
+        </mxCell>
+        <mxCell id="J_2AckYuHz9zf3VuoYmc-37" value="&lt;font style=&quot;font-size: 40px;&quot;&gt;Features&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry y="1690" width="850" height="110" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
