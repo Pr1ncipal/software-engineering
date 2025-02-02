@@ -1,0 +1,61 @@
+<mxfile host="65bd71144e">
+    <diagram name="Page-1" id="N5_klAjIhM02fuecN23v">
+        <mxGraphModel dx="2685" dy="1139" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="izLtd9X2JIcn886cQN69-3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="izLtd9X2JIcn886cQN69-1" target="izLtd9X2JIcn886cQN69-2" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="izLtd9X2JIcn886cQN69-5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="izLtd9X2JIcn886cQN69-1" target="izLtd9X2JIcn886cQN69-4" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="izLtd9X2JIcn886cQN69-1" value="Create an account" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+                    <mxGeometry x="-100" y="60" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="izLtd9X2JIcn886cQN69-2" value="FName, Lname, username, email, password, Age, weight, height, sex, goal weight(optional), terms and conditions" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+                    <mxGeometry x="-100" y="140" width="120" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="izLtd9X2JIcn886cQN69-8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="izLtd9X2JIcn886cQN69-4" target="izLtd9X2JIcn886cQN69-6" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="izLtd9X2JIcn886cQN69-10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="izLtd9X2JIcn886cQN69-4" target="izLtd9X2JIcn886cQN69-9" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="izLtd9X2JIcn886cQN69-12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="izLtd9X2JIcn886cQN69-4" target="izLtd9X2JIcn886cQN69-11" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="izLtd9X2JIcn886cQN69-4" value="Home Screen" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+                    <mxGeometry x="90" y="60" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="izLtd9X2JIcn886cQN69-6" value="&lt;div&gt;Tabs:&lt;/div&gt;&lt;div&gt;Home, Diet, Activity,social, Account, Sleep (Not prioritize)&lt;br&gt;&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+                    <mxGeometry x="50" y="150" width="120" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="izLtd9X2JIcn886cQN69-9" value="&lt;div&gt;Social:&lt;/div&gt;&lt;div&gt;Who did what, progress towards challenges&lt;br&gt;&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+                    <mxGeometry x="200" y="160" width="120" height="200" as="geometry"/>
+                </mxCell>
+                <mxCell id="izLtd9X2JIcn886cQN69-14" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="izLtd9X2JIcn886cQN69-11" target="izLtd9X2JIcn886cQN69-13" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="izLtd9X2JIcn886cQN69-16" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="izLtd9X2JIcn886cQN69-11" target="izLtd9X2JIcn886cQN69-15" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="izLtd9X2JIcn886cQN69-11" value="Dietary" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+                    <mxGeometry x="365" y="60" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="izLtd9X2JIcn886cQN69-13" value="&lt;div&gt;Day dashboard:&lt;/div&gt;&lt;div&gt;Calories left&lt;/div&gt;&lt;div&gt;calories consumed, Macro Tracking, Water consumption, Supplement tracking, Pie chart for macros, &lt;br&gt;&lt;/div&gt;Planning next meal or meal " style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+                    <mxGeometry x="365" y="160" width="120" height="200" as="geometry"/>
+                </mxCell>
+                <mxCell id="izLtd9X2JIcn886cQN69-18" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="izLtd9X2JIcn886cQN69-15" target="izLtd9X2JIcn886cQN69-17" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="izLtd9X2JIcn886cQN69-15" value="Activity" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+                    <mxGeometry x="560" y="60" width="120" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="izLtd9X2JIcn886cQN69-17" value="Start strength Workout, Start Cardio Workout, Start sports Workout, Saved Workouts, " style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+                    <mxGeometry x="560" y="160" width="120" height="200" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>
