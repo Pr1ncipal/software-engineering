@@ -1,0 +1,19 @@
+Specifications: 
+Requirements:
+- Toggling of sharing data (Weight, steps, etc.)
+- Application frontend is flexible
+- Metrics: Weight, HR, BW%, BMI, etc.
+- Competitions between all people
+- Encourage competition between people based on athletic prowess
+- Nutrition and sleep can be considered
+- Up to team for AI Integration
+- Catering to children is a nice to have
+- 
+
+
+Other:
+- Rest and soreness
+
+
+First:
+- 
