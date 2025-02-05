@@ -5,8 +5,8 @@ CREATE TABLE users (
     lname VARCHAR(100) NOT NULL,
     password_hash TEXT NOT NULL,
     height DECIMAL(5,2),  -- Stores height in inches
-    dob DATE,
-    sex VARCHAR(5),
+    dob DATE NOT NULL,
+    sex VARCHAR(5) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
