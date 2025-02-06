@@ -1,10 +1,18 @@
+CREATE TYPE set_type AS(
+    reps INT[],
+    type_set INT[]
+    weight DECIMAL(4,2)[],
+    super_set INT 
+)
+
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    fname VARCHAR(100) NOT NULL,
-    lname VARCHAR(100) NOT NULL,
-    password_hash TEXT NOT NULL,
-    height DECIMAL(5,2),  -- Stores height in inches
+    email VARCHAR(320) UNIQUE NOT NULL,
+    username VARCHAR(20) UNIQUE NOT NULL,
+    fname VARCHAR(20) NOT NULL,
+    lname VARCHAR(30) NOT NULL,
+    password_hash CHAR() NOT NULL, -- Need to find length of hash
+    height INT,  -- Stores height in inches
     dob DATE NOT NULL,
     sex VARCHAR(5) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -37,7 +45,7 @@ CREATE TABLE workouts (
     workout_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     notes TEXT,
     average_heart_rate INT,  -- Stores average heart rate (optional)
-    total_weight_lifted DECIMAL(5,2)  -- Stores total weight lifted (Calculated from workout_exercises) (might come from front end calculations)
+    total_weight_lifted DECIMAL(6,2)  -- Stores total weight lifted (Calculated from workout_exercises) (might come from front end calculations)
 );
 
 CREATE TABLE exercises (
@@ -67,19 +75,10 @@ CREATE TABLE workout_exercises (
     id SERIAL PRIMARY KEY,
     workout_id INT REFERENCES workouts(id) ON DELETE CASCADE,
     exercise_id INT REFERENCES exercises(id) ON DELETE SET NULL,
-    exercise_type VARCHAR(50) DEFAULT "Regular",  -- regular, dropset, failiure, etc.
-    sets INT NOT NULL,
-    reps INT NOT NULL,
-    weight DECIMAL(5,2),  -- Stores weight lifted (optional)
+    sets set_type,
     notes TEXT,
     percieved_difficulty INT,  -- Stores percieved difficulty (optional)
     date_performed TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE workout_exercise_order (
-    workout_id INT REFERENCES workouts(id) ON DELETE CASCADE,
-    exercise_id INT REFERENCES exercises(id) ON DELETE CASCADE,
-    exercise_order INT NOT NULL
 );
 
 

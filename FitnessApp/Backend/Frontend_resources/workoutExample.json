@@ -1,0 +1,66 @@
+{
+    "user": "John Doe",
+    "workoutType": "Strength",
+    "notes": "This is a workout example",
+    "averageHeartRate": 120,
+    "totalWeightLifted": 1000,
+    "exercies":[
+        {
+            "exerciseID": 1,
+            "exerciseOrder": 1,
+            "superset": 2,
+            "reps": [
+                10,
+                9,
+                8,
+                7
+            ],
+            "setType": [
+                "Warmup",
+                "Normal",
+                "Drop",
+                "Failiure"
+            ],
+            "exercieNotes": "This is a note for the exercise",
+            "percievedDifficulty": 5
+        },
+        {
+            "exerciseID": 5,
+            "exerciseOrder": 2,
+            "superset": 1,
+            "reps": [
+                10,
+                9,
+                8,
+                7
+            ],
+            "setType": [
+                "Warmup",
+                "Normal",
+                "Drop",
+                "Failiure"
+            ],
+            "exercieNotes": "This is a note for the exercise",
+            "percievedDifficulty": 5
+        },
+        {
+            "exerciseID": 65,
+            "exerciseOrder": 3,
+            "superset": -1,
+            "reps": [
+                10,
+                9,
+                8,
+                7
+            ],
+            "setType": [
+                "Warmup",
+                "Normal",
+                "Drop",
+                "Failiure"
+            ],
+            "exercieNotes": "This is a note for the exercise",
+            "percievedDifficulty": 5
+        }
+    ]
+}
