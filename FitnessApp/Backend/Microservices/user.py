@@ -6,7 +6,6 @@
 
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
-from werkzeug.security import generate_password_hash
 import os
 
 app = Flask(__name__)
@@ -30,7 +29,7 @@ class User(db.Model):
     height = db.Column(db.Float, nullable=True)
 
     def __init__(self, password, email, username, first_name, last_name, date_of_birth, sex, height=None):
-        self.password_hash = generate_password_hash(password)
+        self.password_hash = password
         self.email = email
         self.username = username
         self.first_name = first_name
