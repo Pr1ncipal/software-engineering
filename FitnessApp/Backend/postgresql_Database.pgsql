@@ -54,7 +54,9 @@ CREATE TABLE exercises (
     name VARCHAR(100) NOT NULL UNIQUE,
     equipment VARCHAR(50),
     description TEXT,
-    single_sided BOOLEAN DEFAULT FALSE
+    single_sided BOOLEAN DEFAULT FALSE,
+    start_state bytea,  -- Stores image of start state (optional)
+    end_state bytea  -- Stores image of end state (optional)
 );
 
 CREATE TABLE muscle_groups (
