@@ -2,6 +2,7 @@ CREATE TYPE set_type AS(
     reps INT[],
     type_set INT[]
     weight DECIMAL(4,2)[],
+    percieved_difficulty INT[],  -- Stores percieved difficulty (optional)
     super_set INT 
 )
 
@@ -77,7 +78,6 @@ CREATE TABLE workout_exercises (
     exercise_id INT REFERENCES exercises(id) ON DELETE SET NULL,
     sets set_type,
     notes TEXT,
-    percieved_difficulty INT,  -- Stores percieved difficulty (optional)
     date_performed TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
