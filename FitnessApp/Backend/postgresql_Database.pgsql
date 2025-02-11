@@ -1,3 +1,5 @@
+-- Reminder for Docker command: must include -e POSTGRES_PASSWORD=password
+
 CREATE TYPE set_type AS(
     reps INT[],
     type_set INT[]

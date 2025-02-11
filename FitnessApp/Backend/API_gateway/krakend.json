@@ -1,0 +1,27 @@
+{
+    "$schema": "https://www.krakend.io/schema/krakend.json",
+    "version": 3,
+    "name": "GitFitBro API",
+    "timeout": "3000ms",
+    "cache_ttl": "300s",
+    "output_encoding": "json",
+    "endpoints": [
+      {
+        "endpoint": "/api/add_workout",
+        "method": "POST",
+        "output_encoding": "json",
+        "backend": [
+          {
+            "url_pattern": "/add-workout",
+            "encoding": "json",
+            "sd": "static",
+            "method": "POST",
+            "host": [
+              "http://workout"
+            ],
+            "disable_host_sanitize": false
+          }
+        ]
+      }
+    ]
+}
