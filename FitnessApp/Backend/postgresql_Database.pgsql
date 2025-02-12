@@ -6,7 +6,11 @@ CREATE TYPE set_type AS(
     weight DECIMAL(4,2)[],
     percieved_difficulty INT[],  -- Stores percieved difficulty (optional)
     super_set INT 
-)
+);
+
+CREATE TYPE muscle_group_enum AS ENUM (
+    'abdominals', 'abductors', 'adductors', 'bicep', 'calves', 'chest', 'forearms', 'glutes', 'hamstrings', 'lats', 'lower back', 'middle back', 'quadriceps', 'shoulders', 'traps', 'triceps', 'neck'
+);
 
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
@@ -15,7 +19,6 @@ CREATE TABLE users (
     fname VARCHAR(20) NOT NULL,
     lname VARCHAR(30) NOT NULL,
     password_hash CHAR() NOT NULL, -- Need to find length of hash
-    height INT,  -- Stores height in inches
     dob DATE NOT NULL,
     sex VARCHAR(5) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -24,6 +27,7 @@ CREATE TABLE users (
 CREATE TABLE user_stats (
     id SERIAL PRIMARY KEY,
     user_id INT REFERENCES users(id) ON DELETE CASCADE,
+    height INT,  -- Stores height in inches
     weight DECIMAL(5,2),  -- Stores weight in pounds
     body_fat DECIMAL(5,2),  -- Stores body fat percentage
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -57,15 +61,8 @@ CREATE TABLE exercises (
     equipment VARCHAR(50),
     description TEXT,
     single_sided BOOLEAN DEFAULT FALSE,
-    primary_muscle int[] REFERENCES muscle_groups(id) NOT NULL, --Think about with muscle groups. Might want with repetition
-    secondary_muscles VARCHAR(50)[]  -- Stores secondary muscles worked (optional)
-    -- start_state bytea,  -- Stores image of start state (optional)
-    -- end_state bytea  -- Stores image of end state (optional)
-);
-
-CREATE TABLE muscle_groups (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(50) NOT NULL UNIQUE
+    primary_muscle muscle_group_enum[] NOT NULL, --Think about with muscle groups. Might want with repetition
+    secondary_muscles muscle_group_enum[]  -- Stores secondary muscles worked (optional)
 );
 
 
@@ -74,7 +71,7 @@ CREATE TABLE workout_exercises (
     workout_id INT REFERENCES workouts(id) ON DELETE CASCADE,
     exercise_id INT REFERENCES exercises(id) ON DELETE SET NULL,
     sets set_type,
-    notes TEXT,
+    notes VARCHAR(250),
     date_performed TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -86,25 +83,6 @@ CREATE INDEX idx_workout_exercise_order ON workout_exercise_order(workout_id);
 
 
 -- Inserting data into tables
-
--- inserting muscle groups
-INSERT INTO muscle_groups (name) VALUES ('abdominals');
-INSERT INTO muscle_groups (name) VALUES ('abductors');
-INSERT INTO muscle_groups (name) VALUES ('adductors');
-INSERT INTO muscle_groups (name) VALUES ('biceps') ;
-INSERT INTO muscle_groups (name) VALUES ('calves') ;
-INSERT INTO muscle_groups (name) VALUES ('chest');
-INSERT INTO muscle_groups (name) VALUES ('forearms');
-INSERT INTO muscle_groups (name) VALUES ('glutes');
-INSERT INTO muscle_groups (name) VALUES ('hamstrings');
-INSERT INTO muscle_groups (name) VALUES ('lats');
-INSERT INTO muscle_groups (name) VALUES ('lower back');
-INSERT INTO muscle_groups (name) VALUES ('middle back');
-INSERT INTO muscle_groups (name) VALUES ('quadriceps');
-INSERT INTO muscle_groups (name) VALUES ('shoulders');
-INSERT INTO muscle_groups (name) VALUES ('traps');
-INSERT INTO muscle_groups (name) VALUES ('triceps');
-INSERT INTO muscle_groups (name) VALUES ('neck');
 
 
 -- inserting Exercise types (Need to fix with muscle group IDs)
