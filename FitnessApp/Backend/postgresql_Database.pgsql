@@ -50,7 +50,7 @@ CREATE TABLE workouts (
     user_id INT REFERENCES users(id) ON DELETE CASCADE,
     workout_type VARCHAR(50) NOT NULL, -- Cardio, Strength, etc.
     workout_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    notes TEXT,
+    notes varchar(250),
     average_heart_rate INT,  -- Stores average heart rate (optional)
     total_weight_lifted DECIMAL(6,2)  -- Stores total weight lifted (Calculated from workout_exercises) (might come from front end calculations)
 );

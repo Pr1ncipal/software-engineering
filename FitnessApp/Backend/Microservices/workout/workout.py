@@ -7,7 +7,7 @@ import json
 app = Flask(__name__)
 
 # Filler for the database URL (Saved passwords somewhere?)
-DATABASE_URL = "postgresql://username:password@joecool.highpoint.edu:port/dbname"
+DATABASE_URL = "postgresql://postgres:password@localhost:port/gitfitbro"
 
 def insert_into_db(data):
     try:
@@ -22,17 +22,31 @@ def insert_into_db(data):
         
         connection.commit()
         
-        reps = ''
-        setType = ''
-        weight = ''
+        reps = '{'
+        setType = '{'
+        weight = '{'
+        pd = '{'
         for exercise in data['exercises']:
-            for i in range(len(exercise['reps'])):
+            
+            for i in range(len(exercise['reps'])): #Need to fix logic
+                if i > 0:
+                    reps += ', '
+                    setType += ', '
+                    weight += ', '
+                    pd += ', '
                 reps += str(exercise['reps'][i]) 
                 setType += exercise['setType'][i]
                 weight += str(exercise['weight'][i])
-                insert_query = """INSERT INTO workout_exercises (workout_id, exercise_id, sets, notes) VALUES (%d, %d, (%d, %d, %d, %d, %d), %s)"""
-                cursor.execute(insert_query, (wid, exercise['exercise_id'], exercise['sets'], reps, setType, weight, exercise['notes']))
-                connection.commit()
+                pd += str(exercise['percievedDifficulty'][i])
+                
+            reps += '}'
+            setType += '}'
+            weight += '}'
+            pd += '}'
+            
+            insert_query = """INSERT INTO workout_exercises (workout_id, exercise_id, sets, notes) VALUES (%d, %d, (%s, %s, %s, %s, %d), %s)""" #Workout ID, exercise ID, (sets, reps, setType, weight, percieved Difficulty), notes
+            cursor.execute(insert_query, (wid, exercise['exercise_id'], reps, setType, weight, pd, exercise['superset'], exercise['notes']))
+            connection.commit()
         cursor.close()
         connection.close()
     except Exception as error:
