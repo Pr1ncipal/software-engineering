@@ -7,7 +7,7 @@ import json
 app = Flask(__name__)
 
 # Filler for the database URL (Saved passwords somewhere?)
-DATABASE_URL = "postgresql://postgres:password@localhost:port/gitfitbro"
+DATABASE_URL = "postgresql://postgres:password@postgres:5432/gitfitbro"
 
 def insert_into_db(data):
     try:

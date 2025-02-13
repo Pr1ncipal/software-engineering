@@ -1,5 +1,6 @@
 services:
   krakend:
+    container_name: krakend
     build:
       context: ./kraken
       dockerfile: Dockerfile
@@ -10,13 +11,19 @@ services:
       - public-network
 
   postgres:
+    container_name: postgres
     build:
       context: ./postgres
       dockerfile: Dockerfile
+    ports:
+      - "5432:5432"
     networks:
       - private-network
 
   workout:
+    container_name: workout
+    depends_on:
+      - postgres
     build: 
       context: ./workout
       dockerfile: Dockerfile
@@ -26,5 +33,6 @@ services:
 networks:
   private-network:
     driver: bridge
+    internal: true
   public-network:
     driver: bridge
