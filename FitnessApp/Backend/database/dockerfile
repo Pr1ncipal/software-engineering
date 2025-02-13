@@ -1,0 +1,15 @@
+#Not Working
+FROM postgres:latest
+
+ENV POSTGRES_PASSWORD password
+
+ENV POSTGRES_DB gitfitbro
+
+COPY gitfitbro.pgsql /tmp/gitfitbro.psql
+
+EXPOSE 5432
+
+
+CMD [ "psql","-d", "gitfitbro", "-h", "software-postgres-1", "-f", "/tmp/gitfitbro.psql" ]
+
+#RUN pg_restore -c -d gitfitbro -U postgres /tmp/gitfitbro.pgsql
