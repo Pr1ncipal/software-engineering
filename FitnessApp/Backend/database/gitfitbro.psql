@@ -115,7 +115,7 @@ CREATE TABLE public.user_goals (
     achieve_by date,
     achieved boolean DEFAULT false,
     achieved_at timestamp without time zone,
-    notes text
+    notes character varying(250)
 );
 
 
@@ -193,7 +193,7 @@ CREATE TABLE public.users (
     lname character varying(30) NOT NULL,
     password_hash character(64) NOT NULL,
     dob date NOT NULL,
-    sex character varying(5) NOT NULL,
+    sex character NOT NULL,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
 );
 
