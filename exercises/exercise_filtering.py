@@ -3,6 +3,7 @@ import json
 
 postgres_db_query_file = "postgres_db_query.sql"
 muscles = {}
+equip = {}
 
 def filter_json(data, filename):
     name = ''
@@ -22,10 +23,18 @@ def filter_json(data, filename):
         
     if 'equipment' in keys and data['equipment'] != '':
         equipment = data['equipment']
+        if equipment not in equip:
+            equip[equipment] = 1
+        else:
+            equip[equipment] = equip[equipment] + 1
         
     if "instructions" in keys and data['instructions'] != '':
-        for instruction in data['instructions']:
-            description = description + instruction + ' '
+        if len(data['instructions']) == 0:
+            newDecription = input(f"Enter new instructions for {name}: ")
+            description = newDecription
+        else:
+            for instruction in data['instructions']:
+                description = description + instruction + ' '
             
     if 'mechanic' in keys and data['mechanic'] != '' and data['mechanic'] != None:
         if data['mechanic'].upper() == 'ISOLATION':
@@ -42,7 +51,7 @@ def filter_json(data, filename):
     if 'secondaryMuscles' in keys and len(data['secondaryMuscles']) != 0:
         secondary_muscles = data['secondaryMuscles'].copy()
         
-    pms = primary_muscle[0]
+    pms = "'" + primary_muscle[0] + "'"
     for pm in primary_muscle[1:]:
         pms = pms + ', ' + "'" + pm + "'"
         
@@ -86,5 +95,7 @@ if __name__ == "__main__":
     process_files()
     for key in muscles.keys():
         print(f'{key}: {muscles[key]}\n')
+    for key in equip.keys():
+        print(f'{key}: {equip[key]}\n')
         
     print("Done\n")
