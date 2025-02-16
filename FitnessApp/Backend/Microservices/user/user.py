@@ -11,6 +11,8 @@
 
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import create_engine
+from sqlalchemy.engine import URL
 import os
 
 app = Flask(__name__)
@@ -29,10 +31,11 @@ class User(db.Model):
     password_hash = db.Column(db.String(64), nullable=False)
     email = db.Column(db.String(320), unique=True, nullable=False)
     username = db.Column(db.String(20), unique=True, nullable=False)
-    first_name = db.Column(db.String(20), nullable=False)
-    last_name = db.Column(db.String(30), nullable=False)
-    date_of_birth = db.Column(db.Date, nullable=False)
+    fname = db.Column(db.String(20), nullable=False)
+    lname = db.Column(db.String(30), nullable=False)
+    dob = db.Column(db.Date, nullable=False)
     sex = db.Column(db.Character, nullable=False)
+    created_at = db.Column(db.DateTime, server_default=db.func.now())
 
     def __init__(self, password, email, username, first_name, last_name, date_of_birth, sex):
         self.password_hash = password
@@ -40,7 +43,7 @@ class User(db.Model):
         self.username = username
         self.first_name = first_name
         self.last_name = last_name
-        self.date_of_birth = date_of_birth
+        self.dob = date_of_birth
         self.sex = sex
         
 class user_stats(db.Model):
@@ -49,8 +52,8 @@ class user_stats(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     height = db.Column(db.Integer)
-    weight = db.Column(db.Float)
-    body_fat = db.Column(db.Float)
+    weight = db.Column(db.Float(3,2))
+    body_fat = db.Column(db.Float(2,1))
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     
     def __init__(self, user_id, height, weight, body_fat):
@@ -95,7 +98,12 @@ def create_user():
             last_name=data['last_name'],
             date_of_birth=data['date_of_birth'],
             sex=data['sex'],
-            height=data.get('height')
+        )
+        user_stats = user_stats(
+            user_id=user.id,
+            height=data['height'],
+            weight=data['weight'],
+            body_fat=data['body_fat']
         )
         db.session.add(user)
         db.session.commit()
@@ -104,5 +112,13 @@ def create_user():
         return jsonify({"error": str(e)}), 400
 
 if __name__ == '__main__':
-    db.create_all()
+    url = URL.create(
+        drivername='postgresql',
+        username='postgres',
+        password='password',
+        host='localhost',
+        database='gitfitbro'
+    )
+    engine = create_engine(url)
+    connection = engine.connect()
     app.run(host='0.0.0.0', port=8080)
