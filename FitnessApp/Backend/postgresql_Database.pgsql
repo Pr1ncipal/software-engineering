@@ -39,7 +39,7 @@ CREATE TABLE user_stats (
 CREATE TABLE user_goals (
     id SERIAL PRIMARY KEY,
     user_id INT REFERENCES users(id) ON DELETE CASCADE,
-    weight_goal DECIMAL(3,2),
+    weight_goal DECIMAL(3,2), -- Possibly add weight lift goal or cardio goal
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     achieve_by DATE,
     achieved BOOLEAN DEFAULT FALSE,

@@ -8,17 +8,11 @@
     "sex": "M",
     "height":"",
     "weight":"145",
-    "body_fat":"",
     "goals": [
         {
             "goal_weight": "140",
             "goal_date": "YYYY-MM-DD",
             "notes": "This is a goal example"
-        },
-        {
-            "goal_body_fat": "150",
-            "goal_date": "YYYY-MM-DD",
-            "notes":""
         }
     ]
 }
