@@ -12,6 +12,10 @@ CREATE TYPE muscle_group_enum AS ENUM (
     'abdominals', 'abductors', 'adductors', 'bicep', 'calves', 'chest', 'forearms', 'glutes', 'hamstrings', 'lats', 'lower back', 'middle back', 'quadriceps', 'shoulders', 'traps', 'triceps', 'neck'
 );
 
+CREATE TYPE strength_equipment AS ENUM (
+    'barbell', 'dumbbell', 'kettlebells', 'medicine ball', 'machine', 'body only', 'other', 'cable', 'exercise ball', 'bands', 'e-z curl bar', 'none', 'foam roll'
+);
+
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     email VARCHAR(320) UNIQUE NOT NULL,
@@ -20,7 +24,7 @@ CREATE TABLE users (
     lname VARCHAR(30) NOT NULL,
     password_hash CHAR() NOT NULL, -- Need to find length of hash
     dob DATE NOT NULL,
-    sex VARCHAR(5) NOT NULL,
+    sex CHAR NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -29,7 +33,6 @@ CREATE TABLE user_stats (
     user_id INT REFERENCES users(id) ON DELETE CASCADE,
     height INT,  -- Stores height in inches
     weight DECIMAL(5,2),  -- Stores weight in pounds
-    body_fat DECIMAL(5,2),  -- Stores body fat percentage
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -37,12 +40,11 @@ CREATE TABLE user_goals (
     id SERIAL PRIMARY KEY,
     user_id INT REFERENCES users(id) ON DELETE CASCADE,
     weight_goal DECIMAL(3,2),
-    body_fat_goal DECIMAL(3,2),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     achieve_by DATE,
     achieved BOOLEAN DEFAULT FALSE,
     achieved_at TIMESTAMP,
-    notes TEXT
+    notes VARCHAR(250)
 );
 
 CREATE TABLE workouts (
@@ -51,18 +53,18 @@ CREATE TABLE workouts (
     workout_type VARCHAR(50) NOT NULL, -- Cardio, Strength, etc.
     workout_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     notes varchar(250),
-    average_heart_rate INT,  -- Stores average heart rate (optional)
-    total_weight_lifted DECIMAL(6,2)  -- Stores total weight lifted (Calculated from workout_exercises) (might come from front end calculations)
+    average_heart_rate INT
 );
 
 CREATE TABLE exercises (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL UNIQUE,
-    equipment VARCHAR(50),
+    equipment strength_equipment,
     description TEXT,
     single_sided BOOLEAN DEFAULT FALSE,
     primary_muscle muscle_group_enum[] NOT NULL, --Think about with muscle groups. Might want with repetition
     secondary_muscles muscle_group_enum[]  -- Stores secondary muscles worked (optional)
+    createdBy INT REFERENCES users(id) ON DELETE SET NULL DEFAULT NULL
 );
 
 
