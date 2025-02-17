@@ -5,6 +5,9 @@ postgres_db_query_file = "postgres_db_query.sql"
 muscles = {}
 equip = {}
 
+def filter_string(string):
+    pass
+
 def filter_json(data, filename):
     name = ''
     equipment = ''
@@ -61,14 +64,14 @@ def filter_json(data, filename):
         single_sided = "FALSE"
     
     if len(secondary_muscles) == 0:
-        query = f"INSERT INTO exercises (name, equipment, description, single_sided, primary_muscle) VALUES ('{name}', '{equipment}', '{description}', {single_sided}, '{{{pms}}}');\n"
+        query = f"INSERT INTO exercises (name, equipment, description, single_sided, primary_muscle) VALUES ('{name}', '{equipment}', $${description}$$, {single_sided}, '{{{pms}}}');\n"
         return query
     else:
         sms = "'" + secondary_muscles[0] + "'"
         for sm in secondary_muscles[1:]:
             sms = sms + ', ' + "'" + sm + "'"
         
-        query = f"INSERT INTO exercises (name, equipment, description, single_sided, primary_muscle, secondary_muscles) VALUES ('{name}', '{equipment}', '{description}', {single_sided}, '{{{pms}}}', '{{{sms}}}');\n"
+        query = f"INSERT INTO exercises (name, equipment, description, single_sided, primary_muscle, secondary_muscles) VALUES ('{name}', '{equipment}', $${description}$$, {single_sided}, '{{{pms}}}', '{{{sms}}}');\n"
     
     return query
 
