@@ -25,7 +25,11 @@ def filter_json(data, filename):
         name = data['name']
         
     if 'equipment' in keys and data['equipment'] != '':
-        equipment = data['equipment']
+        if data['equipment'] == None:
+            equipment = 'none'
+        else:
+            equipment = data['equipment']
+            
         if equipment not in equip:
             equip[equipment] = 1
         else:
