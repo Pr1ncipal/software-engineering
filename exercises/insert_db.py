@@ -2,7 +2,7 @@ import psycopg2
 import os
 
 def insert_data(data):
-    conn = psycopg2.connect("dbname=gitfitbro user=postgres password=password")
+    conn = psycopg2.connect("dbname=gitfitbro user=postgres password=password host=pgtest")
     cur = conn.cursor()
     
     with open(data, 'r') as f:
@@ -19,5 +19,5 @@ if "__name__" == "__main__":
         if file.endswith('.sql'):
             print(file)
     
-    query_file = input("Enter the name of the file you want to insert: ")
+    query_file = "exercise_data.sql"
     insert_data(query_file)

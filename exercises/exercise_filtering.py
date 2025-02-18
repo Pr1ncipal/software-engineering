@@ -64,7 +64,7 @@ def filter_json(data, filename):
         single_sided = "FALSE"
     
     if len(secondary_muscles) == 0:
-        query = f"INSERT INTO exercises (name, equipment, description, single_sided, primary_muscle) VALUES ('{name}', '{equipment}', $${description}$$, {single_sided}, '{{{pms}}}');\n"
+        query = f"INSERT INTO exercises (name, equipment, description, single_sided, primary_muscle) VALUES ($${name}$$, '{equipment.lower()}', $${description}$$, {single_sided}, '{{{pms}}}');\n"
         return query
     else:
         sms = "'" + secondary_muscles[0] + "'"
