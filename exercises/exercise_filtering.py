@@ -54,9 +54,9 @@ def filter_json(data, filename):
     if 'secondaryMuscles' in keys and len(data['secondaryMuscles']) != 0:
         secondary_muscles = data['secondaryMuscles'].copy()
         
-    pms = "'" + primary_muscle[0] + "'"
+    pms = primary_muscle[0]
     for pm in primary_muscle[1:]:
-        pms = pms + ', ' + "'" + pm + "'"
+        pms = pms + ', ' + pm 
         
     if(single_sided):
         single_sided = "TRUE"
@@ -67,11 +67,11 @@ def filter_json(data, filename):
         query = f"INSERT INTO exercises (name, equipment, description, single_sided, primary_muscle) VALUES ($${name}$$, '{equipment.lower()}', $${description}$$, {single_sided}, '{{{pms}}}');\n"
         return query
     else:
-        sms = "'" + secondary_muscles[0] + "'"
+        sms = secondary_muscles[0]
         for sm in secondary_muscles[1:]:
-            sms = sms + ', ' + "'" + sm + "'"
+            sms = sms + ', ' + sm 
         
-        query = f"INSERT INTO exercises (name, equipment, description, single_sided, primary_muscle, secondary_muscles) VALUES ('{name}', '{equipment}', $${description}$$, {single_sided}, '{{{pms}}}', '{{{sms}}}');\n"
+        query = f"INSERT INTO exercises (name, equipment, description, single_sided, primary_muscle, secondary_muscles) VALUES ($${name}$$, '{equipment.lower()}', $${description}$$, {single_sided}, '{{{pms}}}', '{{{sms}}}');\n"
     
     return query
 
