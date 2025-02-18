@@ -83,5 +83,47 @@ def create_user():
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
+@app.route('/login', methods=['POST'])
+def login_user():
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({"error": "No input data provided"}), 400
+    
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        find_user_query = sql.SQL("""
+            SELECT id, password_hash
+            FROM users
+            WHERE username = %s
+        """)
+        
+        cur.execute(find_user_query, (data['username'],))
+        user = cur.fetchone()
+        
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+        
+        if user[1] != data['pass_hash']:
+            return jsonify({"error": "Incorrect password"}), 401
+        
+        find_key_query = sql.SQL("""
+            SELECT key
+            FROM user_keys
+            WHERE user_id = %s
+        """)
+        
+        cur.execute(find_key_query, (user[0],))
+        key = cur.fetchone()[0]
+        
+        cur.close()
+        conn.close()
+        
+        return jsonify({"message": "Login successful", "key": f"{key}"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)

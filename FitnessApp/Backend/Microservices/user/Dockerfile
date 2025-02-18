@@ -1,6 +1,5 @@
 FROM python:latest
 
-
 # Create app directory
 WORKDIR /app
 
@@ -10,7 +9,7 @@ COPY requirements.txt ./
 RUN pip install -r requirements.txt
 
 # Bundle app source
-COPY user.py /app
+COPY user2.py /app/user.py
 
 EXPOSE 8080
-CMD [ "python", "workout.py" ]
+CMD [ "python", "user.py" ]

@@ -52,10 +52,30 @@ def insert_into_db(data):
     except Exception as error:
         print(f"Error inserting into database: {error}")
 
+def getConnection():
+    conn = psycopg2.connect(DATABASE_URL)
+    return conn
+
+def verify_key(key):
+    conn = getConnection()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM user WHERE key = %s", (key,))
+    result = cur.fetchone()
+    
+    if result:
+        return result[0]
+    else:
+        return None
+
 @app.route('/add_workout', methods=['POST'])
 def add_exercise():
+    key = verify_key()
     if request.is_json:
         data = request.get_json()
+        key = verify_key(data["key"])
+        if not key:
+            return jsonify({"message": "Invalid User"}), 400
+
         insert_into_db(data)
         return jsonify({"message": "Workout Saved Successfully"}), 201
     else:
