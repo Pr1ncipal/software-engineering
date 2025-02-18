@@ -50,14 +50,13 @@ def create_user():
 
         # Insert user stats
         insert_stats_query = sql.SQL("""
-            INSERT INTO user_stats (user_id, height, weight, body_fat)
+            INSERT INTO user_stats (user_id, height, weight)
             VALUES (%s, %s, %s, %s)
         """)
         cur.execute(insert_stats_query, (
             user_id,
             data['height'],
-            data['weight'],
-            data['body_fat']
+            data['weight']
         ))
 
         conn.commit()
