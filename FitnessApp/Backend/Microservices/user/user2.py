@@ -8,6 +8,8 @@ from flask import Flask, request, jsonify
 import psycopg2
 from psycopg2 import sql
 import os
+import random
+import string
 
 app = Flask(__name__)
 
@@ -17,6 +19,9 @@ DATABASE_URL = 'postgresql://postgres:password@localhost/gitfitbro'
 def get_db_connection():
     conn = psycopg2.connect(DATABASE_URL)
     return conn
+
+def create_hash():
+     return ''.join(random.choices(string.ascii_letters, k=30))
 
 @app.route('/create_user', methods=['POST'])
 def create_user():
@@ -37,6 +42,15 @@ def create_user():
             VALUES (%s, %s, %s, %s, %s, %s, %s)
             RETURNING id
         """)
+        
+        findDuplicate = sql.SQL("""SELECT COUNT(*) FROM user_keys WHERE key = %s""")
+        hash = create_hash()
+        cur.execute(findDuplicate, (hash,))
+        count = cur.fetchone()[0]
+        while count > 0:
+            hash = create_hash()
+            cur.execute(findDuplicate, (hash,))
+            
         cur.execute(insert_user_query, (
             data['pass_hash'],
             data['email'],
@@ -44,7 +58,8 @@ def create_user():
             data['first_name'],
             data['last_name'],
             data['date_of_birth'],
-            data['sex']
+            data['sex'],
+            hash
         ))
         user_id = cur.fetchone()[0]
 
@@ -59,11 +74,12 @@ def create_user():
             data['weight']
         ))
 
-        conn.commit()
+        conn.commit()    
+        
         cur.close()
         conn.close()
-
-        return jsonify({"message": "User created successfully"}), 201
+        
+        return jsonify({"message": "User created successfully", "key":f"{hash}"}), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 

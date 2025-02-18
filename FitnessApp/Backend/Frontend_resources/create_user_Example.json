@@ -7,12 +7,5 @@
     "dob": "YYYY-MM-DD",
     "sex": "M",
     "height":"",
-    "weight":"145",
-    "goals": [
-        {
-            "goal_weight": "140",
-            "goal_date": "YYYY-MM-DD",
-            "notes": "This is a goal example"
-        }
-    ]
+    "weight":"145"
 }
