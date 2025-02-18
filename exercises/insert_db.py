@@ -2,7 +2,7 @@ import psycopg2
 import os
 
 def insert_data(data):
-    conn = psycopg2.connect("dbname=gitfitbro user=postgres password=password host=pgtest")
+    conn = psycopg2.connect("dbname=gitfitbro user=postgres password=password host=pgtest port=5432")
     cur = conn.cursor()
     
     with open(data, 'r') as f:
@@ -11,13 +11,12 @@ def insert_data(data):
                 cur.execute(line)
             except Exception as e:
                 print(e)
+    
+    conn.commit()
+    cur.close()
+    conn.close()
+    
             
-    
-if "__name__" == "__main__":
-    current_folder = os.getcwd()
-    for file in os.listdir(current_folder):
-        if file.endswith('.sql'):
-            print(file)
-    
-    query_file = "exercise_data.sql"
-    insert_data(query_file)
+        
+query_file = "exercise_data.sql"
+insert_data(query_file)
