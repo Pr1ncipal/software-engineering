@@ -125,5 +125,55 @@ def login_user():
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
+@app.route('/update_user', methods=['PUT'])
+def update_user():
+    data = request.get_json()
+    
+    if "key" not in data.keys():
+        return jsonify({"error": "Invalid request"}), 400
+    
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        find_user_query = sql.SQL("""
+            SELECT id, email, password_hash
+            FROM user_keys
+            WHERE key = %s
+        """)
+        
+        cur.execute(find_user_query, (data['key'],))
+        
+        #Cursor sends back as a tuple
+        user_data = cur.fetchone()
+        
+        password = None
+        email = None
+        
+        for key in data.keys():
+            if data[key] != None and key != "key":
+                match key:
+                    case "email":
+                        email = data["email"]
+                    case "password":
+                        password = data["password"]
+        
+        if password == None:
+            password = user_data[2]
+        if email == None:
+            email = user_data[1]
+            
+        user_update_query = sql.SQL("""
+            UPDATE users
+            SET email = %s, password_hash = %s
+            WHERE id = %s
+        """)
+        
+        cur.execute(user_update_query, (email, password, user_data[0]))
+        conn.commit()
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)

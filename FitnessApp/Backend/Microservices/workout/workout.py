@@ -56,6 +56,9 @@ def getConnection():
     conn = psycopg2.connect(DATABASE_URL)
     return conn
 
+def closeConnection(conn):
+    conn.close()
+
 def verify_key(key):
     conn = getConnection()
     cur = conn.cursor()
@@ -80,6 +83,20 @@ def add_exercise():
         return jsonify({"message": "Workout Saved Successfully"}), 201
     else:
         return jsonify({"message": "Workout Save failed"}), 400
+    
+@app.route('/get_workouts', methods=['GET'])
+def get_workouts():
+    key = verify_key(request.args.get('key'))
+    if not key:
+        return jsonify({"message": "Invalid User"}), 400
+
+    conn = getConnection()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM workouts WHERE (user_id = %s OR user_id = NULL", (key,))
+    result = cur.fetchall()
+    conn.close()
+    
+    return jsonify(result)
 
 if __name__ == '__main__':
     app.run(port=8080)
