@@ -22,6 +22,18 @@ def get_db_connection():
 
 def create_hash():
      return ''.join(random.choices(string.ascii_letters, k=30))
+ 
+def verify_key(key, conn = None):
+    if not conn:
+        conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT user_id FROM user_keys WHERE key = %s", (key,))
+    result = cur.fetchone()
+    
+    if result:
+        return result[0]
+    else:
+        return None
 
 @app.route('/create_user', methods=['POST'])
 def create_user():
@@ -131,6 +143,9 @@ def update_user():
     
     if "key" not in data.keys():
         return jsonify({"error": "Invalid request"}), 400
+    key = verify_key(data.get('key'))
+    if not key:
+        return jsonify({"error": "Invalid key"}), 400
     
     try:
         conn = get_db_connection()
@@ -172,6 +187,52 @@ def update_user():
         cur.execute(user_update_query, (email, password, user_data[0]))
         conn.commit()
         
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+    
+@app.route('/delete_user', methods=['DELETE'])
+def delete_user():
+    data = request.get_json()
+    
+    if "key" not in data.keys():
+        return jsonify({"error": "Invalid request"}), 400
+    
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        user_id = verify_key(data.get('key'))
+        if not user_id:
+            return jsonify({"error": "Invalid key"}), 400
+        
+        if not user_id:
+            return jsonify({"error": "User not found"}), 404
+        
+        delete_user_query = sql.SQL("""
+            DELETE FROM users
+            WHERE id = %s
+        """)
+        
+        delete_user_keys_query = sql.SQL("""
+            DELETE FROM user_keys
+            WHERE user_id = %s
+        """)
+        
+        delete_user_stats_query = sql.SQL("""
+            DELETE FROM user_stats
+            WHERE user_id = %s
+        """)
+        
+        cur.execute(delete_user_query, (user_id,))
+        cur.execute(delete_user_keys_query, (user_id,))
+        cur.execute(delete_user_stats_query, (user_id,))
+        
+        conn.commit()
+        
+        cur.close()
+        conn.close()
+        
+        return jsonify({"message": "User deleted successfully"}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 

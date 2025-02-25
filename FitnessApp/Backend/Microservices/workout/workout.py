@@ -86,7 +86,7 @@ def add_exercise():
     
 @app.route('/get_workouts', methods=['GET'])
 def get_workouts():
-    key = verify_key(request.args.get('key'))
+    key = verify_key(request.args.get('key')) #Assuming the key is passed as a query parameter, May need to edit
     if not key:
         return jsonify({"message": "Invalid User"}), 400
 
