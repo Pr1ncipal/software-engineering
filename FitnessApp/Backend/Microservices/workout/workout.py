@@ -3,8 +3,11 @@ from flask import Flask, request, jsonify
 import requests
 import psycopg2
 import json
+from heuristic import main
 
 app = Flask(__name__)
+
+app.register_blueprint(main)
 
 # Filler for the database URL (Saved passwords somewhere?)
 DATABASE_URL = "postgresql://postgres:password@postgres:5432/gitfitbro"
@@ -59,8 +62,9 @@ def getConnection():
 def closeConnection(conn):
     conn.close()
 
-def verify_key(key):
-    conn = getConnection()
+def verify_key(key, conn=None):
+    if not conn:
+        conn = getConnection()
     cur = conn.cursor()
     cur.execute("SELECT id FROM user WHERE key = %s", (key,))
     result = cur.fetchone()

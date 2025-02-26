@@ -1,27 +1,243 @@
 {
-    "$schema": "https://www.krakend.io/schema/krakend.json",
-    "version": 3,
-    "name": "GitFitBro API",
-    "timeout": "3000ms",
-    "cache_ttl": "300s",
-    "output_encoding": "json",
-    "endpoints": [
-      {
-        "endpoint": "/api/add_workout",
-        "method": "POST",
-        "output_encoding": "json",
-        "backend": [
-          {
-            "url_pattern": "/add-workout",
-            "encoding": "json",
-            "sd": "static",
-            "method": "POST",
-            "host": [
-              "http://workout"
-            ],
-            "disable_host_sanitize": false
-          }
-        ]
-      }
-    ]
+  "$schema": "https://www.krakend.io/schema/krakend.json",
+  "version": 3,
+  "name": "gitfitbro API",
+  "timeout": "3000ms",
+  "cache_ttl": "300s",
+  "output_encoding": "json",
+  "endpoints": [
+    {
+      "endpoint": "/api/workout/add_workout",
+      "method": "POST",
+      "output_encoding": "json",
+      "backend": [
+        {
+          "url_pattern": "/add_workout",
+          "encoding": "json",
+          "sd": "static",
+          "method": "POST",
+          "host": [
+            "http://wokout"
+          ],
+          "disable_host_sanitize": false
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/workout/get_workouts",
+      "method": "GET",
+      "output_encoding": "json",
+      "backend": [
+        {
+          "url_pattern": "/get_workouts",
+          "encoding": "json",
+          "sd": "static",
+          "method": "GET",
+          "host": [
+            "http://wokout"
+          ],
+          "disable_host_sanitize": false
+        }
+      ],
+      "input_query_strings": [
+        "key"
+      ]
+    },
+    {
+      "endpoint": "/api/user/create_user",
+      "method": "POST",
+      "output_encoding": "json",
+      "backend": [
+        {
+          "url_pattern": "/create_user",
+          "encoding": "json",
+          "sd": "static",
+          "method": "POST",
+          "host": [
+            "http://user"
+          ],
+          "disable_host_sanitize": false
+        }
+      ]
+    },
+    {
+      "endpoint": "/login",
+      "method": "POST",
+      "output_encoding": "json",
+      "backend": [
+        {
+          "url_pattern": "/login",
+          "encoding": "json",
+          "sd": "static",
+          "method": "GET",
+          "host": [
+            "http://user"
+          ],
+          "disable_host_sanitize": false
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/user/update_user",
+      "method": "PUT",
+      "output_encoding": "json",
+      "backend": [
+        {
+          "url_pattern": "/update_user",
+          "encoding": "json",
+          "sd": "static",
+          "method": "PUT",
+          "host": [
+            "http://user"
+          ],
+          "disable_host_sanitize": false
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/user/delete_user",
+      "method": "DELETE",
+      "output_encoding": "json",
+      "backend": [
+        {
+          "url_pattern": "/delete_user",
+          "encoding": "json",
+          "sd": "static",
+          "method": "DELETE",
+          "host": [
+            "http://user"
+          ],
+          "disable_host_sanitize": false
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/family/create_family",
+      "method": "POST",
+      "output_encoding": "json",
+      "backend": [
+        {
+          "url_pattern": "/create_family",
+          "encoding": "json",
+          "sd": "static",
+          "method": "POST",
+          "host": [
+            "http://family"
+          ],
+          "disable_host_sanitize": false
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/family/create_family_request",
+      "method": "POST",
+      "output_encoding": "json",
+      "backend": [
+        {
+          "url_pattern": "/create_family_request",
+          "encoding": "json",
+          "sd": "static",
+          "method": "GET",
+          "host": [
+            "http://family"
+          ],
+          "disable_host_sanitize": false
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/family/accept_family_request",
+      "method": "PUT",
+      "output_encoding": "json",
+      "backend": [
+        {
+          "url_pattern": "/accept_family_request",
+          "encoding": "json",
+          "sd": "static",
+          "method": "PUT",
+          "host": [
+            "http://family"
+          ],
+          "disable_host_sanitize": false
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/family/delete_family",
+      "method": "DELETE",
+      "output_encoding": "json",
+      "backend": [
+        {
+          "url_pattern": "/delete_family",
+          "encoding": "json",
+          "sd": "static",
+          "method": "DELETE",
+          "host": [
+            "http://family"
+          ],
+          "disable_host_sanitize": false
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/family/get_family_members",
+      "method": "GET",
+      "output_encoding": "json",
+      "backend": [
+        {
+          "url_pattern": "/get_family_members",
+          "encoding": "json",
+          "sd": "static",
+          "method": "GET",
+          "host": [
+            "http://family"
+          ],
+          "disable_host_sanitize": false
+        }
+      ],
+      "input_query_strings": [
+        "family_id",
+        "family_name"
+      ]
+    },
+    {
+      "endpoint": "/api/family/remove_family_member",
+      "method": "DELETE",
+      "output_encoding": "json",
+      "backend": [
+        {
+          "url_pattern": "/remove_family_member",
+          "encoding": "json",
+          "sd": "static",
+          "method": "DELETE",
+          "host": [
+            "http://family"
+          ],
+          "disable_host_sanitize": false
+        }
+      ],
+      "input_query_strings": [
+        "key",
+        "user_id",
+        "family_name"
+      ]
+    },
+    {
+      "endpoint": "/api/family/edit_admin",
+      "method": "PUT",
+      "output_encoding": "json",
+      "backend": [
+        {
+          "url_pattern": "/edit_family_admin",
+          "encoding": "json",
+          "sd": "static",
+          "method": "PUT",
+          "host": [
+            "http://family"
+          ],
+          "disable_host_sanitize": false
+        }
+      ]
+    }
+  ]
 }

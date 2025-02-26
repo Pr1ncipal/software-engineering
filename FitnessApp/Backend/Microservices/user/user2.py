@@ -190,7 +190,7 @@ def update_user():
     except Exception as e:
         return jsonify({"error": str(e)}), 400
     
-@app.route('/delete_user', methods=['DELETE'])
+@app.route('/delete_user', methods=['DELETE']) #Fix this method. Similar to get
 def delete_user():
     data = request.get_json()
     

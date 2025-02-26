@@ -25,14 +25,15 @@ CREATE TABLE users (
     password_hash CHAR() NOT NULL, -- Need to find length of hash
     dob DATE NOT NULL,
     sex CHAR NOT NULL,
+    BFL DECIMAL(3,2),  -- Stores base fitness level Need to Add
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE user_stats (
     id SERIAL PRIMARY KEY,
     user_id INT REFERENCES users(id) ON DELETE CASCADE,
-    height INT,  -- Stores height in inches
-    weight DECIMAL(5,2),  -- Stores weight in pounds
+    height INT NOT NULL,  -- Stores height in inches
+    weight DECIMAL(5,2) NOT NULL,  -- Stores weight in pounds
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -84,7 +85,7 @@ CREATE TABLE family(
     created_at
 );
 
-CREATE TABLE family_requests (
+CREATE TABLE family_requests ( --Implement Table
     id SERIAL PRIMARY KEY,
     family_id INT REFERENCES family(id) ON DELETE CASCADE,
     sender_id INT REFERENCES users(id) ON DELETE CASCADE,  -- Who sent the request
@@ -99,6 +100,13 @@ CREATE TABLE family_members(
     user_id INT REFERENCES users(id) ON DELETE CASCADE PRIMARY KEY,
     --Add roles? Admin, User, etc.
     joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE fitness_score_entry (
+    id SERIAL PRIMARY KEY,
+    user_id INT REFERENCES users(id) ON DELETE CASCADE,
+    score INT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 

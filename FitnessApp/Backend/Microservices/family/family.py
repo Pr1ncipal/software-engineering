@@ -225,27 +225,22 @@ def delete_family():
 @app.route('/get_family_members', methods=['GET'])
 def get_family_members():
     family_id = request.args.get('family_id')
+    
+    conn = getConnection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
         
     if not family_id:
         family_name = request.args.get('family_name')
         if not family_name:
             return jsonify({"error": "Family ID or Family Name is required"}), 400
         else:
-            conn = getConnection()
-            cursor = conn.cursor(cursor_factory=RealDictCursor)
+        #may want to add privacy control here
 
             try:
                 cursor.execute("SELECT id FROM family WHERE family_name = %s", (family_name,))
                 family_id = cursor.fetchone()['id']
             except Exception as e:
                 return jsonify({"error": str(e)}), 500
-            finally:
-                cursor.close()
-                conn.close()
-        
-
-    conn = getConnection()
-    cursor = conn.cursor(cursor_factory=RealDictCursor)
 
     try:
         cursor.execute("SELECT user_id FROM family_members WHERE family_id = %s", (family_id,))
@@ -258,7 +253,7 @@ def get_family_members():
 
     return jsonify({"family_id": family_id, "members": members}), 200
 
-@app.route('/remove_family_member', methods=['DELETE'])
+@app.route('/remove_family_member', methods=['DELETE']) #Fix HTTP method. Similar to Get
 def remove_family_member():
     data = request.get_json()
         
