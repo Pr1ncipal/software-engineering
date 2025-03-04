@@ -10,6 +10,7 @@ from psycopg2 import sql
 import os
 import random
 import string
+import jwt
 
 app = Flask(__name__)
 
@@ -35,11 +36,34 @@ def verify_key(key, conn = None):
     else:
         return None
 
+def get_data_jwt(request):
+    token = request.get_data() #Assuming request cant be changed
+    if token:
+        try:
+            payload = jwt.decode(token, options = {"verify_signature": False})
+        
+            key = verify_key(payload['key'])
+        
+            decoded = jwt.decode(token, payload['key'], algorithms=['HS256'])
+            return decoded , key
+        except jwt.ExpiredSignatureError:
+            return None
+        except jwt.InvalidTokenError:
+            return None
+    else:
+        return None
+
+def get_data_json(request):
+    if request.is_json:
+        return request.get_json()
+    else:
+        return None
+
 @app.route('/create_user', methods=['POST'])
 def create_user():
     
     #Need data validation
-    data = request.get_json()
+    data = get_data_json(request)
 
     if not data:
         return jsonify({"error": "No input data provided"}), 400
@@ -96,8 +120,8 @@ def create_user():
         return jsonify({"error": str(e)}), 400
 
 @app.route('/login', methods=['POST'])
-def login_user():
-    data = request.get_json()
+def login_user(): #Fix this method for JWT
+    data = get_data_json(request)
     
     if not data:
         return jsonify({"error": "No input data provided"}), 400
@@ -139,13 +163,10 @@ def login_user():
 
 @app.route('/update_user', methods=['PUT'])
 def update_user():
-    data = request.get_json()
+    data, key = get_data_jwt(request)
     
-    if "key" not in data.keys():
-        return jsonify({"error": "Invalid request"}), 400
-    key = verify_key(data.get('key'))
     if not key:
-        return jsonify({"error": "Invalid key"}), 400
+        return jsonify({"error": "Invalid request"}), 400
     
     try:
         conn = get_db_connection()
@@ -192,16 +213,16 @@ def update_user():
     
 @app.route('/delete_user', methods=['DELETE']) #Fix this method. Similar to get
 def delete_user():
-    data = request.get_json()
+    data, key = get_data_jwt(request)
     
-    if "key" not in data.keys():
+    if not key:
         return jsonify({"error": "Invalid request"}), 400
     
     try:
         conn = get_db_connection()
         cur = conn.cursor()
+        user_id = key
         
-        user_id = verify_key(data.get('key'))
         if not user_id:
             return jsonify({"error": "Invalid key"}), 400
         
@@ -233,6 +254,74 @@ def delete_user():
         conn.close()
         
         return jsonify({"message": "User deleted successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+    
+
+@app.route('/add_user_stats', methods=['POST'])
+def add_user_stats():
+    data, key = get_data_jwt(request)
+    
+    if not key:
+        return jsonify({"error": "Invalid request"}), 400
+    
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        user_id = key
+        
+        if not user_id:
+            return jsonify({"error": "Invalid key"}), 400
+        
+        insert_stats_query = sql.SQL("""
+            INSERT INTO user_stats (user_id, weight)
+            VALUES (%d, %d)
+        """)
+        
+        cur.execute(insert_stats_query, (
+            user_id,
+            data['weight']
+        ))
+        
+        conn.commit()
+        
+        cur.close()
+        conn.close()
+        
+        return jsonify({"message": "Stats added successfully"}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+@app.route('/get_user_stats', methods=['GET'])
+def get_user_stats():
+    key = request.args.get('key')
+    
+    if not key:
+        return jsonify({"error": "Invalid request"}), 400
+    
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        user_id = key
+        
+        if not user_id:
+            return jsonify({"error": "Invalid key"}), 400
+        
+        get_stats_query = sql.SQL("""
+            SELECT weight
+            FROM user_stats
+            WHERE user_id = %s
+        """)
+        
+        cur.execute(get_stats_query, (user_id,))
+        stats = cur.fetchall()
+        
+        cur.close()
+        conn.close()
+        
+        return jsonify({"stats": stats}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 

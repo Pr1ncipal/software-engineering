@@ -1,10 +1,9 @@
 {
     "user": "John Doe",
+    "additionalUser": "Jane Doe",
     "workoutType": "Strength",
     "notes": "This is a workout example",
     "averageHeartRate": 120,
-    "totalWeightLifted": 1000,
-    "key": "jdbgnovpupbaifsdvndnovpuabf;vnlafvoupbf",
     "exercies":[
         {
             "exerciseID": 1,

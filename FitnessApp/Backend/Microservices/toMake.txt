@@ -6,5 +6,5 @@
 - Leaderboard (?) Wednesday
 - Add Person to workout ???
 - Update user fitness or activity Score
-- AI integration?
+- AI integration? (Likely will use llama)
 - Create final pages for it all? So we are on the same page with things?

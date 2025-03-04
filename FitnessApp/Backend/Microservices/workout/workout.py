@@ -4,6 +4,7 @@ import requests
 import psycopg2
 import json
 from heuristic import main
+import jwt
 
 app = Flask(__name__)
 
@@ -52,8 +53,10 @@ def insert_into_db(data):
             connection.commit()
         cursor.close()
         connection.close()
+        return True
     except Exception as error:
         print(f"Error inserting into database: {error}")
+        return False
 
 def getConnection():
     conn = psycopg2.connect(DATABASE_URL)
@@ -74,17 +77,44 @@ def verify_key(key, conn=None):
     else:
         return None
 
+def get_data_json(request):
+    if request.is_json:
+        return request.get_json()
+    else:
+        return None
+
+def get_data_jwt(request):
+    token = request.get_data() #Assuming request cant be changed
+    if token:
+        try:
+            payload = jwt.decode(token, options = {"verify_signature": False})
+        
+            key = verify_key(payload['key'])
+        
+            decoded = jwt.decode(token, payload['key'], algorithms=['HS256'])
+            return decoded , key
+        except jwt.ExpiredSignatureError:
+            return None
+        except jwt.InvalidTokenError:
+            return None
+    else:
+        return None
+
 @app.route('/add_workout', methods=['POST'])
 def add_exercise():
-    key = verify_key()
-    if request.is_json:
-        data = request.get_json()
-        key = verify_key(data["key"])
+    if not request.is_json:
+        data, key= get_data_jwt(request)
+        if not data:
+            return jsonify({"message": "Invalid Message"}), 400
         if not key:
             return jsonify({"message": "Invalid User"}), 400
 
-        insert_into_db(data)
-        return jsonify({"message": "Workout Saved Successfully"}), 201
+        yes = insert_into_db(data)
+        
+        if yes:
+            return jsonify({"message": "Workout Saved Successfully"}), 201
+        else:
+            return jsonify({"message": "Workout Save failed"}), 400
     else:
         return jsonify({"message": "Workout Save failed"}), 400
     
@@ -96,11 +126,33 @@ def get_workouts():
 
     conn = getConnection()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM workouts WHERE (user_id = %s OR user_id = NULL", (key,))
+    cur.execute("SELECT * FROM workouts WHERE (user_id = %s OR user_id = NULL)", (key,))
     result = cur.fetchall()
     conn.close()
     
     return jsonify(result)
+
+@app.route('/get_workout_stats', methods=['GET'])
+def get_workout_stats():
+    stats = {}
+    key = verify_key(request.args.get('key'))
+    if not key:
+        return jsonify({"message": "Invalid User"}), 400
+    
+    workout = request.args.get('workout')
+    if not workout:
+        return jsonify({"message": "Invalid Workout"}), 400
+    
+    timeframe = request.args.get('timeframe')
+    if not timeframe:
+        timeframe = 30
+    
+    conn = getConnection()
+    cur = conn.cursor()
+    
+    #Fix this query
+    cur.execute("SELECT FROM workout_exercises WHERE workout_id = (SELECT id FROM workouts WHERE user_id = %s and workout_date > CURRENT_DATE - INTERVAL '%d days') AND exercise_id = %d", (key,timeframe, workout,))
+
 
 if __name__ == '__main__':
     app.run(port=8080)

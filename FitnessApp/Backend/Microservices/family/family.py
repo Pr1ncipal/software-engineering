@@ -1,3 +1,4 @@
+#Need to fix for JWT and add data validation
 from flask import Flask, request, jsonify
 import psycopg2
 from psycopg2 import sql
@@ -16,8 +17,9 @@ def getConnection():
     )
     return conn
 
-def verify_key(key):
-    conn = getConnection()
+def verify_key(key, conn = None):
+    if not conn:
+        conn = getConnection()
     cur = conn.cursor()
     cur.execute("SELECT id FROM user WHERE key = %s", (key,))
     result = cur.fetchone()
@@ -89,7 +91,7 @@ def add_user_to_family(family_id, user_id, conn = None): #Fix
 
 
 @app.route('/create_family', methods=['POST'])
-def create_family():
+def create_family(): #Check if family exists
     data = request.get_json()
     
     key = verify_key(data["key"])

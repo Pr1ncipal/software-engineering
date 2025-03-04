@@ -216,7 +216,9 @@ CREATE TABLE public.users (
     password_hash character(64) NOT NULL,
     dob date NOT NULL,
     sex character(1) NOT NULL,
-    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    key character(30) NOT NULL,
+    bfl numeric(3,2)
 );
 
 
@@ -1264,8 +1266,7 @@ COPY public.user_stats (id, user_id, height, weight, created_at) FROM stdin;
 -- Data for Name: users; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.users (id, email, username, fname, lname, password_hash, dob, sex, created_at) FROM stdin;
-1	testuser@testuser.com	testUser	test	user	5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8	1999-01-01	m	2025-02-11 20:24:01.673717
+COPY public.users (id, email, username, fname, lname, password_hash, dob, sex, created_at, key, bfl) FROM stdin;
 \.
 
 

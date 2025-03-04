@@ -1,0 +1,4 @@
+{
+    "username": "example",
+    "pass_hash": "using sha-256"
+}

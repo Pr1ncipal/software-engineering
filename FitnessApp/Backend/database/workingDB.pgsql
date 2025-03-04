@@ -26,6 +26,7 @@ CREATE TABLE users (
     dob DATE NOT NULL,
     sex CHAR NOT NULL,
     BFL DECIMAL(3,2),  -- Stores base fitness level Need to Add
+    KEY VARCHAR(50),  -- Stores key for password reset
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -77,7 +78,8 @@ CREATE TABLE workout_exercises (
     notes VARCHAR(250),
     date_performed TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-
+ -- Implement below
+ -- ______________________________________________________________________________________
 CREATE TABLE family(
     id SERIAL PRIMARY KEY,
     family_name VARCHAR(50) UNIQUE NOT NULL,
