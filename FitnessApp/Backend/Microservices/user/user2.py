@@ -304,7 +304,7 @@ def get_user_stats():
         conn = get_db_connection()
         cur = conn.cursor()
         
-        user_id = key
+        user_id = verify_key(key, conn)
         
         if not user_id:
             return jsonify({"error": "Invalid key"}), 400
