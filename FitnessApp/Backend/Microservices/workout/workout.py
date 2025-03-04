@@ -151,7 +151,7 @@ def get_workout_stats():
     cur = conn.cursor()
     
     #Fix this query
-    cur.execute("SELECT FROM workout_exercises WHERE workout_id = (SELECT id FROM workouts WHERE user_id = %s and workout_date > CURRENT_DATE - INTERVAL '%d days') AND exercise_id = %d", (key,timeframe, workout,))
+    cur.execute("SELECT FROM workout_exercises WHERE workout_id = (SELECT id FROM workouts WHERE user_id = %s and workout_date > CURRENT_DATE - INTERVAL '%d days') AND exercise_id = %d ORDER BY ", (key,timeframe, workout,))
 
 
 if __name__ == '__main__':
