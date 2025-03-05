@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, TextInput, Button, Text, Alert, StyleSheet } from 'react-native';
+import { API_URL } from './globals';
 
 //  hash the password 
 //   sex is M/F, height in inches, weight in lbs 
@@ -45,7 +46,7 @@ export default function RegisterForm() {
         weight: formData.weight
       };
 
-      const response = await fetch('http://localhost:8080/api/create_user', {
+      const response = await fetch(API_URL +'/api/user/create_user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userData)
@@ -66,14 +67,14 @@ export default function RegisterForm() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Register</Text>
-      <TextInput style={styles.input} placeholder="First Name" onChangeText={text => handleChange('first_name', text)} />
-      <TextInput style={styles.input} placeholder="Last Name" onChangeText={text => handleChange('last_name', text)} />
-      <TextInput style={styles.input} placeholder="Email" onChangeText={text => handleChange('email', text)} />
-      <TextInput style={styles.input} placeholder="Username" onChangeText={text => handleChange('username', text)} />
+      <TextInput style={styles.input} placeholder="First Name" onChangeText={text => handleChange('first_name', text)} /> // Limit to 20 chars
+      <TextInput style={styles.input} placeholder="Last Name" onChangeText={text => handleChange('last_name', text)} /> // Limit to 30 chars
+      <TextInput keyboardType = "email-address" style={styles.input} placeholder="Email" onChangeText={text => handleChange('email', text)} />
+      <TextInput style={styles.input} placeholder="Username" onChangeText={text => handleChange('username', text)} /> // Limit to 20 chars
       <TextInput style={styles.input} placeholder="Password" secureTextEntry onChangeText={text => handleChange('password', text)} />
-      <TextInput style={styles.input} placeholder="Date of Birth (YYYY-MM-DD)" onChangeText={text => handleChange('dob', text)} />
-      <TextInput style={styles.input} placeholder="Sex (M/F)" maxLength={1} onChangeText={text => handleChange('sex', text)} />
-      <TextInput style={styles.input} placeholder="Height (in inches)" keyboardType="numeric" onChangeText={text => handleChange('height', text)} />
+      <TextInput style={styles.input} placeholder="Date of Birth (YYYY-MM-DD)" onChangeText={text => handleChange('dob', text)} /> // Change to date picker
+      <TextInput style={styles.input} placeholder="Sex (M/F)" maxLength={1} onChangeText={text => handleChange('sex', text)} /> // Make so they can only get M or F
+      <TextInput style={styles.input} placeholder="Height (in inches)" keyboardType="numeric" onChangeText={text => handleChange('height', text)} /> // Height should be changed. Seperate feet and inches
       <TextInput style={styles.input} placeholder="Weight (in lbs)" keyboardType="numeric" onChangeText={text => handleChange('weight', text)} />
       <Button title="Register" onPress={handleSubmit} />
     </View>
