@@ -46,15 +46,15 @@
     {
       "endpoint": "/api/user/create_user",
       "method": "POST",
-      "output_encoding": "json",
+      "output_encoding": "no-op",
       "backend": [
         {
           "url_pattern": "/create_user",
-          "encoding": "json",
+          "encoding": "no-op",
           "sd": "static",
           "method": "POST",
           "host": [
-            "http://user"
+            "http://user:8080"
           ],
           "disable_host_sanitize": false
         }
@@ -63,15 +63,15 @@
     {
       "endpoint": "/login",
       "method": "POST",
-      "output_encoding": "json",
+      "output_encoding": "no-op",
       "backend": [
         {
           "url_pattern": "/login",
-          "encoding": "json",
+          "encoding": "no-op",
           "sd": "static",
-          "method": "GET",
+          "method": "POST",
           "host": [
-            "http://user"
+            "http://user:8080"
           ],
           "disable_host_sanitize": false
         }
@@ -88,7 +88,7 @@
           "sd": "static",
           "method": "PUT",
           "host": [
-            "http://user"
+            "http://user:8080"
           ],
           "disable_host_sanitize": false
         }
@@ -105,7 +105,7 @@
           "sd": "static",
           "method": "DELETE",
           "host": [
-            "http://user"
+            "http://user:8080"
           ],
           "disable_host_sanitize": false
         }

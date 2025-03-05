@@ -14,11 +14,15 @@ import jwt
 
 app = Flask(__name__)
 
-# Configuration
-DATABASE_URL = 'postgresql://postgres:password@localhost/gitfitbro'
+# Configuration (Something wrong here)
+DATABASE_URL = 'postgresql://postgres:password@postgres:5432/gitfitbro'
 
 def get_db_connection():
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = psycopg2.connect(dbname = 'gitfitbro',
+                            user = 'postgres',
+                            password = 'password',
+                            host = 'postgres',
+                            port = '5432')
     return conn
 
 def create_hash():
@@ -59,14 +63,17 @@ def get_data_json(request):
     else:
         return None
 
-@app.route('/create_user', methods=['POST'])
+@app.route('/create_user', methods=['POST']) #Working do not touch (Not error prone)
 def create_user():
-    
-    #Need data validation
     data = get_data_json(request)
 
     if not data:
         return jsonify({"error": "No input data provided"}), 400
+
+    required_fields = ['pass_hash', 'email', 'username', 'first_name', 'last_name', 'dob', 'sex', 'height', 'weight']
+    for field in required_fields:
+        if field not in data.keys():
+            return jsonify({"error": f"Missing required field: {field}"}), 400
 
     try:
         conn = get_db_connection()
@@ -74,35 +81,35 @@ def create_user():
 
         # Insert user data
         insert_user_query = sql.SQL("""
-            INSERT INTO users (password_hash, email, username, fname, lname, dob, sex)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-            RETURNING id
+            INSERT INTO users (password_hash, email, username, fname, lname, dob, sex, key)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id;
         """)
-        
-        findDuplicate = sql.SQL("""SELECT COUNT(*) FROM user_keys WHERE key = %s""")
+
+        findDuplicate = sql.SQL("""SELECT COUNT(*) FROM users WHERE key = %s;""")
         hash = create_hash()
         cur.execute(findDuplicate, (hash,))
         count = cur.fetchone()[0]
         while count > 0:
             hash = create_hash()
             cur.execute(findDuplicate, (hash,))
-            
+
         cur.execute(insert_user_query, (
             data['pass_hash'],
             data['email'],
             data['username'],
             data['first_name'],
             data['last_name'],
-            data['date_of_birth'],
+            data['dob'],
             data['sex'],
-            hash
+            hash,
         ))
         user_id = cur.fetchone()[0]
 
         # Insert user stats
         insert_stats_query = sql.SQL("""
             INSERT INTO user_stats (user_id, height, weight)
-            VALUES (%s, %s, %s, %s)
+            VALUES (%s, %s, %s)
         """)
         cur.execute(insert_stats_query, (
             user_id,
@@ -110,17 +117,17 @@ def create_user():
             data['weight']
         ))
 
-        conn.commit()    
-        
+        conn.commit()
+
         cur.close()
         conn.close()
-        
-        return jsonify({"message": "User created successfully", "key":f"{hash}"}), 201
-    except Exception as e:
-        return jsonify({"error": str(e)}), 400
 
-@app.route('/login', methods=['POST'])
-def login_user(): #Fix this method for JWT
+        return jsonify({"message": "User created successfully", "key": f"{hash}"}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/login', methods=['POST']) #Working Do not touch (Not error prone)
+def login_user():
     data = get_data_json(request)
     
     if not data:
@@ -131,9 +138,9 @@ def login_user(): #Fix this method for JWT
         cur = conn.cursor()
         
         find_user_query = sql.SQL("""
-            SELECT id, password_hash
+            SELECT id, password_hash, key
             FROM users
-            WHERE username = %s
+            WHERE UPPER(username) = UPPER(%s)
         """)
         
         cur.execute(find_user_query, (data['username'],))
@@ -145,19 +152,10 @@ def login_user(): #Fix this method for JWT
         if user[1] != data['pass_hash']:
             return jsonify({"error": "Incorrect password"}), 401
         
-        find_key_query = sql.SQL("""
-            SELECT key
-            FROM user_keys
-            WHERE user_id = %s
-        """)
-        
-        cur.execute(find_key_query, (user[0],))
-        key = cur.fetchone()[0]
-        
         cur.close()
         conn.close()
         
-        return jsonify({"message": "Login successful", "key": f"{key}"}), 200
+        return jsonify({"message": "Login successful", "key": f"{user[2]}"}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
@@ -326,4 +324,4 @@ def get_user_stats():
         return jsonify({"error": str(e)}), 400
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080)
+    app.run(host='0.0.0.0', port=8080, debug=True)

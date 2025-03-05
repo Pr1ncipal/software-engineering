@@ -7,8 +7,8 @@ ENV POSTGRES_DB gitfitbro
 ENV POSTGRES_USER postgres
 
 
-COPY gitfitbro.pgsql /docker-entrypoint-initdb.d/gitfitbro.psql
-COPY gitfitbro.pgsql /tmp/gitfitbro.psql
+COPY gitfitbro.pgsql /docker-entrypoint-initdb.d/gitfitbro.sql
+COPY gitfitbro.pgsql /tmp/gitfitbro.sql
 
 EXPOSE 5432
 
