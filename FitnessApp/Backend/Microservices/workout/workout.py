@@ -166,7 +166,7 @@ def get_exercises():
     return jsonify(final)
 
 @app.route('/get_workout_stats', methods=['GET'])
-def get_workout_stats():
+def get_workout_stats(): #Later implement in class
     stats = {}
     key = verify_key(request.args.get('key'))
     if not key:
