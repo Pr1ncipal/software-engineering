@@ -45,15 +45,29 @@ CREATE TYPE public.muscle_group_enum AS ENUM (
 ALTER TYPE public.muscle_group_enum OWNER TO postgres;
 
 --
+-- Name: type_set_type; Type: TYPE; Schema: public; Owner: postgres
+--
+
+CREATE TYPE public.type_set_type AS ENUM (
+    'warmup',
+    'normal',
+    'drop',
+    'failiure'
+);
+
+
+ALTER TYPE public.type_set_type OWNER TO postgres;
+
+--
 -- Name: set_type; Type: TYPE; Schema: public; Owner: postgres
 --
 
 CREATE TYPE public.set_type AS (
 	reps integer[],
-	type_set integer[],
 	weight numeric(4,2)[],
 	percieved_difficulty integer[],
-	super_set integer
+	super_set integer,
+	type_set public.type_set_type
 );
 
 
@@ -217,7 +231,7 @@ CREATE TABLE public.users (
     dob date NOT NULL,
     sex character(1) NOT NULL,
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    key character(30) NOT NULL,
+    key character(64) NOT NULL,
     bfl numeric(3,2)
 );
 

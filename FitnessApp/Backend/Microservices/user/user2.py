@@ -26,7 +26,7 @@ def get_db_connection():
     return conn
 
 def create_hash():
-     return ''.join(random.choices(string.ascii_letters, k=30))
+     return ''.join(random.choices(string.printable, k=64))
  
 def verify_key(key, conn = None):
     if not conn:

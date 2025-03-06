@@ -9,15 +9,15 @@
     {
       "endpoint": "/api/workout/add_workout",
       "method": "POST",
-      "output_encoding": "json",
+      "output_encoding": "no-op",
       "backend": [
         {
           "url_pattern": "/add_workout",
-          "encoding": "json",
+          "encoding": "no-op",
           "sd": "static",
           "method": "POST",
           "host": [
-            "http://wokout"
+            "http://workout:8080"
           ],
           "disable_host_sanitize": false
         }
@@ -30,11 +30,11 @@
       "backend": [
         {
           "url_pattern": "/get_workouts",
-          "encoding": "json",
+          "encoding": "no-op",
           "sd": "static",
           "method": "GET",
           "host": [
-            "http://wokout"
+            "http://workout:8080"
           ],
           "disable_host_sanitize": false
         }

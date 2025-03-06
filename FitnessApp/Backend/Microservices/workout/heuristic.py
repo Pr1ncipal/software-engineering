@@ -2,7 +2,9 @@ import flask
 import psycopg2
 import psycopg2.sql
 import datetime
-from workout import verify_key, getConnection
+from global_func import verify_key, getConnection
+
+
 
 main = flask.Blueprint('workout', __name__)
 
