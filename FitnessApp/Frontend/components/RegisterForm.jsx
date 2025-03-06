@@ -18,6 +18,18 @@ export default function RegisterForm() {
   });
 
   const handleChange = (name, value) => {
+    if (name === 'first_name' || name === 'last_name') {
+      value = value.replace(/[^a-zA-Z]/g); // Allow only alphabets and spaces
+    }
+    else if (name === 'username'){
+      value = value.replace(/[^a-zA-Z0-9]/g); // Allow only alphabets and numbers
+    }
+    else if (name === 'sex'){
+      value = value.replace(/[^MF]/g); // Allow only M or F
+    }
+    else if (name === 'height' || name === 'weight'){
+      value = value.replace(/[^0-9]/g); // Allow only numbers
+    }
     setFormData({ ...formData, [name]: value });
   };
 
@@ -39,14 +51,14 @@ export default function RegisterForm() {
         last_name: formData.last_name,
         email: formData.email,
         username: formData.username,
-        pass_hash: hashedPassword, // Send hashd password
+        pass_hash: hashedPassword, // Send hashed password
         dob: formData.dob, 
         sex: formData.sex.toUpperCase(), // Ensure uppercase M/F
         height: formData.height,
         weight: formData.weight
       };
 
-      const response = await fetch(API_URL +'/api/user/create_user', {
+      const response = await fetch(`${API_URL}/api/user/create_user`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userData)
@@ -67,14 +79,14 @@ export default function RegisterForm() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Register</Text>
-      <TextInput style={styles.input} placeholder="First Name" onChangeText={text => handleChange('first_name', text)} /> // Limit to 20 chars
-      <TextInput style={styles.input} placeholder="Last Name" onChangeText={text => handleChange('last_name', text)} /> // Limit to 30 chars
-      <TextInput keyboardType = "email-address" style={styles.input} placeholder="Email" onChangeText={text => handleChange('email', text)} />
-      <TextInput style={styles.input} placeholder="Username" onChangeText={text => handleChange('username', text)} /> // Limit to 20 chars
+      <TextInput style={styles.input} placeholder="First Name" onChangeText={text => handleChange('first_name', text)} /> {/* Limit to 20 chars*/}
+      <TextInput style={styles.input} placeholder="Last Name" onChangeText={text => handleChange('last_name', text)} /> {/* Limit to 30 chars*/}
+      <TextInput style={styles.input} placeholder="Email" keyboardType = "email-address" onChangeText={text => handleChange('email', text)} />
+      <TextInput style={styles.input} placeholder="Username" onChangeText={text => handleChange('username', text)} /> {/* Limit to 20 chars*/}
       <TextInput style={styles.input} placeholder="Password" secureTextEntry onChangeText={text => handleChange('password', text)} />
-      <TextInput style={styles.input} placeholder="Date of Birth (YYYY-MM-DD)" onChangeText={text => handleChange('dob', text)} /> // Change to date picker
-      <TextInput style={styles.input} placeholder="Sex (M/F)" maxLength={1} onChangeText={text => handleChange('sex', text)} /> // Make so they can only get M or F
-      <TextInput style={styles.input} placeholder="Height (in inches)" keyboardType="numeric" onChangeText={text => handleChange('height', text)} /> // Height should be changed. Seperate feet and inches
+      <TextInput style={styles.input} placeholder="Date of Birth (YYYY-MM-DD)" onChangeText={text => handleChange('dob', text)} /> {/* Change to date picker*/}
+      <TextInput style={styles.input} placeholder="Sex (M/F)" maxLength={1} onChangeText={text => handleChange('sex', text)} /> {/* Limit to 1 char, Make sure F or M*/}
+      <TextInput style={styles.input} placeholder="Height (in inches)" keyboardType="numeric" onChangeText={text => handleChange('height', text)} /> {/* Height should be changed. Seperate feet and inches*/}
       <TextInput style={styles.input} placeholder="Weight (in lbs)" keyboardType="numeric" onChangeText={text => handleChange('weight', text)} />
       <Button title="Register" onPress={handleSubmit} />
     </View>
