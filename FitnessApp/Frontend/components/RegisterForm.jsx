@@ -9,7 +9,7 @@ export default function RegisterForm() {
     last_name: '',
     email: '',
     username: '',
-    password: '',
+    pass_hash: '',
     dob: '',
     sex: '',
     height: '',
