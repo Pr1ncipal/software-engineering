@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { View, TextInput, Button, Text, Alert, StyleSheet } from 'react-native';
+// import { API_URL } from './globals';
+import CryptoJS from "crypto-js"
 
-//  hash the password 
-//   sex is M/F, height in inches, weight in lbs 
+//   hashed password 
+//   sex is M/F, height in feet/inches, weight in lbs 
 export default function RegisterForm() {
   const [formData, setFormData] = useState({
     first_name: '',
@@ -21,12 +23,8 @@ export default function RegisterForm() {
   };
 
   // Convert plain text password to SHA-256 hash
-  const hashPassword = async (password) => {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(password);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(byte => byte.toString(16).padStart(2, '0')).join('');
+  const hashPassword = (password) => {
+    return CryptoJS.SHA256(password).toString(CryptoJS.enc.Hex)
   };
 
   const handleSubmit = async () => {
@@ -45,35 +43,44 @@ export default function RegisterForm() {
         weight: formData.weight
       };
 
-      const response = await fetch('http://localhost:8080/api/create_user', {
+ //     const response = await fetch(API_URL +'/api/user/create_user', {
+
+                                       //  adjust IP address for API here
+      const response = await fetch('http://10.28.4.234:8080/api/user/create_user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userData)
-      });
+      })
+      .then(response => response.json())
+      .then(data => console.log("Success:", data))
+      .then(error => console.error("Error:", error));
 
-      const result = await response.json();
+    /*  const result = await response.json();
 
       if (response.ok) {
         Alert.alert('Success', 'User registered successfully!');
       } else {
         Alert.alert('Error', result.error || 'Failed to register user.');
       }
+      */
     } catch (error) {
-      Alert.alert('Error', 'Could not connect to the server.');
+      console.log(error,'Error', error);
     }
+      
   };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Register</Text>
-      <TextInput style={styles.input} placeholder="First Name" onChangeText={text => handleChange('first_name', text)} />
-      <TextInput style={styles.input} placeholder="Last Name" onChangeText={text => handleChange('last_name', text)} />
-      <TextInput style={styles.input} placeholder="Email" onChangeText={text => handleChange('email', text)} />
-      <TextInput style={styles.input} placeholder="Username" onChangeText={text => handleChange('username', text)} />
+      <TextInput style={styles.input} placeholder="First Name" onChangeText={text => handleChange('first_name', text)} /> // Limit to 20 chars
+      <TextInput style={styles.input} placeholder="Last Name" onChangeText={text => handleChange('last_name', text)} /> // Limit to 30 chars
+      <TextInput keyboardType = "email-address" style={styles.input} placeholder="Email" onChangeText={text => handleChange('email', text)} />
+      <TextInput style={styles.input} placeholder="Username" onChangeText={text => handleChange('username', text)} /> // Limit to 20 chars
       <TextInput style={styles.input} placeholder="Password" secureTextEntry onChangeText={text => handleChange('password', text)} />
+
       <TextInput style={styles.input} placeholder="Date of Birth (YYYY-MM-DD)" onChangeText={text => handleChange('dob', text)} />
-      <TextInput style={styles.input} placeholder="Sex (M/F)" maxLength={1} onChangeText={text => handleChange('sex', text)} />
-      <TextInput style={styles.input} placeholder="Height (in inches)" keyboardType="numeric" onChangeText={text => handleChange('height', text)} />
+      <TextInput style={styles.input} placeholder="Sex (Male/Female)" maxLength={1} onChangeText={text => handleChange('sex', text)} />
+      <TextInput style={styles.input} placeholder="Height" keyboardType="numeric" onChangeText={text => handleChange('height', text)} />
       <TextInput style={styles.input} placeholder="Weight (in lbs)" keyboardType="numeric" onChangeText={text => handleChange('weight', text)} />
       <Button title="Register" onPress={handleSubmit} />
     </View>
@@ -103,3 +110,4 @@ const styles = StyleSheet.create({
     borderRadius: 5
   }
 });
+
