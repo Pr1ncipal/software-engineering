@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 // Import your components
 import WorkoutForm from '@/components/WorkoutForm';
 import RegisterForm from '@/components/RegisterForm';
+import App from '@/components/loginApp';
 
 const Tab = createBottomTabNavigator();
 
@@ -29,8 +30,13 @@ export default function AppTabs() {
                 size={size} 
                 color={color} 
               />;
+            } else if (route.name === 'Login') {
+              return <Ionicons 
+                name={focused ? 'log-in' : 'log-in-outline'} 
+                size={size} 
+                color={color} 
+              />;
             }
-            return null;
           },
           tabBarActiveTintColor: '#f4511e',
           tabBarInactiveTintColor: 'gray',
@@ -42,6 +48,7 @@ export default function AppTabs() {
       >
         <Tab.Screen name="Register" component={RegisterForm} />
         <Tab.Screen name="Workout" component={WorkoutForm} />
+        <Tab.Screen name="Login" component={App} />
       </Tab.Navigator>
     </>
   );

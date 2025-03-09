@@ -6,17 +6,17 @@ import json
 from heuristic import main
 import jwt
 import global_func
+import logging
+from workoutClass import Workout
+import WorkoutExceptions
 
 app = Flask(__name__)
 
 app.register_blueprint(main)
 
-# Filler for the database URL (Saved passwords somewhere?)
-DATABASE_URL = "postgresql://postgres:password@postgres:5432/gitfitbro"
-
 def insert_into_db(data, user_id):
     try:
-        connection = psycopg2.connect(DATABASE_URL)
+        connection = psycopg2.connect(global_func.DATABASE_URL)
         cursor = connection.cursor()
         
         # Assuming the JSON data has 'exercise_name' and 'calories_burned' fields
@@ -60,7 +60,7 @@ def insert_into_db(data, user_id):
         return False
 
 def getConnection():
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = psycopg2.connect(global_func.DATABASE_URL)
     return conn
 
 def closeConnection(conn):
@@ -96,30 +96,40 @@ def get_data_jwt(request):
             decoded = jwt.decode(token['token'], payload['key'], algorithms=['HS256'])
             return decoded , key
         except jwt.ExpiredSignatureError:
-            return None, None
-        except jwt.InvalidTokenError:
-            return None, None
+            return "Expired Signiture", None
+        except jwt.InvalidTokenError: #Need to throw errors if they occur
+            #Need to add logging
+            return "Invalid Token", None
     else:
         return None, None
 
 @app.route('/add_workout', methods=['POST'])
 def add_exercise():
-    if request.is_json:
-        data, key= get_data_jwt(request)
-        if not data and not key:
-            return jsonify({"message": "Invalid Message and User"}), 400
-        elif not data:
-            return jsonify({"message": "Invalid Message"}), 400
-        elif not key:
-            return jsonify({"message": "Invalid User"}), 400
-
-        yes = insert_into_db(data, key)
+    try:
+        if request.is_json:
+            data, key= get_data_jwt(request)
+            if not key:
+                return jsonify({"message": data}), 400
+            elif not data and not key:
+                return jsonify({"message": "No input data provided"}), 400
         
-        if yes:
-            return jsonify({"message": "Workout Saved Successfully"}), 201
+            #workout = Workout(workout_type=data['workoutType'], notes=data['notes'],
+            #                           average_heart_rate=data['averageHeartRate'], total_weight_lifted=data['totalWeightLifted'], 
+            #                           exercises=data['exercises'], user_id=key)
+        
+            #workout.insertWorkout() # need to figure out how to call this and assure insert
+
+            yes = insert_into_db(data, key)
+        
+            if yes:
+                return jsonify({"message": "Workout Saved Successfully"}), 201
+            else:
+                return jsonify({"message": "Workout Save failed"}), 400
         else:
             return jsonify({"message": "Workout Save failed"}), 400
-    else:
+    
+    except Exception as error:
+        print(f"Error inserting into database: {error}")
         return jsonify({"message": "Workout Save failed"}), 400
     
 @app.route('/get_workouts', methods=['GET'])

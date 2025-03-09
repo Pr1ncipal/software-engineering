@@ -9,5 +9,9 @@ def getConnection():
     conn = psycopg2.connect(DATABASE_URL)
     return conn
 
+def closeConnection(conn, cur):
+    cur.close()
+    conn.close()
+
 def generate_key():
     return ''.join(random.choices(string.printable, k=64))

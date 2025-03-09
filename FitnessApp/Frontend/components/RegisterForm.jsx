@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, TextInput, Button, Text, Alert, StyleSheet } from 'react-native';
+import CryptoJS from 'crypto-js';
 import { API_URL } from './globals';
 
 //  hash the password 
@@ -34,12 +35,8 @@ export default function RegisterForm() {
   };
 
   // Convert plain text password to SHA-256 hash
-  const hashPassword = async (password) => {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(password);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(byte => byte.toString(16).padStart(2, '0')).join('');
+  const hashPassword = (password) => {
+    return CryptoJS.SHA256(password).toString(CryptoJS.enc.Hex);
   };
 
   const handleSubmit = async () => {
