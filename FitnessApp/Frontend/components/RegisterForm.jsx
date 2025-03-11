@@ -361,7 +361,7 @@ export default function RegisterForm() {
               placeholder="Weight (in lbs)" 
               keyboardType="numeric" 
               value={formData.weight}
-              onChangeText={text => handleChange('weight', text)} 
+              onChangeText={value => handleChange('weight', value)} 
             />
             {errors.weight && <Text style={styles.errorText}>{errors.weight}</Text>}
 
