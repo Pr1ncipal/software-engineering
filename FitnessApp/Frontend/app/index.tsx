@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 // Import your components
 import WorkoutForm from '@/components/WorkoutForm';
 import RegisterForm from '@/components/RegisterForm';
+import leaderboard from '@/components/leaderboard';
 
 const Tab = createBottomTabNavigator();
 
@@ -42,6 +43,7 @@ export default function AppTabs() {
       >
         <Tab.Screen name="Register" component={RegisterForm} />
         <Tab.Screen name="Workout" component={WorkoutForm} />
+        <Tab.Screen name="Leaderboard" component={leaderboard} />
       </Tab.Navigator>
     </>
   );
