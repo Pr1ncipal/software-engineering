@@ -26,6 +26,9 @@ export default function WorkoutForm() {
   // Set types for dropdown
   const setTypes = ['Warmup', 'Normal', 'Drop', 'Failure'];
 
+  // Difficulty options for the Picker
+  const difficultyOptions = [1, 2, 3, 4, 5];
+
   // Add a new exercise to the list
   const addExercise = () => {
     setExercises([...exercises, {
@@ -150,7 +153,6 @@ export default function WorkoutForm() {
       Alert.alert('Error', 'Could not connect to the server.');
     }
   };
-  
 
   // Reset the form
   const resetForm = () => {
@@ -167,7 +169,7 @@ export default function WorkoutForm() {
       reps: ['0'],
       setType: ['Normal'],
       weight: ['0'],
-      perceivedDifficulty: ['5'],
+      perceivedDifficulty: [''],
       exerciseNotes: ''
     }]);
   };
@@ -273,99 +275,71 @@ export default function WorkoutForm() {
 
           {/* Sets */}
           {exercise.reps.map((_, setIndex) => (
-            <View key={setIndex} style={styles.setContainer}>
-              <View style={styles.setHeader}>
-                <Text style={styles.setTitle}>Set {setIndex + 1}</Text>
-                <TouchableOpacity 
-                  style={styles.removeSetButton}
-                  onPress={() => removeSet(exerciseIndex, setIndex)}
+            <View key={setIndex} style={styles.setRow}>
+              <View style={styles.halfInput}>
+                <Text style={styles.label}>Reps</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Reps"
+                  keyboardType="numeric"
+                  value={exercise.reps[setIndex]}
+                  onChangeText={(value) => updateSetField(exerciseIndex, 'reps', setIndex, value)}
+                />
+              </View>
+
+              <View style={styles.halfInput}>
+                <Text style={styles.label}>Weight (kg)</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Weight"
+                  keyboardType="numeric"
+                  value={exercise.weight[setIndex]}
+                  onChangeText={(value) => updateSetField(exerciseIndex, 'weight', setIndex, value)}
+                />
+              </View>
+
+              <View style={styles.fullInput}>
+                <Text style={styles.label}>Perceived Difficulty (1-5)</Text>
+                <Picker
+                  selectedValue={exercise.perceivedDifficulty[setIndex]}
+                  onValueChange={(value) => updateSetField(exerciseIndex, 'perceivedDifficulty', setIndex, value)}
+                  style={styles.picker}
                 >
-                  <Text style={styles.removeButtonText}>✕</Text>
-                </TouchableOpacity>
+                  {difficultyOptions.map((difficulty) => (
+                    <Picker.Item key={difficulty} label={`${difficulty}`} value={`${difficulty}`} />
+                  ))}
+                </Picker>
               </View>
 
-              <View style={styles.row}>
-                <View style={styles.quarterInput}>
-                  <Text style={styles.label}>Reps</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Reps"
-                    keyboardType="numeric"
-                    value={exercise.reps[setIndex]}
-                    onChangeText={(value) => updateSetField(exerciseIndex, 'reps', setIndex, value)}
-                  />
-                </View>
-
-                <View style={styles.quarterInput}>
-                  <Text style={styles.label}>Weight</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Weight"
-                    keyboardType="numeric"
-                    value={exercise.weight[setIndex]}
-                    onChangeText={(value) => updateSetField(exerciseIndex, 'weight', setIndex, value)}
-                  />
-                </View>
-
-                <View style={styles.halfInput}>
-                  <Text style={styles.label}>Set Type</Text>
-                  <View style={styles.setTypePickerWrapper}>
-                    <Picker
-                      selectedValue={exercise.setType[setIndex]}
-                      onValueChange={(value) => updateSetField(exerciseIndex, 'setType', setIndex, value)}
-                      style={styles.picker}
-                    >
-                      {setTypes.map((type) => (
-                        <Picker.Item key={type} label={type} value={type} />
-                      ))}
-                    </Picker>
-                  </View>
-                </View>
-              </View>
-
-              <View style={styles.row}>
-                <View style={styles.fullInput}>
-                  <Text style={styles.label}>Perceived Difficulty (1-10)</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Difficulty (1-10)"
-                    keyboardType="numeric"
-                    value={exercise.perceivedDifficulty[setIndex]}
-                    onChangeText={(value) => {
-                      const numValue = parseInt(value) || 0;
-                      if ((numValue >= 1 && numValue <= 10) || value === '') {
-                        updateSetField(exerciseIndex, 'perceivedDifficulty', setIndex, value);
-                      }
-                    }}
-                  />
-                </View>
-              </View>
+              <TouchableOpacity 
+                style={styles.removeButton}
+                onPress={() => removeSet(exerciseIndex, setIndex)}
+              >
+                <Text style={styles.removeButtonText}>Remove Set</Text>
+              </TouchableOpacity>
             </View>
           ))}
 
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.addButton}
             onPress={() => addSet(exerciseIndex)}
           >
-            <Text style={styles.addButtonText}>+ Add Set</Text>
+            <Text style={styles.addButtonText}>Add Set</Text>
           </TouchableOpacity>
         </View>
       ))}
 
       <TouchableOpacity 
-        style={styles.addExerciseButton}
+        style={styles.addButton}
         onPress={addExercise}
       >
-        <Text style={styles.addButtonText}>+ Add Exercise</Text>
+        <Text style={styles.addButtonText}>Add Exercise</Text>
       </TouchableOpacity>
 
-      <View style={styles.submitContainer}>
-        <TouchableOpacity 
-          style={styles.submitButton}
-          onPress={handleSubmit}
-        >
-          <Text style={styles.submitButtonText}>Submit Workout</Text>
-        </TouchableOpacity>
+      {/* Submit and Reset Buttons */}
+      <View style={styles.buttonsContainer}>
+        <Button title="Submit Workout" onPress={handleSubmit} />
+        <Button title="Reset Form" onPress={resetForm} />
       </View>
     </ScrollView>
   );
