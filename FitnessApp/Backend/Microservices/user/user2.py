@@ -16,6 +16,7 @@ app = Flask(__name__)
 
 # Configuration (Something wrong here)
 DATABASE_URL = 'postgresql://postgres:password@postgres:5432/gitfitbro'
+KEYSET = string.ascii_letters + string.digits + "!#$%&()*+,-./:;<=>?@[\\]^_`{|}~"
 
 def get_db_connection():
     conn = psycopg2.connect(dbname = 'gitfitbro',
@@ -26,7 +27,7 @@ def get_db_connection():
     return conn
 
 def create_hash():
-     return ''.join(random.choices(string.printable, k=64))
+     return ''.join(random.choices(KEYSET, k=64))
  
 def verify_key(key, conn = None):
     if not conn:

@@ -1,17 +1,536 @@
-import React, { useState } from 'react';
-import { View, TextInput, Button, Text, Alert, StyleSheet } from 'react-native';
-import CryptoJS from 'crypto-js';
-import { API_URL } from './globals';
+// TO EXECUTE -- INSTALL crypto hash
+// npm install crypto-js 
 
-//  hash the password 
-//   sex is M/F, height in inches, weight in lbs 
+import React, { useState, useEffect } from 'react';
+import { View, TextInput, Button, Text, Alert, StyleSheet, ScrollView, Platform, SafeAreaView, Dimensions } from 'react-native';
+// import { API_URL } from './globals';
+import { Picker } from '@react-native-picker/picker';
+import CryptoJS from "crypto-js";
+
 export default function RegisterForm() {
+  
+
+  // Screen dimension handling
+  // ------------------------------------------------------
+  const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
+  const isSmallScreen = screenWidth < 768; // Google says iPad Mini width is roughly 768px
+                                           // so this should cover all phones
+  // Update screen dimensions on orientation change or window resize
+  useEffect(() => {
+    const updateLayout = () => {
+      setScreenWidth(Dimensions.get('window').width);
+    };
+    
+    Dimensions.addEventListener('change', updateLayout);
+    
+    return () => {
+      if (Dimensions.removeEventListener) {
+        Dimensions.removeEventListener('change', updateLayout);
+      }
+    };
+  }, []);
+  // --------------------------------------------------------
+
+
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 101 }, (_, i) => currentYear - i);
+  const months = [
+    { label: "Jan", value: "01" }, { label: "Feb", value: "02" }, { label: "Mar", value: "03" },
+    { label: "Apr", value: "04" }, { label: "May", value: "05" }, { label: "June", value: "06" },
+    { label: "July", value: "07" }, { label: "Aug", value: "08" }, { label: "Sep", value: "09" },
+    { label: "Oct", value: "10" }, { label: "Nov", value: "11" }, { label: "Dec", value: "12" }
+  ];
+  const days = Array.from({ length: 31 }, (_, i) => (i + 1).toString().padStart(2, '0'));
+  const feet = Array.from({ length: 7 }, (_, i) => (i + 1).toString() + "'");
+  const inches = Array.from({ length: 12 }, (_, i) => i.toString() + "\"");
+
+  // form fields 
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
     email: '',
     username: '',
     password: '',
+    year: currentYear.toString(),
+    month: "01",
+    day: "01",
+    sex: 'M',
+    feet: "5'",
+    inches: "6\"", 
+    weight: ''    // should we get weight goal now or later?
+  });
+  const [errors, setErrors] = useState({});
+
+  const handleChange = (name, value) => {
+    setFormData({ ...formData, [name]: value });
+  };
+
+  // Convert plain text password to SHA-256 hash
+  const hashPassword = (password) => {
+    return CryptoJS.SHA256(password).toString(CryptoJS.enc.Hex);
+  };
+
+  // VALIDATIONS
+  const validateForm = () => {
+    let isValid = true;
+    let newErrors = {};
+
+    // Validate required fields
+    if (!formData.first_name.trim()) {
+      newErrors.first_name = 'First name is required';
+      isValid = false;
+    }
+
+    if (!formData.last_name.trim()) {
+      newErrors.last_name = 'Last name is required';
+      isValid = false;
+    }
+
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required';
+      isValid = false;
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = 'Email is invalid';
+      isValid = false;
+    }
+
+    if (!formData.username.trim()) {
+      newErrors.username = 'Username is required';
+      isValid = false;
+    }
+
+    if (!formData.password) {
+      newErrors.password = 'Password is required';
+      isValid = false;
+    } else if (formData.password.length < 8) {
+      newErrors.password = 'Password must be at least 8 characters';
+      isValid = false;
+    }
+
+    if (!formData.weight.trim()) {
+      newErrors.weight = 'Weight is required';
+      isValid = false;
+    } else if (isNaN(formData.weight)) {
+      newErrors.weight = 'Weight must be a number';
+      isValid = false;
+    }
+
+    setErrors(newErrors);
+    return isValid;
+  };
+  const handleSubmit = async () => {
+    if (!validateForm()) {
+      console.log('Validation Error', 'Please correct the errors in the form');
+      return;
+    }
+    
+    try {
+      const hashedPassword = await hashPassword(formData.password);
+      
+      // Format DOB as YYYY-MM-DD
+      const dob = `${formData.year}-${formData.month}-${formData.day}`;
+      
+      // Calculate height in inches
+      const heightInInches = parseInt(formData.feet.replace("'", "")) * 12 + parseInt(formData.inches.replace("\"", ""));
+  
+      const userData = {
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        email: formData.email,
+        username: formData.username,
+        pass_hash: hashedPassword,
+        dob: dob,                
+        sex: formData.sex,       
+        height: heightInInches,          
+        weight: formData.weight
+      };
+  
+      console.log("Sending user data:", userData); // Log for debugging
+      
+      const response = await fetch('http://localhost:8080/api/user/create_user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData)
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        console.log("Success:", data);
+        Alert.alert('Success', 'User registered successfully!');
+      } else {
+        console.error("Error from server:", data);
+        Alert.alert('Error', data.error || 'Failed to register user');
+      }
+     
+    } catch (error) {
+      console.error("Error in submission:", error);
+      Alert.alert('Error', 'An unexpected error occurred.');
+    }
+  };
+
+  // Create a platform-specific picker
+  const RenderPicker = ({ selectedValue, onValueChange, items, style }) => {
+    if (Platform.OS === 'ios') {
+      return (
+        <View style={[style, styles.iosPicker]}>
+          <Picker
+            selectedValue={selectedValue}
+            onValueChange={onValueChange}
+            itemStyle={styles.iosPickerItem}
+          >
+            {items}
+          </Picker>
+        </View>
+      );
+    } else {
+      return (
+        <Picker
+          style={style}
+          selectedValue={selectedValue}
+          onValueChange={onValueChange}
+        >
+          {items}
+        </Picker>
+      );
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView contentContainerStyle={styles.scrollViewContent}>
+        <View style={styles.outerContainer}>
+          <View style={[
+            styles.container, 
+            isSmallScreen ? styles.containerSmall : styles.containerLarge
+          ]}>
+            <Text style={styles.title}>Strong Starts Here!</Text>
+            
+            <Text style={styles.label}>Name:</Text>
+            <View style={styles.nameContainer}>
+              <View style={styles.nameField}>
+                <TextInput 
+                  style={[
+                    styles.input, 
+                    errors.first_name ? styles.inputError : null,
+                    isSmallScreen ? styles.inputSmall : {}
+                  ]} 
+                  placeholder="First Name" 
+                  value={formData.first_name}
+                  onChangeText={text => handleChange('first_name', text)} 
+                  maxLength={20}
+                />
+                {errors.first_name && <Text style={styles.errorText}>{errors.first_name}</Text>}
+              </View>
+              
+              <View style={styles.nameField}>
+                <TextInput 
+                  style={[
+                    styles.input, 
+                    errors.last_name ? styles.inputError : null,
+                    isSmallScreen ? styles.inputSmall : {}
+                  ]} 
+                  placeholder="Last Name" 
+                  value={formData.last_name}
+                  onChangeText={text => handleChange('last_name', text)} 
+                  maxLength={30}
+                />
+                {errors.last_name && <Text style={styles.errorText}>{errors.last_name}</Text>}
+              </View>
+            </View>
+            
+            <Text style={styles.label}>Email:</Text>
+            <TextInput 
+              style={[
+                styles.input, 
+                errors.email ? styles.inputError : null,
+                isSmallScreen ? styles.inputSmall : {}
+              ]} 
+              placeholder="Email" 
+              value={formData.email}
+              keyboardType="email-address" 
+              onChangeText={text => handleChange('email', text)} 
+            />
+            {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
+            
+            <Text style={styles.label}>Username:</Text>
+            <TextInput 
+              style={[
+                styles.input, 
+                errors.username ? styles.inputError : null,
+                isSmallScreen ? styles.inputSmall : {}
+              ]} 
+              placeholder="Username" 
+              value={formData.username}
+              onChangeText={text => handleChange('username', text)} 
+              maxLength={20}
+            />
+            {errors.username && <Text style={styles.errorText}>{errors.username}</Text>}
+            
+            <Text style={styles.label}>Password:</Text>
+            <TextInput 
+              style={[
+                styles.input, 
+                errors.password ? styles.inputError : null,
+                isSmallScreen ? styles.inputSmall : {}
+              ]} 
+              placeholder="Password (8+ characters)" 
+              secureTextEntry 
+              value={formData.password}
+              onChangeText={text => handleChange('password', text)} 
+            />
+            {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
+
+            <Text style={styles.label}>Date of Birth:</Text>
+            <View style={[
+              styles.pickerContainer,
+              isSmallScreen ? styles.pickerContainerSmall : {}
+            ]}>
+              <RenderPicker 
+                style={[
+                  styles.picker,
+                  isSmallScreen ? styles.pickerSmall : {}
+                ]} 
+                selectedValue={formData.month} 
+                onValueChange={(value) => handleChange('month', value)}
+                items={months.map((month) => <Picker.Item key={month.value} label={month.label} value={month.value} />)}
+              />
+              <RenderPicker 
+                style={[
+                  styles.picker,
+                  isSmallScreen ? styles.pickerSmall : {}
+                ]} 
+                selectedValue={formData.day} 
+                onValueChange={(value) => handleChange('day', value)}
+                items={days.map((day) => <Picker.Item key={day} label={day} value={day} />)}
+              />
+              <RenderPicker 
+                style={[
+                  styles.picker,
+                  isSmallScreen ? styles.pickerSmall : {}
+                ]} 
+                selectedValue={formData.year} 
+                onValueChange={(value) => handleChange('year', value)}
+                items={years.map((year) => <Picker.Item key={year} label={year.toString()} value={year.toString()} />)}
+              />
+            </View>
+
+            <Text style={styles.label}>Sex:</Text>
+            <RenderPicker
+              style={[
+                styles.input,
+                isSmallScreen ? styles.inputSmall : {}
+              ]}
+              selectedValue={formData.sex}
+              onValueChange={(value) => handleChange('sex', value)}
+              items={[
+                <Picker.Item key="M" label="Male" value="M" />,
+                <Picker.Item key="F" label="Female" value="F" />
+              ]}
+            />
+
+            <Text style={styles.label}>Height:</Text>
+            <View style={[
+              styles.pickerContainer,
+              isSmallScreen ? styles.pickerContainerSmall : {}
+            ]}>
+              <RenderPicker 
+                style={[
+                  styles.picker,
+                  isSmallScreen ? styles.pickerSmall : {}
+                ]} 
+                selectedValue={formData.feet} 
+                onValueChange={(value) => handleChange('feet', value)}
+                items={feet.map((ft) => <Picker.Item key={ft} label={ft} value={ft} />)}
+              />
+              <RenderPicker 
+                style={[
+                  styles.picker,
+                  isSmallScreen ? styles.pickerSmall : {}
+                ]} 
+                selectedValue={formData.inches} 
+                onValueChange={(value) => handleChange('inches', value)}
+                items={inches.map((inch) => <Picker.Item key={inch} label={inch} value={inch} />)}
+              />
+            </View>
+
+            <Text style={styles.label}>Weight:</Text>
+            <TextInput 
+              style={[
+                styles.input, 
+                errors.weight ? styles.inputError : null,
+                isSmallScreen ? styles.inputSmall : {}
+              ]} 
+              placeholder="Weight (in lbs)" 
+              keyboardType="numeric" 
+              value={formData.weight}
+              onChangeText={value => handleChange('weight', value)} 
+            />
+            {errors.weight && <Text style={styles.errorText}>{errors.weight}</Text>}
+
+            <View style={styles.buttonContainer}>
+              <Button title="Register" onPress={handleSubmit} />
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+
+
+
+// STYLE EXCLUSIVE TO THIS PAGE
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
+  },
+  scrollViewContent: {
+    flexGrow: 1,
+    paddingVertical: 20,
+  },
+  outerContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  container: {
+    marginBottom: 20,
+    padding: 20,
+    backgroundColor: 'white',
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  containerLarge: {
+    width: '50%', // Takes up 50% of the screen width on large screens
+    maxWidth: 500, // Maximum width for larger screens
+  },
+  containerSmall: {
+    width: '90%', // Almost full width on small screens
+    maxWidth: 500,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+    color: '#333',
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 5,
+    color: '#555',
+  },
+  nameContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 5,
+  },
+  nameField: {
+    flex: 1,
+    marginHorizontal: 5,
+  },
+  pickerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 15,
+  },
+  pickerContainerSmall: {
+    flexDirection: 'row',
+  },
+  picker: {
+    flex: 1,
+    height: Platform.OS === 'ios' ? 150 : 40,
+    marginHorizontal: 2,
+    borderColor: '#ccc',
+    borderWidth: 1,
+    backgroundColor: 'white',
+    borderRadius: 5,
+  },
+  pickerSmall: {
+    height: Platform.OS === 'ios' ? 150 : 50,
+    fontSize: 16,
+  },
+  iosPicker: {
+    overflow: 'hidden',
+    backgroundColor: 'white',
+    borderRadius: 5,
+  },
+  iosPickerItem: {
+    height: 110,
+    fontSize: 16,
+  },
+  input: {
+    height: 40,
+    borderColor: '#ccc',
+    borderWidth: 1,
+    marginBottom: 15,
+    paddingHorizontal: 10,
+    backgroundColor: 'white',
+    borderRadius: 5,
+  },
+  inputSmall: {
+    height: 50, // Taller input fields on small screens
+    fontSize: 16, // Larger font for better touch targets
+    marginBottom: 15,
+  },
+  inputError: {
+    borderColor: '#dc3545',
+    borderWidth: 1,
+  },
+  errorText: {
+    color: '#dc3545',
+    fontSize: 12,
+    marginTop: -10,
+    marginBottom: 10,
+  },
+  buttonContainer: {
+    marginTop: 10,
+    width: '100%',
+  }
+});
+// ----------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+
+// OLD COPY THAT CONNECTED TO BACKEND 
+// -- IN THIS VERSION 
+// ---- NO DATE PICKER, NO GENDER PICKER, NO FEET/INCH HEIGHT SEPERATION
+// ---- NO INPUT LIMITATIONS, NO INPUT VALIDATION 
+
+import React, { useState } from 'react';
+import { View, TextInput, Button, Text, Alert, StyleSheet } from 'react-native';
+// import { API_URL } from './globals';
+import CryptoJS from "crypto-js"
+
+//   hashed password 
+//   sex is M/F, height in feet/inches, weight in lbs 
+export default function RegisterForm() {
+  const [formData, setFormData] = useState({
+    first_name: '',
+    last_name: '',
+    email: '',
+    username: '',
+    pass_hash: '',
     dob: '',
     sex: '',
     height: '',
@@ -19,24 +538,12 @@ export default function RegisterForm() {
   });
 
   const handleChange = (name, value) => {
-    if (name === 'first_name' || name === 'last_name') {
-      value = value.replace(/[^a-zA-Z]/g); // Allow only alphabets and spaces
-    }
-    else if (name === 'username'){
-      value = value.replace(/[^a-zA-Z0-9]/g); // Allow only alphabets and numbers
-    }
-    else if (name === 'sex'){
-      value = value.replace(/[^MF]/g); // Allow only M or F
-    }
-    else if (name === 'height' || name === 'weight'){
-      value = value.replace(/[^0-9]/g); // Allow only numbers
-    }
     setFormData({ ...formData, [name]: value });
   };
 
   // Convert plain text password to SHA-256 hash
   const hashPassword = (password) => {
-    return CryptoJS.SHA256(password).toString(CryptoJS.enc.Hex);
+    return CryptoJS.SHA256(password).toString(CryptoJS.enc.Hex)
   };
 
   const handleSubmit = async () => {
@@ -48,42 +555,51 @@ export default function RegisterForm() {
         last_name: formData.last_name,
         email: formData.email,
         username: formData.username,
-        pass_hash: hashedPassword, // Send hashed password
+        pass_hash: hashedPassword, // Send hashd password
         dob: formData.dob, 
         sex: formData.sex.toUpperCase(), // Ensure uppercase M/F
         height: formData.height,
         weight: formData.weight
       };
 
-      const response = await fetch(`${API_URL}/api/user/create_user`, {
+ //     const response = await fetch(API_URL +'/api/user/create_user', {
+
+                                       //  adjust IP address for API here
+      const response = await fetch('http://10.28.4.234:8080/api/user/create_user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userData)
-      });
+      })
+      .then(response => response.json())
+      .then(data => console.log("Success:", data))
+      .then(error => console.error("Error:", error));
 
-      const result = await response.json();
+    //  const result = await response.json();
 
-      if (response.ok) {
-        Alert.alert('Success', 'User registered successfully!');
-      } else {
-        Alert.alert('Error', result.error || 'Failed to register user.');
-      }
+    //  if (response.ok) {
+    //    Alert.alert('Success', 'User registered successfully!');
+      //} else {
+        //Alert.alert('Error', result.error || 'Failed to register user.');
+      //}
+      
     } catch (error) {
-      Alert.alert('Error', 'Could not connect to the server.');
+      console.log(error,'Error', error);
     }
+      
   };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Register</Text>
-      <TextInput style={styles.input} placeholder="First Name" onChangeText={text => handleChange('first_name', text)} /> {/* Limit to 20 chars*/}
-      <TextInput style={styles.input} placeholder="Last Name" onChangeText={text => handleChange('last_name', text)} /> {/* Limit to 30 chars*/}
-      <TextInput style={styles.input} placeholder="Email" keyboardType = "email-address" onChangeText={text => handleChange('email', text)} />
-      <TextInput style={styles.input} placeholder="Username" onChangeText={text => handleChange('username', text)} /> {/* Limit to 20 chars*/}
+      <TextInput style={styles.input} placeholder="First Name" onChangeText={text => handleChange('first_name', text)} /> // Limit to 20 chars
+      <TextInput style={styles.input} placeholder="Last Name" onChangeText={text => handleChange('last_name', text)} /> // Limit to 30 chars
+      <TextInput keyboardType = "email-address" style={styles.input} placeholder="Email" onChangeText={text => handleChange('email', text)} />
+      <TextInput style={styles.input} placeholder="Username" onChangeText={text => handleChange('username', text)} /> // Limit to 20 chars
       <TextInput style={styles.input} placeholder="Password" secureTextEntry onChangeText={text => handleChange('password', text)} />
-      <TextInput style={styles.input} placeholder="Date of Birth (YYYY-MM-DD)" onChangeText={text => handleChange('dob', text)} /> {/* Change to date picker*/}
-      <TextInput style={styles.input} placeholder="Sex (M/F)" maxLength={1} onChangeText={text => handleChange('sex', text)} /> {/* Limit to 1 char, Make sure F or M*/}
-      <TextInput style={styles.input} placeholder="Height (in inches)" keyboardType="numeric" onChangeText={text => handleChange('height', text)} /> {/* Height should be changed. Seperate feet and inches*/}
+
+      <TextInput style={styles.input} placeholder="Date of Birth (YYYY-MM-DD)" onChangeText={text => handleChange('dob', text)} />
+      <TextInput style={styles.input} placeholder="Sex (Male/Female)" maxLength={1} onChangeText={text => handleChange('sex', text)} />
+      <TextInput style={styles.input} placeholder="Height" keyboardType="numeric" onChangeText={text => handleChange('height', text)} />
       <TextInput style={styles.input} placeholder="Weight (in lbs)" keyboardType="numeric" onChangeText={text => handleChange('weight', text)} />
       <Button title="Register" onPress={handleSubmit} />
     </View>
@@ -113,3 +629,5 @@ const styles = StyleSheet.create({
     borderRadius: 5
   }
 });
+
+*/

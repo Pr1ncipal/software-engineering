@@ -24,6 +24,27 @@
       ]
     },
     {
+      "endpoint": "/api/workout/get_exercises",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "backend": [
+        {
+          "url_pattern": "/get_exercises",
+          "encoding": "no-op",
+          "sd": "static",
+          "method": "GET",
+          "host": [
+            "http://workout:8080"
+          ],
+          "disable_host_sanitize": false
+        }
+      ],
+      "input_query_strings": [
+        "key",
+        "page"
+      ]
+    },
+    {
       "endpoint": "/api/workout/get_workouts",
       "method": "GET",
       "output_encoding": "json",

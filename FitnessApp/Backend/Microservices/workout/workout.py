@@ -2,6 +2,7 @@
 from flask import Flask, request, jsonify
 import requests
 import psycopg2
+from psycopg2 import sql
 import json
 from heuristic import main
 import jwt
@@ -9,23 +10,36 @@ import global_func
 import logging
 from workoutClass import Workout
 import WorkoutExceptions
+import base64
+import logging
+
+logging.basicConfig(filename='workout.log', level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
 app.register_blueprint(main)
 
-def insert_into_db(data, user_id):
+def insert_into_db(data, user_id, conn = None):
     try:
-        connection = psycopg2.connect(global_func.DATABASE_URL)
+        if not conn:
+            connection = global_func.getConnection()
+        else:
+            connection = conn
         cursor = connection.cursor()
         
         # Assuming the JSON data has 'exercise_name' and 'calories_burned' fields
-        insert_query = """INSERT INTO workouts (user_id, workout_type, notes, average_heart_rate, total_weight_lifted) VALUES (%d, %s, %s, %d, %d) returning id"""
-        cursor.execute(insert_query, (user_id, data['workoutType'], data['notes'], data['averageHeartRate'], data['totalWeightLifted']))
+        insert_query = sql.SQL("""INSERT INTO workouts (user_id, workout_type, notes, average_heart_rate) VALUES (%s, %s, %s, %s) returning id""")
+        
+        # Need to determine total_weight_lifted or delete it
+        
+        #logger.debug(f"Data: {insert_query}", user_id, data['workoutType'], data['notes'], data['averageHeartRate'])
+        
+        cursor.execute(insert_query, (str(user_id), data['workoutType'], data['notes'], str(data['averageHeartRate'])))
         
         wid = cursor.fetchone()[0]
         
-        connection.commit()
+        connection.commit() #Gets past here
         
         reps = '{'
         setType = '{'
@@ -40,7 +54,7 @@ def insert_into_db(data, user_id):
                     weight += ', '
                     pd += ', '
                 reps += str(exercise['reps'][i]) 
-                setType += exercise['setType'][i]
+                setType += f"\'{exercise['setType'][i]}\'"
                 weight += str(exercise['weight'][i])
                 pd += str(exercise['percievedDifficulty'][i])
                 
@@ -49,14 +63,17 @@ def insert_into_db(data, user_id):
             weight += '}'
             pd += '}'
             
-            insert_query = """INSERT INTO workout_exercises (workout_id, exercise_id, sets, notes) VALUES (%d, %d, (%s, %s, %s, %s, %s), %s)""" #Workout ID, exercise ID, (sets, reps, setType, weight, percieved Difficulty), notes
-            cursor.execute(insert_query, (wid, exercise['exercise_id'], reps, setType, weight, pd, exercise['superset'], exercise['notes'])) #going to need to check for superset
+            insert_query = sql.SQL("""INSERT INTO workout_exercises (workout_id, exercise_id, sets, notes) VALUES (%s, %s, ROW(%s, %s, %s, %s, %s), %s)""") #Workout ID, exercise ID, (sets, reps, setType, weight, percieved Difficulty), notes
+            
+            #logger.debug(f"Data: {insert_query}", args = (str(wid), str(exercise['exerciseID']), reps, setType, weight, pd, exercise['notes']))
+            
+            cursor.execute(insert_query, (wid, exercise['exerciseID'], exercise['reps'], exercise['weight'], exercise['percievedDifficulty'], exercise['superset'], exercise['setType'], exercise['notes'])) #going to need to check for superset
             connection.commit()
         cursor.close()
         connection.close()
         return True
     except Exception as error:
-        print(f"Error inserting into database: {error}")
+        logger.critical(f"Error inserting into database: {error}")
         return False
 
 def getConnection():
@@ -70,7 +87,8 @@ def verify_key(key, conn=None):
     if not conn:
         conn = getConnection()
     cur = conn.cursor()
-    cur.execute("SELECT id FROM users WHERE key = %s", (key,))
+    get_id_query = sql.SQL("SELECT id FROM users WHERE key = %s")
+    cur.execute(get_id_query, (key,))
     result = cur.fetchone()
     
     if result:
@@ -91,9 +109,12 @@ def get_data_jwt(request):
         try:
             payload = jwt.decode(token["token"], options = {"verify_signature": False})
         
-            key = verify_key(payload['key'])
+            key = verify_key(base64.b64decode(payload['key']).decode('utf-8'))
+            
+            if not key:
+                return "Invalid User, Key: " + base64.b64decode(payload['key']).decode(), None
         
-            decoded = jwt.decode(token['token'], payload['key'], algorithms=['HS256'])
+            decoded = jwt.decode(token['token'], base64.b64decode(payload['key']).decode(), algorithms=['HS256'])
             return decoded , key
         except jwt.ExpiredSignatureError:
             return "Expired Signiture", None
@@ -124,13 +145,13 @@ def add_exercise():
             if yes:
                 return jsonify({"message": "Workout Saved Successfully"}), 201
             else:
-                return jsonify({"message": "Workout Save failed"}), 400
+                return jsonify({"message": "Workout Save failed 2"}), 400 #Attempted to insert into database but failed
         else:
-            return jsonify({"message": "Workout Save failed"}), 400
+            return jsonify({"message": "Workout Save failed 1"}), 400
     
     except Exception as error:
         print(f"Error inserting into database: {error}")
-        return jsonify({"message": "Workout Save failed"}), 400
+        return jsonify({"message": "Workout Save failed 3", "Error": {error}}), 400
     
 @app.route('/get_workouts', methods=['GET'])
 def get_workouts():
@@ -148,9 +169,10 @@ def get_workouts():
 
 @app.route('/get_exercises', methods=['GET']) #Will require multiple calls to get all exercises (Limit 50)
 def get_exercises():
-    key = verify_key(request.args.get('key')) #Assuming the key is passed as a query parameter, May need to edit
+    key = verify_key(base64.b64decode(request.args.get('key'))) #Assuming the key is passed as a query parameter, May need to edit
+    logger.debug(f"Key: {request.args.get('key')}")
     page = request.args.get('page')
-    if not page:
+    if not page or page < 0:
         page = 0
         
     exercises = [] #Will hold all exercises to be sent
