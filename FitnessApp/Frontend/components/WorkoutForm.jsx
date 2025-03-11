@@ -14,12 +14,12 @@ export default function WorkoutForm() {
   const [exercises, setExercises] = useState([{
     exerciseID: Date.now(), // Using timestamp as temporary ID
     exerciseOrder: 1,
-    superset: -1, // -1 means not part of a superset
+    superset: '-1', // Changed to string to work better with TextInput
     exerciseName: '',
-    reps: [0],
+    reps: ['0'],
     setType: ['Normal'],
-    weight: [0],
-    perceivedDifficulty: [5],
+    weight: ['0'],
+    perceivedDifficulty: ['5'],
     exerciseNotes: ''
   }]);
 
@@ -31,12 +31,12 @@ export default function WorkoutForm() {
     setExercises([...exercises, {
       exerciseID: Date.now(),
       exerciseOrder: exercises.length + 1,
-      superset: -1,
+      superset: '-1',
       exerciseName: '',
-      reps: [0],
+      reps: ['0'],
       setType: ['Normal'],
-      weight: [0],
-      perceivedDifficulty: [5],
+      weight: ['0'],
+      perceivedDifficulty: ['5'],
       exerciseNotes: ''
     }]);
   };
@@ -44,10 +44,10 @@ export default function WorkoutForm() {
   // Add a new set to an exercise
   const addSet = (exerciseIndex) => {
     const updatedExercises = [...exercises];
-    updatedExercises[exerciseIndex].reps.push(0);
+    updatedExercises[exerciseIndex].reps.push('0');
     updatedExercises[exerciseIndex].setType.push('Normal');
-    updatedExercises[exerciseIndex].weight.push(0);
-    updatedExercises[exerciseIndex].perceivedDifficulty.push(5);
+    updatedExercises[exerciseIndex].weight.push('0');
+    updatedExercises[exerciseIndex].perceivedDifficulty.push('5');
     setExercises(updatedExercises);
   };
 
@@ -61,7 +61,7 @@ export default function WorkoutForm() {
   // Update set values
   const updateSetField = (exerciseIndex, field, setIndex, value) => {
     const updatedExercises = [...exercises];
-    updatedExercises[exerciseIndex][field][setIndex] = field === 'setType' ? value : Number(value);
+    updatedExercises[exerciseIndex][field][setIndex] = value;
     setExercises(updatedExercises);
   };
 
@@ -89,18 +89,28 @@ export default function WorkoutForm() {
     }
   };
 
-  // Handle form submission
+  // Parse numeric values before submission
+  const parseNumericValues = (data) => {
+    return {
+      ...data,
+      superset: parseInt(data.superset) || -1,
+      reps: data.reps.map(rep => parseInt(rep) || 0),
+      weight: data.weight.map(w => parseFloat(w) || 0),
+      perceivedDifficulty: data.perceivedDifficulty.map(diff => parseInt(diff) || 5)
+    };
+  };
+
   const handleSubmit = async () => {
     if (!userName) {
       Alert.alert('Error', 'Please enter a user name');
       return;
     }
-
+  
     if (exercises.some(ex => !ex.exerciseName)) {
       Alert.alert('Error', 'Please name all exercises');
       return;
     }
-
+  
     // Prepare the workout data
     const workoutData = {
       user: userName,
@@ -108,7 +118,7 @@ export default function WorkoutForm() {
       notes: notes,
       averageHeartRate: heartRate ? Number(heartRate) : 0,
       totalWeightLifted: totalWeight ? Number(totalWeight) : 0,
-      exercises: exercises.map(ex => ({
+      exercises: exercises.map(ex => parseNumericValues({
         exerciseID: ex.exerciseID,
         exerciseOrder: ex.exerciseOrder,
         superset: ex.superset,
@@ -120,24 +130,27 @@ export default function WorkoutForm() {
         exerciseNotes: ex.exerciseNotes
       }))
     };
-
+  
     try {
-      // Log the JSON for now
-      console.log('Workout data submitted:', JSON.stringify(workoutData, null, 2));
-
-      // Show the JSON in an alert for debug purposes
-      Alert.alert('JSON Data', JSON.stringify(workoutData, null, 2));
-      
-      // For now, show a success message
-      Alert.alert('Success', 'Workout data submitted successfully!');
-
-      // Reset form (optional)
-      // resetForm();
+      // Send workout data to the server
+      const response = await fetch('http://localhost:8080/api/create_workout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(workoutData)
+      });
+  
+      const result = await response.json();
+  
+      if (response.ok) {
+        Alert.alert('Success', 'Workout data submitted successfully!');
+      } else {
+        Alert.alert('Error', result.error || 'Failed to submit workout data.');
+      }
     } catch (error) {
-      console.error('Error submitting workout data:', error);
-      Alert.alert('Error', 'Something went wrong while submitting the data');
+      Alert.alert('Error', 'Could not connect to the server.');
     }
   };
+  
 
   // Reset the form
   const resetForm = () => {
@@ -149,12 +162,12 @@ export default function WorkoutForm() {
     setExercises([{
       exerciseID: Date.now(),
       exerciseOrder: 1,
-      superset: -1,
+      superset: '-1',
       exerciseName: '',
-      reps: [0],
+      reps: ['0'],
       setType: ['Normal'],
-      weight: [0],
-      perceivedDifficulty: [5],
+      weight: ['0'],
+      perceivedDifficulty: ['5'],
       exerciseNotes: ''
     }]);
   };
@@ -243,8 +256,8 @@ export default function WorkoutForm() {
                 style={styles.input}
                 placeholder="Superset"
                 keyboardType="numeric"
-                value={exercise.superset.toString()}
-                onChangeText={(value) => updateExerciseField(exerciseIndex, 'superset', Number(value))}
+                value={exercise.superset}
+                onChangeText={(value) => updateExerciseField(exerciseIndex, 'superset', value)}
               />
             </View>
           </View>
@@ -278,7 +291,7 @@ export default function WorkoutForm() {
                     style={styles.input}
                     placeholder="Reps"
                     keyboardType="numeric"
-                    value={exercise.reps[setIndex].toString()}
+                    value={exercise.reps[setIndex]}
                     onChangeText={(value) => updateSetField(exerciseIndex, 'reps', setIndex, value)}
                   />
                 </View>
@@ -289,7 +302,7 @@ export default function WorkoutForm() {
                     style={styles.input}
                     placeholder="Weight"
                     keyboardType="numeric"
-                    value={exercise.weight[setIndex].toString()}
+                    value={exercise.weight[setIndex]}
                     onChangeText={(value) => updateSetField(exerciseIndex, 'weight', setIndex, value)}
                   />
                 </View>
@@ -317,10 +330,10 @@ export default function WorkoutForm() {
                     style={styles.input}
                     placeholder="Difficulty (1-10)"
                     keyboardType="numeric"
-                    value={exercise.perceivedDifficulty[setIndex].toString()}
+                    value={exercise.perceivedDifficulty[setIndex]}
                     onChangeText={(value) => {
-                      const numValue = Number(value);
-                      if (numValue >= 1 && numValue <= 10) {
+                      const numValue = parseInt(value) || 0;
+                      if ((numValue >= 1 && numValue <= 10) || value === '') {
                         updateSetField(exerciseIndex, 'perceivedDifficulty', setIndex, value);
                       }
                     }}
@@ -362,75 +375,85 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
+    backgroundColor: '#f4f4f9', // Soft background color
   },
   title: {
-    fontSize: 24,
+    fontSize: 26,
     marginBottom: 20,
     textAlign: 'center',
-    fontWeight: 'bold',
+    fontWeight: '600',
+    color: '#2c3e50', // Darker text color
   },
   section: {
     marginBottom: 20,
-    backgroundColor: '#f9f9f9',
-    padding: 15,
-    borderRadius: 10,
+    backgroundColor: '#ffffff', // White background for sections
+    padding: 20,
+    borderRadius: 15,
+    shadowColor: '#000', // Subtle shadow for depth
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 20,
     marginBottom: 10,
-    fontWeight: 'bold',
+    fontWeight: '500',
+    color: '#34495e', // Muted color for titles
   },
   input: {
-    height: 40,
-    borderColor: 'gray',
+    height: 45,
+    borderColor: '#ced6e0', // Lighter border color
     borderWidth: 1,
-    marginBottom: 10,
-    paddingLeft: 10,
-    borderRadius: 5,
-    backgroundColor: 'white',
+    marginBottom: 15,
+    paddingLeft: 12,
+    borderRadius: 10,
+    backgroundColor: '#ecf0f1', // Light gray input background
+    fontSize: 16,
   },
   textArea: {
-    height: 80,
-    borderColor: 'gray',
+    height: 100,
+    borderColor: '#ced6e0',
     borderWidth: 1,
-    marginBottom: 10,
-    paddingLeft: 10,
-    paddingTop: 10,
-    borderRadius: 5,
+    marginBottom: 15,
+    paddingLeft: 12,
+    paddingTop: 12,
+    borderRadius: 10,
     textAlignVertical: 'top',
-    backgroundColor: 'white',
+    backgroundColor: '#ecf0f1',
+    fontSize: 16,
   },
   pickerContainer: {
-    marginBottom: 10,
+    marginBottom: 15,
   },
   pickerWrapper: {
-    borderColor: 'gray',
+    borderColor: '#ced6e0',
     borderWidth: 1,
-    borderRadius: 5,
-    backgroundColor: 'white',
-    height: 40,
+    borderRadius: 10,
+    backgroundColor: '#ecf0f1',
+    height: 45,
     justifyContent: 'center',
   },
   setTypePickerWrapper: {
-    borderColor: 'gray',
+    borderColor: '#ced6e0',
     borderWidth: 1,
-    borderRadius: 5,
-    backgroundColor: 'white',
-    height: 40,
+    borderRadius: 10,
+    backgroundColor: '#ecf0f1',
+    height: 45,
     justifyContent: 'center',
   },
   picker: {
-    height: 40,
-    backgroundColor: 'white',
+    height: 45,
+    backgroundColor: '#ecf0f1',
   },
   label: {
-    marginBottom: 5,
+    marginBottom: 8,
     fontWeight: '500',
+    color: '#7f8c8d', // Subtle color for labels
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   halfInput: {
     width: '48%',
@@ -443,9 +466,13 @@ const styles = StyleSheet.create({
   },
   exerciseContainer: {
     marginBottom: 20,
-    backgroundColor: '#f0f0f0',
-    padding: 15,
-    borderRadius: 10,
+    backgroundColor: '#ffffff',
+    padding: 20,
+    borderRadius: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
   },
   exerciseHeader: {
     flexDirection: 'row',
@@ -454,10 +481,10 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   removeButton: {
-    backgroundColor: '#ff6b6b',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 5,
+    backgroundColor: '#e74c3c', // Red button for remove
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
   },
   removeButtonText: {
     color: 'white',
@@ -465,11 +492,15 @@ const styles = StyleSheet.create({
   },
   setContainer: {
     marginVertical: 5,
-    backgroundColor: 'white',
-    padding: 10,
-    borderRadius: 5,
+    backgroundColor: '#ffffff',
+    padding: 15,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#ddd',
+    shadowColor: '#bdc3c7',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
   },
   setHeader: {
     flexDirection: 'row',
@@ -479,9 +510,11 @@ const styles = StyleSheet.create({
   },
   setTitle: {
     fontWeight: 'bold',
+    fontSize: 16,
+    color: '#2c3e50', // Darker color for set title
   },
   removeSetButton: {
-    backgroundColor: '#ff6b6b',
+    backgroundColor: '#e74c3c',
     width: 24,
     height: 24,
     borderRadius: 12,
@@ -489,30 +522,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   addButton: {
-    backgroundColor: '#4ecdc4',
-    padding: 10,
-    borderRadius: 5,
+    backgroundColor: '#1abc9c', // Soft teal for add button
+    padding: 15,
+    borderRadius: 10,
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 15,
   },
   addExerciseButton: {
-    backgroundColor: '#1e90ff',
+    backgroundColor: '#3498db', // Blue for add exercise button
     padding: 15,
-    borderRadius: 5,
+    borderRadius: 10,
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 25,
   },
   addButtonText: {
     color: 'white',
     fontWeight: 'bold',
+    fontSize: 16,
   },
   submitContainer: {
     marginBottom: 40,
   },
   submitButton: {
-    backgroundColor: '#28a745',
+    backgroundColor: '#27ae60', // Green submit button
     padding: 15,
-    borderRadius: 5,
+    borderRadius: 10,
     alignItems: 'center',
   },
   submitButtonText: {
