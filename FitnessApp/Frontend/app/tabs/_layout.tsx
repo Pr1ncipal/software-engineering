@@ -15,6 +15,18 @@ export default function TabsLayout() {
         headerTitle: "Family Management",
         headerLeft: () => <></>
       } } />
+      <Tabs.Screen name = "settings_page" options = { {
+        headerTitle: "settings page",
+        headerLeft: () => <></>
+      } } />
+      <Tabs.Screen name = "profile_page" options = { {
+        headerTitle: "profile page",
+        headerLeft: () => <></>
+      } } />
+      <Tabs.Screen name = "all_activities" options = { {
+        headerTitle: "activities page (ref: profile)",
+        headerLeft: () => <></>
+      } } />
     </Tabs>
   );
 }
