@@ -1,3 +1,6 @@
+// TO EXECUTE -- INSTALL crypto hash
+// npm install crypto-js 
+
 import React, { useState, useEffect } from 'react';
 import { View, TextInput, Button, Text, Alert, StyleSheet, ScrollView, Platform, SafeAreaView, Dimensions } from 'react-native';
 // import { API_URL } from './globals';
