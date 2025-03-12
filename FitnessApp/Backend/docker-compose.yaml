@@ -1,59 +1,50 @@
-# This should be the final docker file that creates the backend service
-# This file should be run in the root directory of the backend
-# This file should be run after all the Dockerfiles have been created
-
-#Execution Command: docker-compose up
-
-version: '3.7'
-
 services:
-  app1:
+  krakend:
+    container_name: krakend
     build:
-      context: .
+      context: ./API_gateway
       dockerfile: Dockerfile
     ports:
-      - "5000:5000"
-    volumes:
-      - .:/app
-    depends_on:
-      - db
-    environment:
-      - FLASK_APP=app.py
-      - FLASK_ENV=development
-      - FLASK_DEBUG=1
-      - DATABASE_URL=postgresql://postgres:password@db:5432/postgres
-  app2:
+      - "8080:8080"
+    networks:
+      - private-network
+      - public-network
+
+  postgres:
+    container_name: postgres
     build:
-      context: .
+      context: ./database
       dockerfile: Dockerfile
     ports:
-      - "5001:5000"
-    volumes:
-      - .:/app
+      - "5432:5432"
+    networks:
+      - private-network
+
+  workout:
+    container_name: workout
     depends_on:
-      - db
-    environment:
-      - FLASK_APP=app.py
-      - FLASK_ENV=development
-      - FLASK_DEBUG=1
-      - DATABASE_URL=postgresql://postgres:password@db:5432/postgres
+      - postgres
+    build: 
+      context: ./Microservices/workout
+      dockerfile: Dockerfile
+    networks:
+      - private-network
   
-  app3:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    ports:
-      - "5002:5000"
-    volumes:
-      - .:/app
+  user:
+    container_name: user
     depends_on:
-      - db
-    environment:
-      - FLASK_APP=app.py
-      - FLASK_ENV=development
-      - FLASK_DEBUG=1
-      - DATABASE_URL=postgresql://postgres:password@db:5432/postgres
+      - postgres
+    ports:
+      - "8080:8080"
+    build: 
+      context: ./Microservices/user
+      dockerfile: Dockerfile
+    networks:
+      - private-network
+
 networks:
-  private_net:
+  private-network:
     driver: bridge
-    
+    internal: true
+  public-network:
+    driver: bridge

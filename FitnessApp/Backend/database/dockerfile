@@ -1,0 +1,15 @@
+FROM postgres:latest
+
+ENV POSTGRES_PASSWORD password
+
+ENV POSTGRES_DB gitfitbro
+
+ENV POSTGRES_USER postgres
+
+
+COPY gitfitbro.pgsql /docker-entrypoint-initdb.d/gitfitbro.sql
+COPY gitfitbro.pgsql /tmp/gitfitbro.sql
+
+EXPOSE 5432
+
+CMD [ "postgres" ]

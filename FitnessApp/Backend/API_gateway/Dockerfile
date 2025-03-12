@@ -1,7 +1,9 @@
 FROM devopsfaith/krakend
 
+RUN apk upgrade --no-cache --no-interactive
+
 # Copy the krakend configuration file
-COPY /FitnessApp/Backend/API_gateway/krakend.json /etc/krakend/krakend.json
+COPY /krakend.json /etc/krakend/krakend.json
 
 # Expose the port the app runs on
 EXPOSE 8080
