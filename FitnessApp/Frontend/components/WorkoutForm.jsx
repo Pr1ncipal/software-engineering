@@ -1,281 +1,531 @@
-import React, { useState, useEffect } from 'react';
-import { View, TextInput, Button, StyleSheet, Text, Alert, FlatList } from 'react-native';
+import React, { useState } from 'react';
+import { View, TextInput, Button, StyleSheet, Text, Alert, ScrollView, TouchableOpacity } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 
-const API_URL = 'http://localhost:8080'; // Replace with your actual API URL
-
 export default function WorkoutForm() {
-  const [exercises, setExercises] = useState([{ lift: '', sets: '', reps: '', percivedDiff: '5', setType: 'normal', superset: null }]);
-  const [workouts, setWorkouts] = useState([]);
-  const [showSupersetPicker, setShowSupersetPicker] = useState(null);
+  // User and workout metadata
+  const [userName, setUserName] = useState('');
+  const [workoutType, setWorkoutType] = useState('Strength');
+  const [notes, setNotes] = useState('');
+  const [heartRate, setHeartRate] = useState('');
+  const [totalWeight, setTotalWeight] = useState('');
+  
+  // Exercises array
+  const [exercises, setExercises] = useState([{
+    exerciseID: Date.now(), // Using timestamp as temporary ID
+    exerciseOrder: 1,
+    superset: '-1', // Changed to string to work better with TextInput
+    exerciseName: '',
+    reps: ['0'],
+    setType: ['Normal'],
+    weight: ['0'],
+    perceivedDifficulty: ['5'],
+    exerciseNotes: ''
+  }]);
 
-  // Fetch all workouts when the component mounts
-  useEffect(() => {
-    const fetchWorkouts = async () => {
-      try {
-        const response = await fetch(`${API_URL}/api/workout/get_exercises`);
-        const data = await response.json();
-        setWorkouts(data);
-      } catch (error) {
-        console.error('Error fetching workouts:', error);
-        Alert.alert('Error', 'Something went wrong while fetching workouts');
-      }
+  // Set types for dropdown
+  const setTypes = ['Warmup', 'Normal', 'Drop', 'Failure'];
+
+  // Difficulty options for the Picker
+  const difficultyOptions = [1, 2, 3, 4, 5];
+
+  // Add a new exercise to the list
+  const addExercise = () => {
+    setExercises([...exercises, {
+      exerciseID: Date.now(),
+      exerciseOrder: exercises.length + 1,
+      superset: '-1',
+      exerciseName: '',
+      reps: ['0'],
+      setType: ['Normal'],
+      weight: ['0'],
+      perceivedDifficulty: ['5'],
+      exerciseNotes: ''
+    }]);
+  };
+
+  // Add a new set to an exercise
+  const addSet = (exerciseIndex) => {
+    const updatedExercises = [...exercises];
+    updatedExercises[exerciseIndex].reps.push('0');
+    updatedExercises[exerciseIndex].setType.push('Normal');
+    updatedExercises[exerciseIndex].weight.push('0');
+    updatedExercises[exerciseIndex].perceivedDifficulty.push('5');
+    setExercises(updatedExercises);
+  };
+
+  // Update exercise values
+  const updateExerciseField = (exerciseIndex, field, value) => {
+    const updatedExercises = [...exercises];
+    updatedExercises[exerciseIndex][field] = value;
+    setExercises(updatedExercises);
+  };
+
+  // Update set values
+  const updateSetField = (exerciseIndex, field, setIndex, value) => {
+    const updatedExercises = [...exercises];
+    updatedExercises[exerciseIndex][field][setIndex] = value;
+    setExercises(updatedExercises);
+  };
+
+  // Remove an exercise
+  const removeExercise = (exerciseIndex) => {
+    const updatedExercises = exercises.filter((_, index) => index !== exerciseIndex);
+    // Update order numbers
+    updatedExercises.forEach((exercise, index) => {
+      exercise.exerciseOrder = index + 1;
+    });
+    setExercises(updatedExercises);
+  };
+
+  // Remove a set
+  const removeSet = (exerciseIndex, setIndex) => {
+    if (exercises[exerciseIndex].reps.length > 1) {
+      const updatedExercises = [...exercises];
+      updatedExercises[exerciseIndex].reps.splice(setIndex, 1);
+      updatedExercises[exerciseIndex].setType.splice(setIndex, 1);
+      updatedExercises[exerciseIndex].weight.splice(setIndex, 1);
+      updatedExercises[exerciseIndex].perceivedDifficulty.splice(setIndex, 1);
+      setExercises(updatedExercises);
+    } else {
+      Alert.alert('Cannot Remove', 'Each exercise must have at least one set');
+    }
+  };
+
+  // Parse numeric values before submission
+  const parseNumericValues = (data) => {
+    return {
+      ...data,
+      superset: parseInt(data.superset) || -1,
+      reps: data.reps.map(rep => parseInt(rep) || 0),
+      weight: data.weight.map(w => parseFloat(w) || 0),
+      perceivedDifficulty: data.perceivedDifficulty.map(diff => parseInt(diff) || 5)
     };
+  };
 
-    fetchWorkouts();
-  }, []);
-
-  // Handle form submission
   const handleSubmit = async () => {
-    if (exercises.some(exercise => !exercise.lift || !exercise.sets || !exercise.reps)) {
-      // Show an error if any fields are empty
-      Alert.alert('Error', 'Please fill out all fields for each exercise');
+    if (!userName) {
+      Alert.alert('Error', 'Please enter a user name');
       return;
     }
-
+  
+    if (exercises.some(ex => !ex.exerciseName)) {
+      Alert.alert('Error', 'Please name all exercises');
+      return;
+    }
+  
+    // Prepare the workout data
+    const workoutData = {
+      user: userName,
+      workoutType: workoutType,
+      notes: notes,
+      averageHeartRate: heartRate ? Number(heartRate) : 0,
+      totalWeightLifted: totalWeight ? Number(totalWeight) : 0,
+      exercises: exercises.map(ex => parseNumericValues({
+        exerciseID: ex.exerciseID,
+        exerciseOrder: ex.exerciseOrder,
+        superset: ex.superset,
+        exerciseName: ex.exerciseName,
+        reps: ex.reps,
+        setType: ex.setType,
+        weight: ex.weight,
+        perceivedDifficulty: ex.perceivedDifficulty,
+        exerciseNotes: ex.exerciseNotes
+      }))
+    };
+  
     try {
-      // Send the data to the backend
-      const response = await fetch(`${API_URL}/api/workout/add_workout`, {
+      // Send workout data to the server
+      const response = await fetch('http://localhost:8080/api/create_workout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(exercises),
+        body: JSON.stringify(workoutData)
       });
-
+  
+      const result = await response.json();
+  
       if (response.ok) {
-        // Show a success message
         Alert.alert('Success', 'Workout data submitted successfully!');
-
-        // Clear the form
-        setExercises([{ lift: '', sets: '', reps: '', percivedDiff: '5', setType: 'normal', superset: null }]);
-
-        // Fetch the updated list of workouts
-        fetchWorkouts();
       } else {
-        Alert.alert('Error', 'Failed to submit workout data');
+        Alert.alert('Error', result.error || 'Failed to submit workout data.');
       }
     } catch (error) {
-      console.error('Error submitting workout data:', error);
-      Alert.alert('Error', 'Something went wrong while submitting the data');
+      Alert.alert('Error', 'Could not connect to the server.');
     }
   };
 
-  const handleInputChange = (index, field, value) => {
-    const newExercises = [...exercises];
-    newExercises[index][field] = value;
-    setExercises(newExercises);
-  };
-
-  const addExercise = () => {
-    setExercises([...exercises, { lift: '', sets: '', reps: '', percivedDiff: '5', setType: 'normal', superset: null }]);
-  };
-
-  const startConnectSuperset = (index) => {
-    setShowSupersetPicker(index);
-  };
-
-  const connectSuperset = (sourceIndex, targetIndex) => {
-    if (sourceIndex === targetIndex) {
-      setShowSupersetPicker(null);
-      return;
-    }
-
-    // Create a copy of exercises
-    let newExercises = [...exercises];
-    
-    // Connect the exercises
-    newExercises[sourceIndex].superset = targetIndex;
-    newExercises[targetIndex].superset = sourceIndex;
-    
-    // Reorder exercises to group supersets together
-    // If the target is below the source, move it right after the source
-    if (targetIndex > sourceIndex) {
-      const targetExercise = newExercises[targetIndex];
-      newExercises.splice(targetIndex, 1); // Remove target from its position
-      newExercises.splice(sourceIndex + 1, 0, targetExercise); // Insert after source
-      
-      // Update superset references after reordering
-      for (let i = 0; i < newExercises.length; i++) {
-        if (newExercises[i].superset !== null) {
-          // Find the new index of the superset partner
-          for (let j = 0; j < newExercises.length; j++) {
-            if (i !== j && 
-                ((sourceIndex === newExercises[i].superset && targetIndex === j) || 
-                 (targetIndex === newExercises[i].superset && sourceIndex === j))) {
-              newExercises[i].superset = j;
-              break;
-            }
-          }
-        }
-      }
-    }
-    
-    setExercises(newExercises);
-    setShowSupersetPicker(null);
+  // Reset the form
+  const resetForm = () => {
+    setUserName('');
+    setWorkoutType('Strength');
+    setNotes('');
+    setHeartRate('');
+    setTotalWeight('');
+    setExercises([{
+      exerciseID: Date.now(),
+      exerciseOrder: 1,
+      superset: '-1',
+      exerciseName: '',
+      reps: ['0'],
+      setType: ['Normal'],
+      weight: ['0'],
+      perceivedDifficulty: [''],
+      exerciseNotes: ''
+    }]);
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container}>
       <Text style={styles.title}>Log Your Workout</Text>
 
-      {exercises.map((exercise, index) => (
-        <View key={index} style={[
-          styles.exerciseContainer, 
-          exercise.superset !== null ? styles.supersetContainer : null
-        ]}>
-          <TextInput
-            style={styles.input}
-            placeholder="Lift (e.g., Bench Press)"
-            value={exercise.lift}
-            onChangeText={(value) => handleInputChange(index, 'lift', value)}
-          />
+      {/* User and Workout Info */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Workout Info</Text>
+        
+        <TextInput
+          style={styles.input}
+          placeholder="User Name"
+          value={userName}
+          onChangeText={setUserName}
+        />
+        
+        <View style={styles.pickerContainer}>
+          <Text style={styles.label}>Workout Type</Text>
+          <View style={styles.pickerWrapper}>
+            <Picker
+              selectedValue={workoutType}
+              onValueChange={setWorkoutType}
+              style={styles.picker}
+            >
+              <Picker.Item label="Strength" value="Strength" />
+              <Picker.Item label="Cardio" value="Cardio" />
+              <Picker.Item label="Flexibility" value="Flexibility" />
+              <Picker.Item label="HIIT" value="HIIT" />
+            </Picker>
+          </View>
+        </View>
+        
+        <TextInput
+          style={styles.input}
+          placeholder="Average Heart Rate"
+          keyboardType="numeric"
+          value={heartRate}
+          onChangeText={setHeartRate}
+        />
+        
+        <TextInput
+          style={styles.input}
+          placeholder="Total Weight Lifted (kg)"
+          keyboardType="numeric"
+          value={totalWeight}
+          onChangeText={setTotalWeight}
+        />
+        
+        <TextInput
+          style={styles.textArea}
+          placeholder="Workout Notes"
+          multiline
+          numberOfLines={4}
+          value={notes}
+          onChangeText={setNotes}
+        />
+      </View>
+
+      {/* Exercises */}
+      {exercises.map((exercise, exerciseIndex) => (
+        <View key={exercise.exerciseID} style={styles.exerciseContainer}>
+          <View style={styles.exerciseHeader}>
+            <Text style={styles.sectionTitle}>Exercise {exercise.exerciseOrder}</Text>
+            <TouchableOpacity 
+              style={styles.removeButton}
+              onPress={() => removeExercise(exerciseIndex)}
+            >
+              <Text style={styles.removeButtonText}>Remove</Text>
+            </TouchableOpacity>
+          </View>
 
           <TextInput
             style={styles.input}
-            placeholder="Sets"
-            keyboardType="numeric"
-            value={exercise.sets}
-            onChangeText={(value) => handleInputChange(index, 'sets', value)}
+            placeholder="Exercise Name (e.g., Bench Press)"
+            value={exercise.exerciseName}
+            onChangeText={(value) => updateExerciseField(exerciseIndex, 'exerciseName', value)}
           />
 
-          <TextInput
-            style={styles.input}
-            placeholder="Reps"
-            keyboardType="numeric"
-            value={exercise.reps}
-            onChangeText={(value) => handleInputChange(index, 'reps', value)}
-          />
-
-          <Text>Perceived Difficulty:</Text>
-          <Picker
-            selectedValue={exercise.percivedDiff}
-            style={styles.picker}
-            onValueChange={(value) => handleInputChange(index, 'percivedDiff', value)}
-          >
-            <Picker.Item label="5 (Easy)" value="5" />
-            <Picker.Item label="6" value="6" />
-            <Picker.Item label="7" value="7" />
-            <Picker.Item label="8" value="8" />
-            <Picker.Item label="9" value="9" />
-            <Picker.Item label="10 (Hard)" value="10" />
-          </Picker>
-
-          <Text>Set Type:</Text>
-          <Picker
-            selectedValue={exercise.setType}
-            style={styles.picker}
-            onValueChange={(value) => handleInputChange(index, 'setType', value)}
-          >
-            <Picker.Item label="Warmup" value="warmup" />
-            <Picker.Item label="Normal" value="normal" />
-            <Picker.Item label="Failure" value="failure" />
-            <Picker.Item label="Drop" value="drop" />
-          </Picker>
-
-          {exercise.superset !== null ? (
-            <View style={styles.supersetInfo}>
-              <Text style={styles.supersetText}>
-                Superset with: {exercises[exercise.superset]?.lift || `Exercise ${exercise.superset + 1}`}
-              </Text>
+          <View style={styles.row}>
+            <View style={styles.halfInput}>
+              <Text style={styles.label}>Superset Group (-1 for none)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Superset"
+                keyboardType="numeric"
+                value={exercise.superset}
+                onChangeText={(value) => updateExerciseField(exerciseIndex, 'superset', value)}
+              />
             </View>
-          ) : (
-            showSupersetPicker === index ? (
-              <View>
-                <Text>Select exercise to superset with:</Text>
+          </View>
+
+          <TextInput
+            style={styles.textArea}
+            placeholder="Exercise Notes"
+            multiline
+            numberOfLines={2}
+            value={exercise.exerciseNotes}
+            onChangeText={(value) => updateExerciseField(exerciseIndex, 'exerciseNotes', value)}
+          />
+
+          {/* Sets */}
+          {exercise.reps.map((_, setIndex) => (
+            <View key={setIndex} style={styles.setRow}>
+              <View style={styles.halfInput}>
+                <Text style={styles.label}>Reps</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Reps"
+                  keyboardType="numeric"
+                  value={exercise.reps[setIndex]}
+                  onChangeText={(value) => updateSetField(exerciseIndex, 'reps', setIndex, value)}
+                />
+              </View>
+
+              <View style={styles.halfInput}>
+                <Text style={styles.label}>Weight (kg)</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Weight"
+                  keyboardType="numeric"
+                  value={exercise.weight[setIndex]}
+                  onChangeText={(value) => updateSetField(exerciseIndex, 'weight', setIndex, value)}
+                />
+              </View>
+
+              <View style={styles.fullInput}>
+                <Text style={styles.label}>Perceived Difficulty (1-5)</Text>
                 <Picker
-                  selectedValue={null}
+                  selectedValue={exercise.perceivedDifficulty[setIndex]}
+                  onValueChange={(value) => updateSetField(exerciseIndex, 'perceivedDifficulty', setIndex, value)}
                   style={styles.picker}
-                  onValueChange={(targetIndex) => connectSuperset(index, parseInt(targetIndex))}
                 >
-                  <Picker.Item label="Select an exercise" value={null} />
-                  {exercises.map((ex, idx) => (
-                    idx !== index && ex.superset === null ? 
-                    <Picker.Item 
-                      key={idx} 
-                      label={ex.lift || `Exercise ${idx + 1}`} 
-                      value={idx.toString()} 
-                    /> : null
+                  {difficultyOptions.map((difficulty) => (
+                    <Picker.Item key={difficulty} label={`${difficulty}`} value={`${difficulty}`} />
                   ))}
                 </Picker>
-                <Button title="Cancel" onPress={() => setShowSupersetPicker(null)} />
               </View>
-            ) : (
-              <Button title="Connect Superset" onPress={() => startConnectSuperset(index)} />
-            )
-          )}
+
+              <TouchableOpacity 
+                style={styles.removeButton}
+                onPress={() => removeSet(exerciseIndex, setIndex)}
+              >
+                <Text style={styles.removeButtonText}>Remove Set</Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => addSet(exerciseIndex)}
+          >
+            <Text style={styles.addButtonText}>Add Set</Text>
+          </TouchableOpacity>
         </View>
       ))}
 
-      <Button title="Add Exercise" onPress={addExercise} />
-      <Button title="Submit Workout" onPress={handleSubmit} />
+      <TouchableOpacity 
+        style={styles.addButton}
+        onPress={addExercise}
+      >
+        <Text style={styles.addButtonText}>Add Exercise</Text>
+      </TouchableOpacity>
 
-      <Text style={styles.title}>Previous Workouts</Text>
-      <FlatList
-        data={workouts}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => (
-          <View style={styles.workoutItem}>
-            <Text>{item.lift}</Text>
-            <Text>Sets: {item.sets}</Text>
-            <Text>Reps: {item.reps}</Text>
-          </View>
-        )}
-      />
-    </View>
+      {/* Submit and Reset Buttons */}
+      <View style={styles.buttonsContainer}>
+        <Button title="Submit Workout" onPress={handleSubmit} />
+        <Button title="Reset Form" onPress={resetForm} />
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
     padding: 20,
+    backgroundColor: '#f4f4f9', // Soft background color
   },
   title: {
-    fontSize: 24,
+    fontSize: 26,
     marginBottom: 20,
     textAlign: 'center',
+    fontWeight: '600',
+    color: '#2c3e50', // Darker text color
+  },
+  section: {
+    marginBottom: 20,
+    backgroundColor: '#ffffff', // White background for sections
+    padding: 20,
+    borderRadius: 15,
+    shadowColor: '#000', // Subtle shadow for depth
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    marginBottom: 10,
+    fontWeight: '500',
+    color: '#34495e', // Muted color for titles
   },
   input: {
-    height: 40,
-    borderColor: 'gray',
+    height: 45,
+    borderColor: '#ced6e0', // Lighter border color
     borderWidth: 1,
-    marginBottom: 10,
-    paddingLeft: 10,
+    marginBottom: 15,
+    paddingLeft: 12,
+    borderRadius: 10,
+    backgroundColor: '#ecf0f1', // Light gray input background
+    fontSize: 16,
+  },
+  textArea: {
+    height: 100,
+    borderColor: '#ced6e0',
+    borderWidth: 1,
+    marginBottom: 15,
+    paddingLeft: 12,
+    paddingTop: 12,
+    borderRadius: 10,
+    textAlignVertical: 'top',
+    backgroundColor: '#ecf0f1',
+    fontSize: 16,
+  },
+  pickerContainer: {
+    marginBottom: 15,
+  },
+  pickerWrapper: {
+    borderColor: '#ced6e0',
+    borderWidth: 1,
+    borderRadius: 10,
+    backgroundColor: '#ecf0f1',
+    height: 45,
+    justifyContent: 'center',
+  },
+  setTypePickerWrapper: {
+    borderColor: '#ced6e0',
+    borderWidth: 1,
+    borderRadius: 10,
+    backgroundColor: '#ecf0f1',
+    height: 45,
+    justifyContent: 'center',
   },
   picker: {
-    height: 50,
+    height: 45,
+    backgroundColor: '#ecf0f1',
+  },
+  label: {
+    marginBottom: 8,
+    fontWeight: '500',
+    color: '#7f8c8d', // Subtle color for labels
+  },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  halfInput: {
+    width: '48%',
+  },
+  quarterInput: {
+    width: '23%',
+  },
+  fullInput: {
     width: '100%',
-    marginBottom: 15,
-    backgroundColor: '#f8f8f8',
-    borderWidth: 1,
-    borderColor: '#ddd',
   },
   exerciseContainer: {
     marginBottom: 20,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 5,
-    backgroundColor: '#fff',
+    backgroundColor: '#ffffff',
+    padding: 20,
+    borderRadius: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
   },
-  supersetContainer: {
-    borderColor: '#3498db',
-    borderWidth: 2,
-    backgroundColor: '#f0f8ff',
+  exerciseHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
   },
-  supersetInfo: {
-    backgroundColor: '#e0f0ff',
-    padding: 10,
-    borderRadius: 5,
-    marginTop: 10,
+  removeButton: {
+    backgroundColor: '#e74c3c', // Red button for remove
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
   },
-  supersetText: {
-    color: '#3498db',
+  removeButtonText: {
+    color: 'white',
     fontWeight: 'bold',
   },
-  workoutItem: {
-    padding: 10,
-    borderBottomColor: 'gray',
-    borderBottomWidth: 1,
+  setContainer: {
+    marginVertical: 5,
+    backgroundColor: '#ffffff',
+    padding: 15,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    shadowColor: '#bdc3c7',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+  },
+  setHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 5,
+  },
+  setTitle: {
+    fontWeight: 'bold',
+    fontSize: 16,
+    color: '#2c3e50', // Darker color for set title
+  },
+  removeSetButton: {
+    backgroundColor: '#e74c3c',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addButton: {
+    backgroundColor: '#1abc9c', // Soft teal for add button
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 15,
+  },
+  addExerciseButton: {
+    backgroundColor: '#3498db', // Blue for add exercise button
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginBottom: 25,
+  },
+  addButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  submitContainer: {
+    marginBottom: 40,
+  },
+  submitButton: {
+    backgroundColor: '#27ae60', // Green submit button
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  submitButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });

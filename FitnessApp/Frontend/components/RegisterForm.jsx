@@ -130,8 +130,8 @@ export default function RegisterForm() {
       // Format DOB as YYYY-MM-DD
       const dob = `${formData.year}-${formData.month}-${formData.day}`;
       
-      // Calculate height in inches
-      const heightInInches = parseInt(formData.feet.replace("'", "")) * 12 + parseInt(formData.inches.replace("\"", ""));
+      // Format height as feet'inches"
+      const height = `${formData.feet.replace("'", "")}'${formData.inches.replace("\"", "")}`;
   
       const userData = {
         first_name: formData.first_name,
@@ -141,27 +141,24 @@ export default function RegisterForm() {
         pass_hash: hashedPassword,
         dob: dob,                
         sex: formData.sex,       
-        height: heightInInches,          
+        height: formData.feet * 12 + formData.inches,          
         weight: formData.weight
       };
   
       console.log("Sending user data:", userData); // Log for debugging
       
-      const response = await fetch('http://localhost:8080/api/user/create_user', {
+      const response = await fetch('http://10.28.4.234:8080/api/user/create_user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userData)
-      });
-
-      const data = await response.json();
-      
-      if (response.ok) {
+      })
+      .then(response => response.json())
+      .then(data => {
         console.log("Success:", data);
         Alert.alert('Success', 'User registered successfully!');
-      } else {
-        console.error("Error from server:", data);
-        Alert.alert('Error', data.error || 'Failed to register user');
-      }
+      })
+      .then(error => console.error("Error:", error));
+
      
     } catch (error) {
       console.error("Error in submission:", error);
@@ -591,6 +588,10 @@ export default function RegisterForm() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Register</Text>
+      <TextInput style={styles.input} placeholder="First Name" onChangeText={text => handleChange('first_name', text)} /> // Limit to 20 chars
+      <TextInput style={styles.input} placeholder="Last Name" onChangeText={text => handleChange('last_name', text)} /> // Limit to 30 chars
+      <TextInput keyboardType = "email-address" style={styles.input} placeholder="Email" onChangeText={text => handleChange('email', text)} />
+      <TextInput style={styles.input} placeholder="Username" onChangeText={text => handleChange('username', text)} /> // Limit to 20 chars
       <TextInput style={styles.input} placeholder="First Name" onChangeText={text => handleChange('first_name', text)} /> // Limit to 20 chars
       <TextInput style={styles.input} placeholder="Last Name" onChangeText={text => handleChange('last_name', text)} /> // Limit to 30 chars
       <TextInput keyboardType = "email-address" style={styles.input} placeholder="Email" onChangeText={text => handleChange('email', text)} />
