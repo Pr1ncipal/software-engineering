@@ -592,6 +592,10 @@ export default function RegisterForm() {
       <TextInput style={styles.input} placeholder="Last Name" onChangeText={text => handleChange('last_name', text)} /> // Limit to 30 chars
       <TextInput keyboardType = "email-address" style={styles.input} placeholder="Email" onChangeText={text => handleChange('email', text)} />
       <TextInput style={styles.input} placeholder="Username" onChangeText={text => handleChange('username', text)} /> // Limit to 20 chars
+      <TextInput style={styles.input} placeholder="First Name" onChangeText={text => handleChange('first_name', text)} /> // Limit to 20 chars
+      <TextInput style={styles.input} placeholder="Last Name" onChangeText={text => handleChange('last_name', text)} /> // Limit to 30 chars
+      <TextInput keyboardType = "email-address" style={styles.input} placeholder="Email" onChangeText={text => handleChange('email', text)} />
+      <TextInput style={styles.input} placeholder="Username" onChangeText={text => handleChange('username', text)} /> // Limit to 20 chars
       <TextInput style={styles.input} placeholder="Password" secureTextEntry onChangeText={text => handleChange('password', text)} />
 
       <TextInput style={styles.input} placeholder="Date of Birth (YYYY-MM-DD)" onChangeText={text => handleChange('dob', text)} />
