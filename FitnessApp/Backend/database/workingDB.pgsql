@@ -51,6 +51,7 @@ CREATE TABLE user_goals (
 
 CREATE TABLE workouts (
     id SERIAL PRIMARY KEY,
+    name VARCHAR(30) NOT NULL, -- implement
     user_id INT REFERENCES users(id) ON DELETE CASCADE,
     workout_type VARCHAR(50) NOT NULL, -- Cardio, Strength, etc.
     workout_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -66,7 +67,7 @@ CREATE TABLE exercises (
     single_sided BOOLEAN DEFAULT FALSE,
     primary_muscle muscle_group_enum[] NOT NULL, --Think about with muscle groups. Might want with repetition
     secondary_muscles muscle_group_enum[]  -- Stores secondary muscles worked (optional)
-    createdBy INT REFERENCES users(id) ON DELETE SET NULL DEFAULT NULL
+    createdBy INT REFERENCES users(id) ON DELETE SET NULL DEFAULT NULL 
 );
 
 

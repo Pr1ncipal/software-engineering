@@ -1,36 +1,70 @@
+import React, { useState } from 'react';
+import CryptoJS from 'crypto-js';
+
+const API_URL = 'http://localhost:8080'; // Replace with your actual API URL
 
 const App = () => {
-    return (
-        <div className="login-container">
-        <h2 className="form-title">Log in with</h2>
-        <div className="social-login">
-            <button className="social-button">
-                <img src="" alt="" className="social-icon"></img>
-                Google
-            </button>
-            <button className="social-button">
-            <img src="" alt="" className="social-icon"></img>
-            Apple
-            </button>
-            </div>
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
 
-            <p className="separator"><span>or</span></p>
+  const handleLogin = async (e) => {
+    e.preventDefault();
 
-            <form action="#" className="login-form">
-                <div className="input-wrapper">
-                    <input type="email" placeholder="email address" 
-                        className="input-field" required />
-                    <i className="material-symbols-rounded">lock</i>
-                </div>
-                <a href="#" className="forgot-pass-link">Forgot Password?</a>
+    // Hash the password using CryptoJS
+    const hashedPassword = CryptoJS.SHA256(password).toString(CryptoJS.enc.Hex);
 
-                <button className="login-button">Log In</button>
-            </form>
+    const loginData = {
+      username: username,
+      password: hashedPassword,
+    };
 
-        <p className="signup-text">Don't have an account? <a href="">Signup now</a></p>
+    try {
+      const response = await fetch(`${API_URL}/api/user/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(loginData),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        alert('Login successful!');
+      } else {
+        alert(result.error || 'Failed to log in.');
+      }
+    } catch (error) {
+      alert('Could not connect to the server.');
+    }
+  };
+
+  return (
+    <div className="login-container">
+      <h2 className="form-title">Log In</h2>
+      <form onSubmit={handleLogin} className="login-form">
+        <div className="input-wrapper">
+          <input
+            type="text"
+            placeholder="Username"
+            className="input-field"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            required
+          />
         </div>
-    )
-}
+        <div className="input-wrapper">
+          <input
+            type="password"
+            placeholder="Password"
+            className="input-field"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+        </div>
+        <button type="submit" className="login-button">Log In</button>
+      </form>
+    </div>
+  );
+};
 
-
-
+export default App;

@@ -1,0 +1,19 @@
+import psycopg2
+import random
+import string
+
+
+DATABASE_URL = "postgresql://postgres:password@postgres:5432/gitfitbro"
+
+KEYSET = string.ascii_letters + string.digits + "!#$%&'()*+,-./:;<=>?@[\]^_`{|}~"
+
+def getConnection():
+    conn = psycopg2.connect(DATABASE_URL)
+    return conn
+
+def closeConnection(conn, cur):
+    cur.close()
+    conn.close()
+
+def generate_key():
+    return ''.join(random.choices(string.printable, k=64))
