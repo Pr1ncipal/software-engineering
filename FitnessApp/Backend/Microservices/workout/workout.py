@@ -63,7 +63,7 @@ def insert_into_db(data, user_id, conn = None):
             weight += '}'
             pd += '}'
             
-            insert_query = sql.SQL("""INSERT INTO workout_exercises (workout_id, exercise_id, sets, notes) VALUES (%s, %s, ROW(%s, %s, %s, %s, %s), %s)""") #Workout ID, exercise ID, (sets, reps, setType, weight, percieved Difficulty), notes
+            insert_query = sql.SQL("""INSERT INTO workout_exercises (workout_id, exercise_id, sets, notes) VALUES (%s, %s, ROW(%s, %s, %s, %s, %s::type_set_type[]), %s)""") #Workout ID, exercise ID, (sets, reps, setType, weight, percieved Difficulty), notes
             
             #logger.debug(f"Data: {insert_query}", args = (str(wid), str(exercise['exerciseID']), reps, setType, weight, pd, exercise['notes']))
             

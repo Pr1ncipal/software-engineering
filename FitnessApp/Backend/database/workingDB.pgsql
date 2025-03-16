@@ -2,8 +2,8 @@
 
 CREATE TYPE set_type AS(
     reps INT[],
-    type_set INT[]
-    weight DECIMAL(4,2)[],
+    type_set type_set_type,
+    weight DECIMAL(6,2)[],
     percieved_difficulty INT[],  -- Stores percieved difficulty (optional)
     super_set INT 
 );
@@ -16,6 +16,10 @@ CREATE TYPE strength_equipment AS ENUM (
     'barbell', 'dumbbell', 'kettlebells', 'medicine ball', 'machine', 'body only', 'other', 'cable', 'exercise ball', 'bands', 'e-z curl bar', 'none', 'foam roll'
 );
 
+CREATE TYPE type_set_type AS ENUM (
+    'warm-up', 'normal', 'drop', 'failiure'
+);
+
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     email VARCHAR(320) UNIQUE NOT NULL,
@@ -25,23 +29,23 @@ CREATE TABLE users (
     password_hash CHAR() NOT NULL, -- Need to find length of hash
     dob DATE NOT NULL,
     sex CHAR NOT NULL,
-    BFL DECIMAL(3,2),  -- Stores base fitness level Need to Add
+    BFL DECIMAL(6,2),  -- Stores base fitness level Need to Add ### Change BFL ###
     KEY VARCHAR(50),  -- Stores key for password reset
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE user_stats (
     id SERIAL PRIMARY KEY,
-    user_id INT REFERENCES users(id) ON DELETE CASCADE,
+    user_id INT REFERENCES users(id) ON DELETE CASCADE NOT NULL, -- Add Not Null constraint
     height INT NOT NULL,  -- Stores height in inches
-    weight DECIMAL(5,2) NOT NULL,  -- Stores weight in pounds
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    weight DECIMAL(8,2) NOT NULL,  -- Stores weight in pounds ### Change weight ###
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOt NULL -- Change to NOT NULL
 );
 
 CREATE TABLE user_goals (
     id SERIAL PRIMARY KEY,
     user_id INT REFERENCES users(id) ON DELETE CASCADE,
-    weight_goal DECIMAL(3,2), -- Possibly add weight lift goal or cardio goal
+    weight_goal DECIMAL(8,2), -- Possibly add weight lift goal or cardio goal ### Change weight goal ###
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     achieve_by DATE,
     achieved BOOLEAN DEFAULT FALSE,
@@ -67,7 +71,7 @@ CREATE TABLE exercises (
     single_sided BOOLEAN DEFAULT FALSE,
     primary_muscle muscle_group_enum[] NOT NULL, --Think about with muscle groups. Might want with repetition
     secondary_muscles muscle_group_enum[]  -- Stores secondary muscles worked (optional)
-    createdBy INT REFERENCES users(id) ON DELETE SET NULL DEFAULT NULL 
+    createdBy INT REFERENCES users(id) ON DELETE CASCADE DEFAULT NULL -- Change to CASCADE
 );
 
 
@@ -76,11 +80,30 @@ CREATE TABLE workout_exercises (
     workout_id INT REFERENCES workouts(id) ON DELETE CASCADE,
     exercise_id INT REFERENCES exercises(id) ON DELETE SET NULL,
     sets set_type,
+    order SMALLINT NOT NULL, -- Implement order (Maybe)
     notes VARCHAR(250),
     date_performed TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+
  -- Implement below
  -- ______________________________________________________________________________________
+
+CREATE TABLE user_steps (
+    user_id INT REFERENCES users(id) ON DELETE CASCADE PRIMARY KEY, -- Allows for unique user
+    date_performed DATE DEFAULT CURRENT_DATE PRIMARY KEY, -- On Unique date, even for multiple writes a day
+    steps INT
+);
+
+CREATE TABLE workout_cardio (
+    id SERIAL PRIMARY KEY, -- Yes
+    workout_id INT REFERENCES workouts(id) ON DELETE CASCADE, -- Yes
+    duration INTERVAL NOT NULL, -- Yes
+    distance DECIMAL(6,2), -- Yes (Miles)
+    percieved_difficulty INT, -- Yes???
+    notes VARCHAR(250), -- Yes?
+);
+
 CREATE TABLE family(
     id SERIAL PRIMARY KEY,
     family_name VARCHAR(50) UNIQUE NOT NULL,

@@ -3,13 +3,14 @@ from psycopg2 import sql
 import global_func
 
 class Workout():
-    def __init__(self, id = -1, user_id = -1, workout_type = None, notes = None, average_heart_rate = None, total_weight_lifted = None, exercises = None):
+    def __init__(self, id = -1, user_id = -1, name = None, workout_type = None, notes = None, average_heart_rate = None, total_weight_lifted = None, order = None, exercises = None):
         self.id = id
         self.user_id = user_id
+        self.name = name
         self.workout_type = workout_type
         self.notes = notes
         self.average_heart_rate = average_heart_rate
-        self.total_weight_lifted = total_weight_lifted
+        self.order = order
         self.exercises = exercises
 
 
@@ -19,8 +20,8 @@ class Workout():
             cur = conn.cursor()
             
             insert_query = """INSERT INTO workouts (user_id, name, workout_type, notes, average_heart_rate) 
-                            VALUES (%d, %s, %s, %s, %d) returning id"""
-            cur.execute(insert_query, (self.user_id, self.workout_type, self.notes, self.average_heart_rate))
+                            VALUES (%s, %s, %s, %s, %s, %s) returning id"""
+            cur.execute(insert_query, (self.user_id, self.name, self.workout_type, self.notes, self.average_heart_rate))
             wid = cur.fetchone()[0]
             conn.commit()
             self.insertExercises(wid, conn)
@@ -31,13 +32,9 @@ class Workout():
             cur.close()
             conn.close()
             
-    def __prepareSets__(self):
-        sets = '{'
-        for i in range(len(self.exercises['reps'])):
-            if i > 0:
-                sets += ', '
-            sets += f"({self.exercises['reps'][i]}, {self.exercises['setType'][i]}, {self.exercises['weight'][i]}, {self.exercises['percievedDifficulty'][i]})"
-        sets += '}'
+    def __prepareSets__(self, exercise):
+        
+        sets = f"ROW({exercise['reps']}, {exercise['weight']}, {exercise['percievedDifficulty']}, {exercise['superset']}, {exercise['setType']}::type_set_type[])"
         return sets
         
     
@@ -47,11 +44,11 @@ class Workout():
                 conn = global_func.getConnection()
             cur = conn.cursor()
             
-            insert_query = """INSERT INTO workout_exercises (workout_id, exercise_id, sets, notes) VALUES (%s, %s, %s, %s)"""
+            insert_query = sql.SQL("""INSERT INTO workout_exercises (workout_id, exercise_id, sets, order, notes) VALUES (%s, %s, %s, %s, %s)""")
             
             for exercise in self.exercises:
-                sets = self.__prepareSets__()
-                cur.execute(insert_query, (wid, exercise['exercise_id'], sets, exercise['notes']))
+                sets = self.__prepareSets__(exercise)
+                cur.execute(insert_query, (wid, exercise['exercise_id'], sets, exercise['order'], exercise['notes']))
             
         except Exception as error:
             print(f"Error inserting into database: {error}")
@@ -116,14 +113,15 @@ class Workout():
             
             get_query = """SELECT name, equipment, description, single_sided, primary_muscle, secondary_muscles, createdBy FROM exercises 
                         WHERE (createdBy = %d OR createdBy = NULL) LIMIT %d OFFSET %d"""
-            cur.execute(get_query, (self.id, amount, offset * 50))
+            cur.execute(get_query, (self.user_id, amount, offset * 50))
             exercises = cur.fetchall()
             exercise_list = []
             for exercise in exercises:
                 if exercise[6] == None:
                     createdBy = "GitFitBro"
                 else:
-                    createdBy = self.getUsername()
+                    createdBy = self.__getUsername__()
+                    
                 exercise_list.append({
                     "name": exercise[0],
                     "equipment": exercise[1],
@@ -131,7 +129,7 @@ class Workout():
                     "single_sided": exercise[3],
                     "primary_muscle": exercise[4],
                     "secondary_muscles": exercise[5],
-                    
+                    "createdBy": createdBy
                 })
                 
             if len(exercises) < amount:
@@ -141,12 +139,12 @@ class Workout():
             
         except Exception as error:
             print(f"Error getting exercises: {error}")
-            return None
+            return None, None
         finally:
             cur.close()
             conn.close()
     
-    def getUsername(self):
+    def __getUsername__(self):
         try:
             conn = global_func.getConnection()
             cur = conn.cursor()
@@ -161,7 +159,22 @@ class Workout():
         finally:
             cur.close()
             conn.close()
+
+    def getWorkoutStats(self, workout_id, timeframe):
+        try:
+            conn = global_func.getConnection()
+            cur = conn.cursor()
             
+            get_query = sql.SQL("SELECT exercise_id, (sets).reps, (sets).weight, (sets).percieved_difficulty FROM workout_exercises WHERE workout_id = (SELECT id FROM workouts WHERE user_id = %s and workout_date > CURRENT_DATE - INTERVAL '%d days') AND exercise_id = %d ORDER BY date_performed")
+            cur.execute(get_query, (workout_id, timeframe))
+            stats = cur.fetchall()
+            return stats
+        except Exception as error:
+            print(f"Error getting workout stats: {error}")
+            return None
+        finally:
+            cur.close()
+            conn.close()
             
 
 

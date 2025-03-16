@@ -64,10 +64,10 @@ ALTER TYPE public.type_set_type OWNER TO postgres;
 
 CREATE TYPE public.set_type AS (
 	reps integer[],
-	weight numeric(4,2)[],
+	weight numeric(6,2)[],
 	percieved_difficulty integer[],
 	super_set integer,
-	type_set public.type_set_type
+	type_set public.type_set_type[]
 );
 
 
@@ -268,8 +268,8 @@ CREATE TABLE public.workout_exercises (
     id integer NOT NULL,
     workout_id integer,
     exercise_id integer,
-    sets public.set_type,
-    notes character varying(250)
+    notes character varying(250),
+    sets public.set_type
 );
 
 
@@ -308,7 +308,6 @@ CREATE TABLE public.workouts (
     workout_start timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     notes text,
     average_heart_rate integer,
-    total_weight_lifted numeric(6,2),
     workout_end timestamp without time zone DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -1273,6 +1272,12 @@ COPY public.user_goals (id, user_id, weight_goal, created_at, achieve_by, achiev
 --
 
 COPY public.user_stats (id, user_id, height, weight, created_at) FROM stdin;
+1	2	74	247.00	2025-03-06 15:42:58.393943
+2	4	51	45.00	2025-03-07 19:44:39.42566
+3	17	74	215.00	2025-03-10 20:48:50.105236
+4	18	74	215.00	2025-03-10 21:04:37.201213
+5	19	74	215.00	2025-03-10 21:15:18.354323
+6	20	74	215.00	2025-03-10 21:15:54.71221
 \.
 
 
@@ -1281,6 +1286,12 @@ COPY public.user_stats (id, user_id, height, weight, created_at) FROM stdin;
 --
 
 COPY public.users (id, email, username, fname, lname, password_hash, dob, sex, created_at, key, bfl) FROM stdin;
+2	testuser@example.com	testuser	Test	User	5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8	2002-11-23	M	2025-03-06 15:42:58.393943	?(l='f\\;x#eV#Rj)J@nl8m<qieWgy9f\r^Mho}>X>*lJll^ 'Thd'ZIzB[[|sE1m^	\N
+4	Hi	Tk	T	K	a99284f46c74badfed68a2bb8caa16071c11997a03f95ac33b1b9e4a721cc143	2024-12-02	M	2025-03-07 19:44:39.42566	'}+/<b[eAhqFISM<O4!=0\\ev<&KM!uu\\\t9}) 'e`n\\kT5-nP,-?T:MJ,Pl\tU;4@m	\N
+17	example@example.com	example	John	Doe	5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8	2002-11-23	M	2025-03-10 20:48:50.105236	'R/h$<cUb{kg<aIQ$T`-u[s*_"/|z_z}`Vnn^g_zj?!"gJ_F-SJeVj*Y+a&LPVoM	\N
+18	example1@example.com	example1	John	Doe	5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8	2002-11-23	M	2025-03-10 21:04:37.201213	YbeK%*.K7R1BnY9vw[:ncK:40RrGzwz4^~p\\o!8?kn11dR'`IViEI|e*eSt>0&d'	\N
+19	example2@example.com	example2	John	Doe	5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8	2002-11-23	M	2025-03-10 21:15:18.354323	TmQ-t=C[>4mV<U;T)aHOZ51bM#Mc4hGi&zU<FnQ0[z)JtpeE3+Ko#R.p7n32Mk7Z	\N
+20	example3@example.com	example3	John	Doe	5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8	2002-11-23	M	2025-03-10 21:15:54.71221	r2=|8Wln4!X*rrhr{r^@pLyWhySxfY$>UA*b5.TBu42XeK~D}M~k4P:ibT^A9%13	\N
 \.
 
 
@@ -1288,7 +1299,9 @@ COPY public.users (id, email, username, fname, lname, password_hash, dob, sex, c
 -- Data for Name: workout_exercises; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.workout_exercises (id, workout_id, exercise_id, sets, notes) FROM stdin;
+COPY public.workout_exercises (id, workout_id, exercise_id, notes, sets) FROM stdin;
+2	20	3395	This is a note for the exercise	("{10,9,8,7}","{40.00,40.00,40.00,40.00}","{5,6,6,8}",2,"{warmup,normal,normal,failiure}")
+3	20	3400	This is a note for the exercise	("{10,10,10,10}","{100.00,110.00,120.00,130.00}","{5,6,7,8}",1,"{normal,normal,normal,normal}")
 \.
 
 
@@ -1296,7 +1309,27 @@ COPY public.workout_exercises (id, workout_id, exercise_id, sets, notes) FROM st
 -- Data for Name: workouts; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.workouts (id, user_id, workout_type, workout_start, notes, average_heart_rate, total_weight_lifted, workout_end) FROM stdin;
+COPY public.workouts (id, user_id, workout_type, workout_start, notes, average_heart_rate, workout_end) FROM stdin;
+1	20	Strength	2025-03-10 21:57:31.242076	This is a workout example	120	2025-03-10 21:57:31.242076
+2	20	Strength	2025-03-10 22:00:25.530442	This is a workout example	120	2025-03-10 22:00:25.530442
+3	20	Strength	2025-03-11 15:07:20.951554	This is a workout example	120	2025-03-11 15:07:20.951554
+4	20	Strength	2025-03-11 15:10:48.695916	This is a workout example	120	2025-03-11 15:10:48.695916
+5	20	Strength	2025-03-11 15:16:30.717445	This is a workout example	120	2025-03-11 15:16:30.717445
+6	20	Strength	2025-03-11 15:22:42.268087	This is a workout example	120	2025-03-11 15:22:42.268087
+7	20	Strength	2025-03-11 15:26:20.473076	This is a workout example	120	2025-03-11 15:26:20.473076
+8	20	Strength	2025-03-11 15:27:48.131744	This is a workout example	120	2025-03-11 15:27:48.131744
+9	20	Strength	2025-03-11 15:29:02.401708	This is a workout example	120	2025-03-11 15:29:02.401708
+10	20	Strength	2025-03-11 15:31:59.953217	This is a workout example	120	2025-03-11 15:31:59.953217
+11	20	Strength	2025-03-11 15:32:28.97864	This is a workout example	120	2025-03-11 15:32:28.97864
+12	20	Strength	2025-03-11 15:37:32.082627	This is a workout example	120	2025-03-11 15:37:32.082627
+13	20	Strength	2025-03-11 15:38:14.648868	This is a workout example	120	2025-03-11 15:38:14.648868
+14	20	Strength	2025-03-11 15:39:15.261943	This is a workout example	120	2025-03-11 15:39:15.261943
+15	20	Strength	2025-03-11 15:42:12.237728	This is a workout example	120	2025-03-11 15:42:12.237728
+16	20	Strength	2025-03-11 15:47:16.053419	This is a workout example	120	2025-03-11 15:47:16.053419
+17	20	Strength	2025-03-11 15:49:20.053036	This is a workout example	120	2025-03-11 15:49:20.053036
+18	20	Strength	2025-03-11 15:52:55.484933	This is a workout example	120	2025-03-11 15:52:55.484933
+19	20	Strength	2025-03-11 16:03:43.5522	This is a workout example	120	2025-03-11 16:03:43.5522
+20	20	Strength	2025-03-11 16:22:01.912792	This is a workout example	120	2025-03-11 16:22:01.912792
 \.
 
 
@@ -1318,28 +1351,28 @@ SELECT pg_catalog.setval('public.user_goals_id_seq', 1, false);
 -- Name: user_stats_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.user_stats_id_seq', 1, false);
+SELECT pg_catalog.setval('public.user_stats_id_seq', 6, true);
 
 
 --
 -- Name: users_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.users_id_seq', 1, true);
+SELECT pg_catalog.setval('public.users_id_seq', 21, true);
 
 
 --
 -- Name: workout_exercises_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.workout_exercises_id_seq', 1, false);
+SELECT pg_catalog.setval('public.workout_exercises_id_seq', 3, true);
 
 
 --
 -- Name: workouts_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.workouts_id_seq', 1, false);
+SELECT pg_catalog.setval('public.workouts_id_seq', 20, true);
 
 
 --
