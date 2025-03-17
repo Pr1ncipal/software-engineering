@@ -20,6 +20,13 @@ CREATE TYPE type_set_type AS ENUM (
     'warm-up', 'normal', 'drop', 'failiure'
 );
 
+-- Implement Type vv
+CREATE TYPE workout_type_enum AS ENUM (
+    'cardio', 'strength'
+);
+
+-- Implement type ^^
+
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     email VARCHAR(320) UNIQUE NOT NULL,
@@ -53,11 +60,31 @@ CREATE TABLE user_goals (
     notes VARCHAR(250)
 );
 
+-- Inherited Table to possibly change and implement vv
+CREATE TABLE weight_goals (
+    target_weight DECIMAL(8,2)
+) INHERITS (user_goals);
+
+CREATE TABLE cardio_goals (
+    target_distance DECIMAL(6,2),
+    target_time INTERVAL
+) INHERITS (user_goals);
+
+CREATE TABLE strength_goals (
+    target_weight DECIMAL(8,2),
+    target_reps INT,
+    target_sets INT
+) INHERITS (user_goals);
+
+-- Inherited Table to possibly change and implement ^^
+
+
+
 CREATE TABLE workouts (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(30) NOT NULL, -- implement
+    name VARCHAR(30) NOT NULL,
     user_id INT REFERENCES users(id) ON DELETE CASCADE,
-    workout_type VARCHAR(50) NOT NULL, -- Cardio, Strength, etc.
+    workout_type workout_type_enum NOT NULL,
     workout_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     notes varchar(250),
     average_heart_rate INT
@@ -70,8 +97,9 @@ CREATE TABLE exercises (
     description TEXT,
     single_sided BOOLEAN DEFAULT FALSE,
     primary_muscle muscle_group_enum[] NOT NULL, --Think about with muscle groups. Might want with repetition
-    secondary_muscles muscle_group_enum[]  -- Stores secondary muscles worked (optional)
-    createdBy INT REFERENCES users(id) ON DELETE CASCADE DEFAULT NULL -- Change to CASCADE
+    secondary_muscles muscle_group_enum[],  -- Stores secondary muscles worked (optional)
+    createdBy INT REFERENCES users(id) ON DELETE SET NULL DEFAULT NULL, -- Change to Set Null
+    is_deleted BOOLEAN DEFAULT FALSE 
 );
 
 
@@ -80,7 +108,7 @@ CREATE TABLE workout_exercises (
     workout_id INT REFERENCES workouts(id) ON DELETE CASCADE,
     exercise_id INT REFERENCES exercises(id) ON DELETE SET NULL,
     sets set_type,
-    order SMALLINT NOT NULL, -- Implement order (Maybe)
+    order SMALLINT NOT NULL, -- Implement order (Maybe) Initialized and used on back end side
     notes VARCHAR(250),
     date_performed TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
