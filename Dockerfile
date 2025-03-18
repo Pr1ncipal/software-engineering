@@ -4,7 +4,7 @@ FROM postgres:latest
 ENV POSTGRES_PASSWORD password
 
 #Name the database here before you start
-ENV POSTGRES_DB 
+ENV POSTGRES_DB sam_DB
 
 #Can change user for local instance if desired
 ENV POSTGRES_USER postgres
