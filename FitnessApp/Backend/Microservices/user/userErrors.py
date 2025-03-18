@@ -1,3 +1,10 @@
+import logging
+import traceback
+from datetime import datetime
+
+# Set up logger
+logger = logging.getLogger(__name__)
+
 class UserServiceError(Exception):
     """Base exception class for all user service errors."""
     status_code = 500
@@ -11,13 +18,32 @@ class UserServiceError(Exception):
             self.error_code = error_code
         if status_code:
             self.status_code = status_code
+            
+        # Log the error with appropriate level
+        self._log_error()
+        
         super().__init__(self.message)
+        
+    def _log_error(self):
+        """Log the error with appropriate level based on status code"""
+        error_details = f"{self.__class__.__name__}: [{self.error_code}] {self.message}"
+        
+        # Use different log levels based on status code
+        if self.status_code >= 500:
+            logger.error(error_details)
+            # Add stack trace for server errors
+            logger.debug(f"Stack trace: {traceback.format_exc()}")
+        elif self.status_code >= 400:
+            logger.warning(error_details)
+        else:
+            logger.info(error_details)
 
     def to_dict(self):
         """Convert exception to a dictionary for API responses."""
         return {
             "error": self.error_code,
-            "message": self.message
+            "message": self.message,
+            "timestamp": datetime.utcnow().isoformat()
         }
 
 

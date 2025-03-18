@@ -1,3 +1,5 @@
+import logging
+
 class WorkoutException(Exception):
     """Base exception class for all workout service errors."""
     status_code = 500
@@ -12,12 +14,16 @@ class WorkoutException(Exception):
         if status_code:
             self.status_code = status_code
         super().__init__(self.message)
+        
+        # Log the exception
+        logging.error(f"{self.error_code} ({self.status_code}): {self.message}")
 
     def to_dict(self):
         """Convert exception to a dictionary for API responses."""
         return {
             "error": self.error_code,
-            "message": self.message
+            "message": self.message,
+            "status": self.status_code
         }
 
 
@@ -146,3 +152,45 @@ class UnauthorizedAccessError(UserError):
     status_code = 403
     error_code = "unauthorized_access"
     message = "You don't have permission to access this resource."
+
+
+# Heuristic Related Errors
+class HeuristicError(WorkoutException):
+    """Base class for heuristic related errors."""
+    status_code = 400
+    error_code = "heuristic_error"
+    message = "An error occurred in the workout recommendation system."
+
+
+class InvalidHeuristicParametersError(HeuristicError):
+    """Raised when invalid parameters are provided to the heuristic algorithm."""
+    error_code = "invalid_heuristic_parameters"
+    message = "Invalid parameters for workout recommendation."
+
+
+class NoRecommendationsAvailableError(HeuristicError):
+    """Raised when no workout recommendations can be generated."""
+    status_code = 404
+    error_code = "no_recommendations"
+    message = "No workout recommendations available with the given parameters."
+
+
+# User Related Errors
+class UserWorkoutError(WorkoutException):
+    """Base class for user-workout related errors."""
+    status_code = 400
+    error_code = "user_workout_error"
+    message = "An error occurred with the user's workout."
+
+
+class UserWorkoutLimitExceededError(UserWorkoutError):
+    """Raised when a user exceeds their workout limit."""
+    error_code = "workout_limit_exceeded"
+    message = "User has exceeded their workout limit."
+
+
+class UserAccessDeniedError(UserWorkoutError):
+    """Raised when a user tries to access a workout they don't own."""
+    status_code = 403
+    error_code = "access_denied"
+    message = "User does not have permission to access this workout."

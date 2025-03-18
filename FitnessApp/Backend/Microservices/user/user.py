@@ -16,111 +16,245 @@ import global_func
 from userErrors import *
 import psycopg2
 import traceback
+import logging
+import time
+import uuid
+import base64
+
+# Configure logging
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    handlers=[
+                        logging.FileHandler("user_api.log"),
+                        logging.StreamHandler()
+                    ])
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+
+# Request logger middleware
+@app.before_request
+def before_request():
+    # Generate unique request ID and store it in request
+    request.request_id = str(uuid.uuid4())
+    request.start_time = time.time()
+    logger.info(f"Request {request.request_id}: {request.method} {request.path} - Started")
+    logger.debug(f"Request {request.request_id}: Headers: {dict(request.headers)}")
+    
+    if request.is_json:
+        # Log JSON payloads without sensitive data
+        safe_data = request.get_json(silent=True)
+        if isinstance(safe_data, dict):
+            # Redact sensitive fields
+            safe_copy = safe_data.copy()
+            for field in ['password_hash', 'password']:
+                if field in safe_copy:
+                    safe_copy[field] = "***REDACTED***"
+        logger.debug(f"Request {request.request_id}: JSON payload: {safe_copy}")
+    elif request.args:
+        # Log query parameters without sensitive data
+        safe_args = request.args.copy()
+        if "key" in safe_args:
+            safe_args["key"] = "***REDACTED***"
+        logger.debug(f"Request {request.request_id}: Query parameters: {safe_args}")
+
+@app.after_request
+def after_request(response):
+    # Log request completion with timing and status
+    duration = time.time() - request.start_time
+    logger.info(f"Request {getattr(request, 'request_id', 'unknown')}: {request.method} {request.path} - Completed with status {response.status_code} in {duration:.3f}s")
+    return response
 
 # Error handler for custom exceptions
 @app.errorhandler(UserServiceError)
 def handle_user_service_error(error):
+    request_id = getattr(request, 'request_id', 'unknown')
+    logger.error(f"Request {request_id}: Handled exception: {error.error_code} - {error.message}")
     response = jsonify(error.to_dict())
     response.status_code = error.status_code
     return response
 
 def get_data_jwt(request):
-    token = request.get_data() #Assuming request cant be changed
-    if not token:
-        raise MissingTokenError()
+    """
+    Extract and validate JWT token from the request.
     
+    Args:
+        request (flask.Request): The Flask request object
+        
+    Returns:
+        tuple: (decoded data, user key)
+        
+    Raises:
+        MissingTokenError: If token is missing
+        InvalidTokenError: If token is invalid
+        ExpiredTokenError: If token is expired
+    """
+    request_id = getattr(request, 'request_id', 'unknown')
     try:
-        payload = jwt.decode(token, options={"verify_signature": False})
-        key = global_func.verify_key(payload['key']) #Might make class method
+        logger.debug(f"Request {request_id}: Extracting JWT token")
+        token = request.get_data() #Assuming request cant be changed
+        if not token:
+            logger.warning(f"Request {request_id}: Missing authentication token")
+            raise MissingTokenError()
         
-        if not key:
-            raise InvalidTokenError("The provided key is invalid or does not exist")
-        
-        decoded = jwt.decode(token, payload['key'], algorithms=['HS256'])
-        return decoded, key
-    except jwt.ExpiredSignatureError:
-        raise ExpiredTokenError()
-    except jwt.InvalidTokenError:
-        raise InvalidTokenError()
+        try:
+            logger.debug(f"Request {request_id}: Pre-decoding token to extract key")
+            payload = jwt.decode(token, options={"verify_signature": False})
+            logger.debug(f"Request {request_id}: Verifying key in database")
+            key = global_func.verify_key(payload['key']) #Might make class method
+            
+            if not key:
+                logger.warning(f"Request {request_id}: Invalid key in token")
+                raise InvalidTokenError("The provided key is invalid or does not exist")
+            
+            logger.debug(f"Request {request_id}: Decoding token with verification")
+            decoded = jwt.decode(token, payload['key'], algorithms=['HS256'])
+            logger.info(f"Request {request_id}: Successfully authenticated user ID: {key}")
+            return decoded, key
+        except jwt.ExpiredSignatureError:
+            logger.warning(f"Request {request_id}: Expired JWT token")
+            raise ExpiredTokenError()
+        except jwt.InvalidTokenError as e:
+            logger.warning(f"Request {request_id}: Invalid JWT token: {str(e)}")
+            raise InvalidTokenError(str(e))
+    except (MissingTokenError, InvalidTokenError, ExpiredTokenError):
+        # Re-raise these authentication exceptions
+        raise
     except Exception as e:
+        logger.error(f"Request {request_id}: Unexpected error processing JWT: {str(e)}")
+        logger.error(f"Request {request_id}: {traceback.format_exc()}")
         raise UserServiceError(f"Error processing JWT: {str(e)}")
 
 def get_data_json(request):
+    """
+    Extract JSON data from the request.
+    
+    Args:
+        request (flask.Request): The Flask request object
+        
+    Returns:
+        dict: The JSON data
+        
+    Raises:
+        InvalidUserDataError: If request doesn't contain valid JSON
+    """
+    request_id = getattr(request, 'request_id', 'unknown')
     if request.is_json:
+        logger.debug(f"Request {request_id}: Extracting JSON data")
         return request.get_json()
     else:
+        logger.warning(f"Request {request_id}: Request does not contain valid JSON data")
         raise InvalidUserDataError("Request must contain JSON data")
 
 @app.route('/create_user', methods=['POST'])
 def create_user():
+    """
+    Create a new user with the provided information.
+    
+    Returns:
+        flask.Response: JSON response
+    """
+    request_id = getattr(request, 'request_id', 'unknown')
     try:
+        logger.info(f"Request {request_id}: Processing create_user request")
         data = get_data_json(request)
         
         required_fields = ['password_hash', 'email', 'username', 'first_name', 'last_name', 'dob', 'sex', 'height', 'weight']
-        for field in required_fields:
-            if field not in data:
-                raise MissingRequiredFieldError(field)
+        missing_fields = [field for field in required_fields if field not in data]
+        
+        if missing_fields:
+            logger.warning(f"Request {request_id}: Missing required fields: {missing_fields}")
+            raise MissingRequiredFieldError(", ".join(missing_fields))
         
         try:
+            logger.debug(f"Request {request_id}: Creating user object for {data['username']}")
             user = userClass.UserStats(email=data['email'], username=data['username'], 
                                 fname=data['first_name'], lname=data['last_name'], 
                                 pass_hash=data['password_hash'], dob=data['dob'],sex=data["sex"],
                                 height=data['height'], weight=data['weight'])
+            
+            logger.debug(f"Request {request_id}: Creating user in database")
             user.createUser()
+            
+            logger.debug(f"Request {request_id}: Inserting initial user stats")
             user.insertStats()
             
+            logger.info(f"Request {request_id}: Successfully created user with key: {user.key[:5]}...")
             return jsonify({"message": "User created successfully", "key": user.key}), 201
-        except psycopg2.errors.UniqueViolation:
+        except psycopg2.errors.UniqueViolation as e:
+            logger.warning(f"Request {request_id}: User already exists error: {str(e)}")
             raise UserAlreadyExistsError()
         except Exception as e:
-            app.logger.error(f"Error creating user: {str(e)}")
-            app.logger.error(traceback.format_exc())
+            logger.error(f"Request {request_id}: Error creating user: {str(e)}")
+            logger.error(f"Request {request_id}: {traceback.format_exc()}")
             raise DatabaseError(f"Failed to create user: {str(e)}")
             
     except UserServiceError:
         # Let the global error handler handle these
         raise
     except Exception as e:
-        app.logger.error(f"Unexpected error: {str(e)}")
-        app.logger.error(traceback.format_exc())
+        logger.error(f"Request {request_id}: Unexpected error: {str(e)}")
+        logger.error(f"Request {request_id}: {traceback.format_exc()}")
         raise UserServiceError(f"An unexpected error occurred: {str(e)}")
 
 @app.route('/login', methods=['POST'])
 def login():
+    """
+    Authenticate a user with username and password.
+    
+    Returns:
+        flask.Response: JSON response with authentication key
+    """
+    request_id = getattr(request, 'request_id', 'unknown')
     try:
+        logger.info(f"Request {request_id}: Processing login request")
         data = get_data_json(request)
         
         required_fields = ['username', 'password']
-        for field in required_fields:
-            if field not in data:
-                raise MissingRequiredFieldError(field)
+        missing_fields = [field for field in required_fields if field not in data]
         
+        if missing_fields:
+            logger.warning(f"Request {request_id}: Missing required login fields: {missing_fields}")
+            raise MissingRequiredFieldError(", ".join(missing_fields))
+        
+        logger.debug(f"Request {request_id}: Attempting login for username: {data['username']}")
         user = userClass.User(username=data['username'], pass_hash=data['password'])
         key = user.login()
         
         if key:
+            logger.info(f"Request {request_id}: Successful login for user: {data['username']}")
             return jsonify({"message": "Login successful", "key": key}), 200
         else:
+            logger.warning(f"Request {request_id}: Failed login attempt for username: {data['username']}")
             raise IncorrectCredentialsError()
             
     except UserServiceError:
         # Let the global error handler handle these
         raise
     except Exception as e:
-        app.logger.error(f"Unexpected error in login: {str(e)}")
+        logger.error(f"Request {request_id}: Unexpected error in login: {str(e)}")
+        logger.error(f"Request {request_id}: {traceback.format_exc()}")
         raise UserServiceError(f"An unexpected error occurred during login")
 
 @app.route('/update_user', methods=['POST'])
 def update_user():
+    """
+    Update user information for the authenticated user.
+    
+    Returns:
+        flask.Response: JSON response with update status
+    """
+    request_id = getattr(request, 'request_id', 'unknown')
     try:
+        logger.info(f"Request {request_id}: Processing update_user request")
         data, key = get_data_jwt(request)
         
         if not data:
+            logger.warning(f"Request {request_id}: No update data provided")
             raise InvalidUserDataError("No update data provided")
         
         if 'email' in data or 'pass_hash' in data:
+            logger.debug(f"Request {request_id}: Creating user object for update with key: {key[:5]}...")
             user = userClass.UserStats(
                 email=data.get('email'),
                 pass_hash=data.get('pass_hash'),
@@ -128,6 +262,7 @@ def update_user():
             )
             
             try:
+                logger.debug(f"Request {request_id}: Updating user information")
                 user.updateUser()
                 
                 # Specify what was updated in the message
@@ -138,102 +273,157 @@ def update_user():
                     updated_fields.append("password")
                 
                 fields_str = " and ".join(updated_fields)
+                logger.info(f"Request {request_id}: Successfully updated user {fields_str}")
                 return jsonify({"message": f"User {fields_str} updated successfully"}), 200
                 
             except Exception as e:
-                app.logger.error(f"Error updating user: {str(e)}")
+                logger.error(f"Request {request_id}: Error updating user: {str(e)}")
+                logger.error(f"Request {request_id}: {traceback.format_exc()}")
                 raise DatabaseError("Failed to update user information")
         else:
+            logger.warning(f"Request {request_id}: No valid update fields provided")
             raise InvalidUserDataError("No valid update fields provided (need email or pass_hash)")
             
     except UserServiceError:
         # Let the global error handler handle these
         raise
     except Exception as e:
-        app.logger.error(f"Unexpected error in update_user: {str(e)}")
+        logger.error(f"Request {request_id}: Unexpected error in update_user: {str(e)}")
+        logger.error(f"Request {request_id}: {traceback.format_exc()}")
         raise UserServiceError(f"An unexpected error occurred while updating user")
 
 @app.route('/delete_user', methods=['DELETE'])
 def delete_user():
+    """
+    Delete a user account.
+    
+    Returns:
+        flask.Response: JSON response with deletion status
+    """
+    request_id = getattr(request, 'request_id', 'unknown')
     try:
+        logger.info(f"Request {request_id}: Processing delete_user request")
         key = request.args.get('key')
         if not key:
+            logger.warning(f"Request {request_id}: Missing authentication key for user deletion")
             raise MissingTokenError("Authentication key is required for user deletion")
         
+        logger.debug(f"Request {request_id}: Creating user object with key: {key[:5]}...")
         user = userClass.User(key=key)
         
         if user.id is None or user.id == -1:
+            logger.warning(f"Request {request_id}: User not found for deletion")
             raise UserNotFoundException()
             
+        logger.debug(f"Request {request_id}: Deleting user with ID: {user.id}")
         user.deleteUser()
+        logger.info(f"Request {request_id}: Successfully deleted user with ID: {user.id}")
         return jsonify({"message": "User deleted successfully"}), 200
         
     except UserServiceError:
         # Let the global error handler handle these
         raise
     except Exception as e:
-        app.logger.error(f"Unexpected error in delete_user: {str(e)}")
+        logger.error(f"Request {request_id}: Unexpected error in delete_user: {str(e)}")
+        logger.error(f"Request {request_id}: {traceback.format_exc()}")
         raise UserServiceError(f"An unexpected error occurred while deleting user")
 
 @app.route('/add_user_stats', methods=['POST'])
 def add_user_stats():
+    """
+    Add new stats for the authenticated user.
+    
+    Returns:
+        flask.Response: JSON response with stats addition status
+    """
+    request_id = getattr(request, 'request_id', 'unknown')
     try:
+        logger.info(f"Request {request_id}: Processing add_user_stats request")
         data, key = get_data_jwt(request)
         
         if not data:
+            logger.warning(f"Request {request_id}: No stats data provided")
             raise InvalidStatsDataError("No stats data provided")
         
         if 'weight' not in data:
+            logger.warning(f"Request {request_id}: Missing required weight field")
             raise MissingRequiredFieldError('weight')
         
         height = data.get('height')
         weight = data.get('weight')
         
         if weight is None:
+            logger.warning(f"Request {request_id}: Weight value cannot be null")
             raise InvalidStatsDataError("Weight value cannot be null")
         
+        logger.debug(f"Request {request_id}: Creating user stats object with key: {key[:5]}...")
         user = userClass.UserStats(key=key, height=height, weight=weight)
         
         if user.id is None or user.id == -1:
+            logger.warning(f"Request {request_id}: User not found for stats addition")
             raise UserNotFoundException()
             
+        logger.debug(f"Request {request_id}: Inserting user stats: height={height}, weight={weight}")
         user.insertStats()
+        logger.info(f"Request {request_id}: Successfully added stats for user ID: {user.id}")
         return jsonify({"message": "User stats added successfully"}), 201
         
     except UserServiceError:
         # Let the global error handler handle these
         raise
     except Exception as e:
-        app.logger.error(f"Unexpected error in add_user_stats: {str(e)}")
+        logger.error(f"Request {request_id}: Unexpected error in add_user_stats: {str(e)}")
+        logger.error(f"Request {request_id}: {traceback.format_exc()}")
         raise UserServiceError(f"An unexpected error occurred while adding user stats")
 
 @app.route('/get_user_stats', methods=['GET'])
 def get_user_stats():
+    """
+    Get stats for the authenticated user.
+    
+    Returns:
+        flask.Response: JSON response with user stats
+    """
+    request_id = getattr(request, 'request_id', 'unknown')
     try:
+        logger.info(f"Request {request_id}: Processing get_user_stats request")
         key = request.args.get('key')
         if not key:
+            logger.warning(f"Request {request_id}: Missing authentication key for stats retrieval")
             raise MissingTokenError("Authentication key is required to retrieve user stats")
         
-        days = request.args.get('days', 0, type=int)
+        try:
+            days = int(request.args.get('days', 0))
+            logger.debug(f"Request {request_id}: Using timeframe of {days} days")
+        except ValueError:
+            logger.warning(f"Request {request_id}: Invalid days parameter")
+            raise InvalidStatsDataError("Days parameter must be an integer")
         
+        logger.debug(f"Request {request_id}: Creating user stats object with key: {key[:5]}...")
         user = userClass.UserStats(key=key)
         
         if user.id is None or user.id == -1:
+            logger.warning(f"Request {request_id}: User not found for stats retrieval")
             raise UserNotFoundException()
             
+        logger.debug(f"Request {request_id}: Retrieving user stats for user ID: {user.id}, days: {days}")
         stats = user.getUserStats(days=days)
         
         if not stats:
+            logger.warning(f"Request {request_id}: No stats found for user ID: {user.id}")
             raise StatsNotFoundException()
             
+        logger.info(f"Request {request_id}: Successfully retrieved {len(stats)} stats entries for user ID: {user.id}")
         return jsonify({"message": "User stats retrieved successfully", "stats": stats}), 200
         
     except UserServiceError:
         # Let the global error handler handle these
         raise
     except Exception as e:
-        app.logger.error(f"Unexpected error in get_user_stats: {str(e)}")
+        logger.error(f"Request {request_id}: Unexpected error in get_user_stats: {str(e)}")
+        logger.error(f"Request {request_id}: {traceback.format_exc()}")
         raise UserServiceError(f"An unexpected error occurred while retrieving user stats")
 
 if __name__ == '__main__':
+    logger.info("Starting user microservice on port 8080")
     app.run(host='0.0.0.0', port=8080)

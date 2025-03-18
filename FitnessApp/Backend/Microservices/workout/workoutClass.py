@@ -1,8 +1,11 @@
-import psycopg2
 from psycopg2 import sql
+import psycopg2
+import logging
+import random
+import string
+import datetime
 import global_func
 from WorkoutExceptions import *
-import logging
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, 
@@ -15,545 +18,640 @@ logger = logging.getLogger(__name__)
 
 class Workout():
     """
-    A class representing a workout with exercises and related data.
+    A class representing workout management functionality.
     
-    Attributes:
-        id (int): The workout ID
-        user_id (int): The user ID associated with this workout
-        name (str): The name of the workout
-        workout_type (str): Type of workout (e.g., "Strength", "Cardio")
-        notes (str): Additional notes about the workout
-        average_heart_rate (int): Average heart rate during the workout
-        order (int): Order of the workout in a sequence
-        exercises (list): List of exercise data dictionaries
+    This class provides methods to create, retrieve, update, and delete workouts,
+    as well as add and manage exercises within workouts.
     """
     
-    def __init__(self, id = -1, user_id = -1, name = None, workout_type = None, notes = None, average_heart_rate = None, total_weight_lifted = None, order = None, exercises = None):
+    def __init__(self, id=None, user_id=None, name=None, workout_type=None, 
+                 workout_date=None, key=None, exercise_id=None, reps=None, 
+                 weight=None, sets=None, duration=None, distance=None):
+        """
+        Initialize a Workout object.
+        
+        Parameters:
+        -----------
+        id : int, optional
+            The workout's database ID
+        user_id : int, optional
+            The user ID associated with the workout
+        name : str, optional
+            The name of the workout
+        workout_type : str, optional
+            The type of workout (e.g., 'Strength', 'Cardio')
+        workout_date : datetime.date, optional
+            The date of the workout
+        key : str, optional
+            The user's authentication key
+        exercise_id : int, optional
+            The ID of an exercise to add to the workout
+        reps : list, optional
+            The repetitions for each set of the exercise
+        weight : list, optional
+            The weight used for each set of the exercise
+        sets : int, optional
+            The number of sets for the exercise
+        duration : int, optional
+            Duration in minutes (for cardio workouts)
+        distance : float, optional
+            Distance in miles/kilometers (for cardio workouts)
+        """
         self.id = id
         self.user_id = user_id
         self.name = name
         self.workout_type = workout_type
-        self.notes = notes
-        self.average_heart_rate = average_heart_rate
-        self.order = order
-        self.exercises = exercises
-
-    def _validate_required_fields(self):
-        """Validate required fields for workout insertion."""
-        missing_fields = []
+        self.workout_date = workout_date
+        self.key = key
+        self.exercise_id = exercise_id
+        self.reps = reps
+        self.weight = weight
+        self.sets = sets
+        self.duration = duration
+        self.distance = distance
         
-        if self.user_id is None or self.user_id == -1:
+        if key and not user_id:
+            self._get_user_id_from_key()
+    
+    def _get_user_id_from_key(self, conn=None):
+        """
+        Get user_id from authentication key.
+        
+        Parameters:
+        -----------
+        conn : psycopg2.connection, optional
+            Database connection
+            
+        Raises:
+        -------
+        ConnectionError : If database connection fails
+        InvalidTokenError : If key is invalid
+        QueryError : If database query fails
+        """
+        try:
+            should_close_conn = False
+            if not conn:
+                conn = global_func.getConnection()
+                should_close_conn = True
+                
+            cur = conn.cursor()
+            getUserIdQuery = sql.SQL("SELECT id FROM users WHERE key = %s")
+            
+            try:
+                cur.execute(getUserIdQuery, (self.key,))
+                result = cur.fetchone()
+                
+                if not result:
+                    raise InvalidTokenError("Invalid authentication key")
+                    
+                self.user_id = result[0]
+                
+            except psycopg2.Error as e:
+                logger.error(f"Database error while getting user ID: {str(e)}")
+                raise QueryError(f"Failed to get user ID: {str(e)}")
+                
+        except Exception as e:
+            if not isinstance(e, (ConnectionError, InvalidTokenError, QueryError)):
+                logger.error(f"Unexpected error in _get_user_id_from_key: {str(e)}")
+                raise WorkoutException(f"Error retrieving user from key: {str(e)}")
+        finally:
+            if 'cur' in locals() and cur:
+                cur.close()
+            if should_close_conn and 'conn' in locals() and conn:
+                conn.close()
+    
+    def create_workout(self, conn=None):
+        """
+        Create a new workout in the database.
+        
+        Parameters:
+        -----------
+        conn : psycopg2.connection, optional
+            Database connection
+            
+        Returns:
+        --------
+        int
+            ID of the created workout
+            
+        Raises:
+        -------
+        MissingRequiredFieldError : If required fields are missing
+        ConnectionError : If database connection fails
+        WorkoutAlreadyExistsError : If workout already exists
+        QueryError : If database query fails
+        """
+        # Validate required fields
+        missing_fields = []
+        if not self.user_id:
             missing_fields.append("user_id")
-        if self.workout_type is None:
+        if not self.name:
+            missing_fields.append("name")
+        if not self.workout_type:
             missing_fields.append("workout_type")
-        if self.exercises is None or not isinstance(self.exercises, list) or len(self.exercises) == 0:
-            missing_fields.append("exercises")
+        if not self.workout_date:
+            missing_fields.append("workout_date")
             
         if missing_fields:
-            raise MissingRequiredFieldError(", ".join(missing_fields))
-
-    def insertWorkout(self):
-        """
-        Insert a new workout into the database with its exercises.
+            logger.error(f"Missing required fields: {', '.join(missing_fields)}")
+            raise MissingRequiredFieldError(', '.join(missing_fields))
+            
+        # Validate workout type
+        valid_types = ["Strength", "Cardio", "Flexibility", "Balance"]
+        if self.workout_type not in valid_types:
+            logger.error(f"Invalid workout type: {self.workout_type}")
+            raise InvalidWorkoutDataError(f"Invalid workout type. Must be one of: {', '.join(valid_types)}")
         
-        Raises:
-            MissingRequiredFieldError: If required fields are missing
-            ConnectionError: If database connection fails
-            QueryError: If there's an error executing the query
-            InvalidWorkoutDataError: If workout data is invalid
-        """
-        self._validate_required_fields()
+        createWorkoutQuery = sql.SQL("""
+            INSERT INTO workouts (user_id, name, workout_type, workout_date)
+            VALUES (%s, %s, %s, %s)
+            RETURNING id
+        """)
         
-        conn = None
-        cur = None
         try:
-            try:
+            should_close_conn = False
+            if not conn:
                 conn = global_func.getConnection()
-            except Exception as e:
-                logger.error(f"Failed to connect to database: {str(e)}")
-                raise ConnectionError(str(e))
+                should_close_conn = True
                 
             cur = conn.cursor()
             
-            # Validate workout type
-            if self.workout_type not in ["Strength", "Cardio", "Flexibility", "Other"]:
-                raise InvalidWorkoutDataError("Invalid workout type. Must be one of: Strength, Cardio, Flexibility, Other")
+            # Check if workout already exists for this user on this date
+            checkQuery = sql.SQL("""
+                SELECT id FROM workouts 
+                WHERE user_id = %s AND name = %s AND workout_date = %s
+            """)
             
-            insert_query = """INSERT INTO workouts (user_id, name, workout_type, notes, average_heart_rate) 
-                            VALUES (%s, %s, %s, %s, %s) RETURNING id"""
-            cur.execute(insert_query, (self.user_id, self.name, self.workout_type, self.notes, self.average_heart_rate))
-            wid = cur.fetchone()[0]
-            
-            if not wid:
-                conn.rollback()
-                raise QueryError("Failed to insert workout: No ID returned")
-                
-            conn.commit()
-            self.id = wid
-            
-            # Insert the exercises for this workout
-            self.insertExercises(wid, conn)
-            return wid
-            
-        except (MissingRequiredFieldError, ConnectionError, QueryError, InvalidWorkoutDataError):
-            # Re-raise these exceptions directly
-            if conn:
-                conn.rollback()
-            raise
-        except Exception as e:
-            if conn:
-                conn.rollback()
-            logger.error(f"Error inserting workout: {str(e)}")
-            raise QueryError(f"Failed to insert workout: {str(e)}")
-        finally:
-            if cur:
-                cur.close()
-            if conn:
-                conn.close()
-            
-    def __prepareSets__(self, exercise):
-        """
-        Prepare the sets data for database insertion.
-        
-        Args:
-            exercise (dict): The exercise data containing set information
-            
-        Returns:
-            str: SQL formatted set data
-            
-        Raises:
-            InvalidExerciseDataError: If set data is invalid
-        """
-        try:
-            if 'reps' not in exercise or 'weight' not in exercise or 'percievedDifficulty' not in exercise:
-                raise InvalidExerciseDataError("Missing required set data (reps, weight, or percievedDifficulty)")
-                
-            # Set default values for optional fields
-            superset = exercise.get('superset', 'false')
-            set_type = exercise.get('setType', 'NORMAL')
-            
-            # Validate percievedDifficulty (RPE scale typically 1-10)
-            if not isinstance(exercise['percievedDifficulty'], (int, float)) or not (1 <= exercise['percievedDifficulty'] <= 10):
-                raise InvalidExerciseDataError("percievedDifficulty must be a number between 1 and 10")
-            
-            sets = f"ROW({exercise['reps']}, {exercise['weight']}, {exercise['percievedDifficulty']}, {superset}, {set_type}::type_set_type[])"
-            return sets
-        except KeyError as e:
-            raise InvalidExerciseDataError(f"Missing required field in exercise set data: {str(e)}")
-        except Exception as e:
-            raise InvalidExerciseDataError(f"Error preparing sets: {str(e)}")
-        
-    def insertExercises(self, wid, conn = None):
-        """
-        Insert exercises for a workout into the database.
-        
-        Args:
-            wid (int): The workout ID
-            conn (psycopg2.connection, optional): Database connection
-            
-        Raises:
-            ConnectionError: If database connection fails
-            QueryError: If there's an error executing the query
-            InvalidExerciseDataError: If exercise data is invalid
-        """
-        cur = None
-        try:
-            close_conn = False
-            if conn is None:
-                try:
-                    conn = global_func.getConnection()
-                    close_conn = True
-                except Exception as e:
-                    logger.error(f"Failed to connect to database: {str(e)}")
-                    raise ConnectionError(str(e))
-            
-            cur = conn.cursor()
-            
-            insert_query = sql.SQL("""INSERT INTO workout_exercises (workout_id, exercise_id, sets, "order", notes) 
-                                     VALUES (%s, %s, %s, %s, %s)""")
-            
-            for i, exercise in enumerate(self.exercises):
-                # Validate required exercise fields
-                if 'exercise_id' not in exercise:
-                    raise InvalidExerciseDataError(f"Missing exercise_id in exercise at index {i}")
-                
-                sets = self.__prepareSets__(exercise)
-                order = exercise.get('order', i+1)  # Default to index+1 if not specified
-                notes = exercise.get('notes', '')
-                
-                cur.execute(insert_query, (wid, exercise['exercise_id'], sets, order, notes))
-            
-            if close_conn:
-                conn.commit()
-                
-        except (ConnectionError, QueryError, InvalidExerciseDataError):
-            # Re-raise these exceptions directly
-            if conn and close_conn:
-                conn.rollback()
-            raise
-        except Exception as e:
-            if conn and close_conn:
-                conn.rollback()
-            logger.error(f"Error inserting exercises: {str(e)}")
-            raise QueryError(f"Failed to insert exercises: {str(e)}")
-        finally:
-            if cur:
-                cur.close()
-            if conn and close_conn:
-                conn.close()
-        
-    def __getWorkoutId__(self, workoutName):
-        """
-        Get workout ID by name.
-        
-        Args:
-            workoutName (str): The name of the workout
-            
-        Returns:
-            int: The workout ID
-            
-        Raises:
-            ConnectionError: If database connection fails
-            WorkoutNotFoundException: If workout is not found
-            QueryError: If there's an error executing the query
-        """
-        conn = None
-        cur = None
-        try:
             try:
-                conn = global_func.getConnection()
-            except Exception as e:
-                logger.error(f"Failed to connect to database: {str(e)}")
-                raise ConnectionError(str(e))
-                
-            cur = conn.cursor()
-            
-            get_query = """SELECT id FROM workouts WHERE name = %s"""
-            cur.execute(get_query, (workoutName,))
-            workout = cur.fetchone()
-            
-            if not workout:
-                raise WorkoutNotFoundException(f"No workout found with name: {workoutName}")
-                
-            return workout[0]
-            
-        except (ConnectionError, WorkoutNotFoundException):
-            # Re-raise these exceptions directly
-            raise
-        except Exception as e:
-            logger.error(f"Error getting workout ID: {str(e)}")
-            raise QueryError(f"Failed to get workout ID: {str(e)}")
-        finally:
-            if cur:
-                cur.close()
-            if conn:
-                conn.close()
-        
-    
-    def getWorkouts(self, offset=0):
-        """
-        Get a list of workouts for the user.
-        
-        Args:
-            offset (int): Pagination offset
-            
-        Returns:
-            list: List of workout data dictionaries
-            int: Next page offset or -1 if no more pages
-            
-        Raises:
-            ConnectionError: If database connection fails
-            UserNotFoundError: If user is not found
-            QueryError: If there's an error executing the query
-        """
-        if self.user_id == -1:
-            raise UserNotFoundError("User ID not provided")
-            
-        conn = None
-        cur = None
-        try:
-            try:
-                conn = global_func.getConnection()
-            except Exception as e:
-                logger.error(f"Failed to connect to database: {str(e)}")
-                raise ConnectionError(str(e))
-                
-            cur = conn.cursor()
-            
-            # Verify user exists
-            user_query = """SELECT id FROM users WHERE id = %s"""
-            cur.execute(user_query, (self.user_id,))
-            if cur.fetchone() is None:
-                raise UserNotFoundError(f"No user found with ID: {self.user_id}")
-                
-            # Get workouts with pagination
-            get_query = """
-                SELECT id, name, workout_type, notes, average_heart_rate, workout_date 
-                FROM workouts 
-                WHERE user_id = %s 
-                ORDER BY workout_date DESC
-                LIMIT 10 OFFSET %s
-            """
-            cur.execute(get_query, (self.user_id, offset*10))
-            workouts = cur.fetchall()
-            
-            workout_list = []
-            for workout in workouts:
-                # Get exercises for each workout
-                get_exercises_query = """
-                    SELECT exercise_id, sets, notes, "order"  
-                    FROM workout_exercises 
-                    WHERE workout_id = %s
-                    ORDER BY "order"
-                """
-                cur.execute(get_exercises_query, (workout[0],))
-                exercises = cur.fetchall()
-                
-                exercise_list = []
-                for exercise in exercises:
-                    # Get exercise name
-                    get_name_query = """SELECT name FROM exercises WHERE id = %s"""
-                    cur.execute(get_name_query, (exercise[0],))
-                    exercise_name = cur.fetchone()
-                    name = exercise_name[0] if exercise_name else "Unknown Exercise"
+                cur.execute(checkQuery, (self.user_id, self.name, self.workout_date))
+                if cur.fetchone():
+                    conn.rollback()
+                    raise WorkoutAlreadyExistsError()
                     
-                    exercise_list.append({
-                        "exercise_id": exercise[0],
-                        "exercise_name": name,
-                        "sets": exercise[1],
-                        "notes": exercise[2],
-                        "order": exercise[3]
+                cur.execute(createWorkoutQuery, (self.user_id, self.name, self.workout_type, self.workout_date))
+                result = cur.fetchone()
+                
+                if result:
+                    self.id = result[0]
+                    conn.commit()
+                    logger.info(f"Created workout: ID={self.id}, Name={self.name}, Type={self.workout_type}")
+                    return self.id
+                else:
+                    conn.rollback()
+                    raise QueryError("Workout creation failed - no ID returned")
+                    
+            except psycopg2.errors.UniqueViolation:
+                conn.rollback()
+                raise WorkoutAlreadyExistsError()
+                
+            except (psycopg2.Error, QueryError, WorkoutAlreadyExistsError) as e:
+                if isinstance(e, psycopg2.Error):
+                    conn.rollback()
+                    logger.error(f"Database error: {str(e)}")
+                    raise QueryError(f"Error creating workout: {str(e)}")
+                raise
+                
+        except Exception as e:
+            if not isinstance(e, (MissingRequiredFieldError, ConnectionError, 
+                                  WorkoutAlreadyExistsError, QueryError)):
+                logger.error(f"Unexpected error in create_workout: {str(e)}")
+                raise WorkoutException(f"Error creating workout: {str(e)}")
+        finally:
+            if 'cur' in locals() and cur:
+                cur.close()
+            if should_close_conn and 'conn' in locals() and conn:
+                conn.close()
+    
+    def get_workout(self, conn=None):
+        """
+        Get workout details from database.
+        
+        Parameters:
+        -----------
+        conn : psycopg2.connection, optional
+            Database connection
+            
+        Returns:
+        --------
+        dict
+            Workout details
+            
+        Raises:
+        -------
+        WorkoutNotFoundException : If workout is not found
+        ConnectionError : If database connection fails
+        QueryError : If database query fails
+        """
+        if not self.id:
+            logger.error("Workout ID not provided")
+            raise MissingRequiredFieldError("workout_id")
+            
+        getWorkoutQuery = sql.SQL("""
+            SELECT w.id, w.user_id, w.name, w.workout_type, w.workout_date, u.key
+            FROM workouts w
+            JOIN users u ON w.user_id = u.id
+            WHERE w.id = %s
+        """)
+        
+        try:
+            should_close_conn = False
+            if not conn:
+                conn = global_func.getConnection()
+                should_close_conn = True
+                
+            cur = conn.cursor()
+            
+            try:
+                cur.execute(getWorkoutQuery, (self.id,))
+                result = cur.fetchone()
+                
+                if not result:
+                    raise WorkoutNotFoundException()
+                    
+                workout_data = {
+                    "id": result[0],
+                    "user_id": result[1],
+                    "name": result[2],
+                    "workout_type": result[3],
+                    "workout_date": result[4].isoformat() if result[4] else None,
+                    "user_key": result[5]
+                }
+                
+                # Update class attributes
+                self.user_id = result[1]
+                self.name = result[2]
+                self.workout_type = result[3]
+                self.workout_date = result[4]
+                self.key = result[5]
+                
+                # Get exercises if this is a strength workout
+                if self.workout_type == "Strength":
+                    getExercisesQuery = sql.SQL("""
+                        SELECT e.id, e.name, we.sets, we.reps, we.weight, we.percieved_difficulty
+                        FROM workout_exercises we
+                        JOIN exercises e ON we.exercise_id = e.id
+                        WHERE we.workout_id = %s
+                    """)
+                    cur.execute(getExercisesQuery, (self.id,))
+                    exercises = []
+                    
+                    for row in cur.fetchall():
+                        exercises.append({
+                            "exercise_id": row[0],
+                            "exercise_name": row[1],
+                            "sets": row[2],
+                            "reps": row[3],
+                            "weight": row[4],
+                            "difficulty": row[5]
+                        })
+                    
+                    workout_data["exercises"] = exercises
+                    
+                # Get cardio details if this is a cardio workout
+                elif self.workout_type == "Cardio":
+                    getCardioQuery = sql.SQL("""
+                        SELECT duration, distance, percieved_difficulty
+                        FROM workout_cardio
+                        WHERE workout_id = %s
+                    """)
+                    cur.execute(getCardioQuery, (self.id,))
+                    cardio_data = cur.fetchone()
+                    
+                    if cardio_data:
+                        workout_data["cardio"] = {
+                            "duration": cardio_data[0],
+                            "distance": cardio_data[1],
+                            "difficulty": cardio_data[2]
+                        }
+                        
+                        self.duration = cardio_data[0]
+                        self.distance = cardio_data[1]
+                
+                logger.info(f"Retrieved workout: ID={self.id}, Name={self.name}")
+                return workout_data
+                
+            except psycopg2.Error as e:
+                logger.error(f"Database error: {str(e)}")
+                raise QueryError(f"Error retrieving workout: {str(e)}")
+                
+        except Exception as e:
+            if not isinstance(e, (WorkoutNotFoundException, ConnectionError, QueryError, MissingRequiredFieldError)):
+                logger.error(f"Unexpected error in get_workout: {str(e)}")
+                raise WorkoutException(f"Error retrieving workout: {str(e)}")
+        finally:
+            if 'cur' in locals() and cur:
+                cur.close()
+            if should_close_conn and 'conn' in locals() and conn:
+                conn.close()
+    
+    def add_exercise(self, conn=None):
+        """
+        Add an exercise to a workout.
+        
+        Parameters:
+        -----------
+        conn : psycopg2.connection, optional
+            Database connection
+            
+        Raises:
+        -------
+        MissingRequiredFieldError : If required fields are missing
+        WorkoutNotFoundException : If workout is not found
+        ExerciseNotFoundException : If exercise is not found
+        ConnectionError : If database connection fails
+        QueryError : If database query fails
+        """
+        # Validate required fields
+        missing_fields = []
+        if not self.id:
+            missing_fields.append("workout_id")
+        if not self.exercise_id:
+            missing_fields.append("exercise_id")
+        if self.workout_type == "Strength" and (not self.sets or not self.reps or self.weight is None):
+            missing_fields.append("sets, reps, or weight")
+            
+        if missing_fields:
+            logger.error(f"Missing required fields: {', '.join(missing_fields)}")
+            raise MissingRequiredFieldError(', '.join(missing_fields))
+            
+        # Get workout if not already loaded
+        if not self.workout_type:
+            self.get_workout()
+        
+        addExerciseQuery = sql.SQL("""
+            INSERT INTO workout_exercises (workout_id, exercise_id, sets, reps, weight, percieved_difficulty)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """)
+        
+        try:
+            should_close_conn = False
+            if not conn:
+                conn = global_func.getConnection()
+                should_close_conn = True
+                
+            cur = conn.cursor()
+            
+            try:
+                # Check if workout exists
+                cur.execute("SELECT id FROM workouts WHERE id = %s", (self.id,))
+                if not cur.fetchone():
+                    raise WorkoutNotFoundException()
+                
+                # Check if exercise exists
+                cur.execute("SELECT id FROM exercises WHERE id = %s", (self.exercise_id,))
+                if not cur.fetchone():
+                    raise ExerciseNotFoundException()
+                
+                # Add difficulty level if not provided
+                percieved_difficulty = getattr(self, 'percieved_difficulty', 3)  # Default to moderate
+                
+                cur.execute(addExerciseQuery, (
+                    self.id, 
+                    self.exercise_id, 
+                    self.sets, 
+                    self.reps, 
+                    self.weight, 
+                    percieved_difficulty
+                ))
+                conn.commit()
+                logger.info(f"Added exercise {self.exercise_id} to workout {self.id}")
+                
+            except psycopg2.Error as e:
+                conn.rollback()
+                logger.error(f"Database error: {str(e)}")
+                raise QueryError(f"Error adding exercise: {str(e)}")
+                
+        except Exception as e:
+            if not isinstance(e, (WorkoutNotFoundException, ExerciseNotFoundException,
+                                  MissingRequiredFieldError, ConnectionError, QueryError)):
+                logger.error(f"Unexpected error in add_exercise: {str(e)}")
+                raise WorkoutException(f"Error adding exercise: {str(e)}")
+        finally:
+            if 'cur' in locals() and cur:
+                cur.close()
+            if should_close_conn and 'conn' in locals() and conn:
+                conn.close()
+    
+    def add_cardio(self, conn=None):
+        """
+        Add cardio details to a workout.
+        
+        Parameters:
+        -----------
+        conn : psycopg2.connection, optional
+            Database connection
+            
+        Raises:
+        -------
+        MissingRequiredFieldError : If required fields are missing
+        WorkoutNotFoundException : If workout is not found
+        InvalidWorkoutDataError : If workout type is not 'Cardio'
+        ConnectionError : If database connection fails
+        QueryError : If database query fails
+        """
+        # Validate required fields
+        missing_fields = []
+        if not self.id:
+            missing_fields.append("workout_id")
+        if self.duration is None:
+            missing_fields.append("duration")
+        
+        if missing_fields:
+            logger.error(f"Missing required fields: {', '.join(missing_fields)}")
+            raise MissingRequiredFieldError(', '.join(missing_fields))
+        
+        # Get workout if not already loaded
+        if not self.workout_type:
+            self.get_workout()
+            
+        # Ensure this is a cardio workout
+        if self.workout_type != "Cardio":
+            logger.error(f"Cannot add cardio to non-cardio workout type: {self.workout_type}")
+            raise InvalidWorkoutDataError("Can only add cardio details to workouts of type 'Cardio'")
+        
+        addCardioQuery = sql.SQL("""
+            INSERT INTO workout_cardio (workout_id, duration, distance, percieved_difficulty)
+            VALUES (%s, %s, %s, %s)
+        """)
+        
+        try:
+            should_close_conn = False
+            if not conn:
+                conn = global_func.getConnection()
+                should_close_conn = True
+                
+            cur = conn.cursor()
+            
+            try:
+                # Check if workout exists
+                cur.execute("SELECT id FROM workouts WHERE id = %s", (self.id,))
+                if not cur.fetchone():
+                    raise WorkoutNotFoundException()
+                
+                # Add difficulty level if not provided
+                percieved_difficulty = getattr(self, 'percieved_difficulty', 3)  # Default to moderate
+                
+                # Distance can be null (e.g., for stationary bike)
+                distance = self.distance if self.distance is not None else 0
+                
+                cur.execute(addCardioQuery, (self.id, self.duration, distance, percieved_difficulty))
+                conn.commit()
+                logger.info(f"Added cardio details to workout {self.id}")
+                
+            except psycopg2.Error as e:
+                conn.rollback()
+                logger.error(f"Database error: {str(e)}")
+                raise QueryError(f"Error adding cardio details: {str(e)}")
+                
+        except Exception as e:
+            if not isinstance(e, (WorkoutNotFoundException, InvalidWorkoutDataError,
+                                 MissingRequiredFieldError, ConnectionError, QueryError)):
+                logger.error(f"Unexpected error in add_cardio: {str(e)}")
+                raise WorkoutException(f"Error adding cardio details: {str(e)}")
+        finally:
+            if 'cur' in locals() and cur:
+                cur.close()
+            if should_close_conn and 'conn' in locals() and conn:
+                conn.close()
+    
+    def delete_workout(self, conn=None):
+        """
+        Delete a workout from the database.
+        
+        Parameters:
+        -----------
+        conn : psycopg2.connection, optional
+            Database connection
+            
+        Raises:
+        -------
+        MissingRequiredFieldError : If workout ID is missing
+        WorkoutNotFoundException : If workout is not found
+        UserAccessDeniedError : If user doesn't have permission to delete the workout
+        ConnectionError : If database connection fails
+        QueryError : If database query fails
+        """
+        if not self.id:
+            logger.error("Workout ID not provided")
+            raise MissingRequiredFieldError("workout_id")
+        
+        # If user_id is provided, verify ownership
+        if self.user_id:
+            # Get workout details to verify ownership
+            workout = self.get_workout()
+            if workout["user_id"] != self.user_id:
+                logger.error(f"Access denied: User {self.user_id} doesn't own workout {self.id}")
+                raise UserAccessDeniedError()
+        
+        deleteWorkoutQuery = sql.SQL("DELETE FROM workouts WHERE id = %s")
+        
+        try:
+            should_close_conn = False
+            if not conn:
+                conn = global_func.getConnection()
+                should_close_conn = True
+                
+            cur = conn.cursor()
+            
+            try:
+                # Delete associated exercises first (due to foreign key constraints)
+                cur.execute("DELETE FROM workout_exercises WHERE workout_id = %s", (self.id,))
+                cur.execute("DELETE FROM workout_cardio WHERE workout_id = %s", (self.id,))
+                
+                # Now delete the workout
+                cur.execute(deleteWorkoutQuery, (self.id,))
+                
+                # Check if any row was deleted
+                if cur.rowcount == 0:
+                    conn.rollback()
+                    raise WorkoutNotFoundException()
+                
+                conn.commit()
+                logger.info(f"Deleted workout: ID={self.id}")
+                
+            except psycopg2.Error as e:
+                conn.rollback()
+                logger.error(f"Database error: {str(e)}")
+                raise QueryError(f"Error deleting workout: {str(e)}")
+                
+        except Exception as e:
+            if not isinstance(e, (WorkoutNotFoundException, UserAccessDeniedError,
+                                 MissingRequiredFieldError, ConnectionError, QueryError)):
+                logger.error(f"Unexpected error in delete_workout: {str(e)}")
+                raise WorkoutException(f"Error deleting workout: {str(e)}")
+        finally:
+            if 'cur' in locals() and cur:
+                cur.close()
+            if should_close_conn and 'conn' in locals() and conn:
+                conn.close()
+    
+    def get_user_workouts(self, days=30, conn=None):
+        """
+        Get all workouts for a user within a specified time period.
+        
+        Parameters:
+        -----------
+        days : int, optional
+            Number of days to look back (default: 30)
+        conn : psycopg2.connection, optional
+            Database connection
+            
+        Returns:
+        --------
+        list
+            List of workout dictionaries
+            
+        Raises:
+        -------
+        MissingRequiredFieldError : If user ID is missing
+        ConnectionError : If database connection fails
+        QueryError : If database query fails
+        """
+        if not self.user_id:
+            logger.error("User ID not provided")
+            raise MissingRequiredFieldError("user_id")
+        
+        getUserWorkoutsQuery = sql.SQL("""
+            SELECT id, name, workout_type, workout_date
+            FROM workouts
+            WHERE user_id = %s
+            AND workout_date >= CURRENT_DATE - INTERVAL '%s days'
+            ORDER BY workout_date DESC
+        """)
+        
+        try:
+            should_close_conn = False
+            if not conn:
+                conn = global_func.getConnection()
+                should_close_conn = True
+                
+            cur = conn.cursor()
+            
+            try:
+                cur.execute(getUserWorkoutsQuery, (self.user_id, days))
+                workouts = []
+                
+                for row in cur.fetchall():
+                    workouts.append({
+                        "id": row[0],
+                        "name": row[1],
+                        "workout_type": row[2],
+                        "workout_date": row[3].isoformat() if row[3] else None
                     })
                 
-                workout_list.append({
-                    "id": workout[0],
-                    "name": workout[1],
-                    "workout_type": workout[2],
-                    "notes": workout[3],
-                    "average_heart_rate": workout[4],
-                    "workout_date": workout[5].strftime("%Y-%m-%d %H:%M:%S") if workout[5] else None,
-                    "exercises": exercise_list
-                })
-            
-            # Determine if there are more results
-            next_page = offset + 1 if len(workouts) == 10 else -1
-            return workout_list, next_page
-            
-        except (ConnectionError, UserNotFoundError):
-            # Re-raise these exceptions directly
-            raise
+                logger.info(f"Retrieved {len(workouts)} workouts for user {self.user_id}")
+                return workouts
+                
+            except psycopg2.Error as e:
+                logger.error(f"Database error: {str(e)}")
+                raise QueryError(f"Error retrieving user workouts: {str(e)}")
+                
         except Exception as e:
-            logger.error(f"Error getting workouts: {str(e)}")
-            raise QueryError(f"Failed to retrieve workouts: {str(e)}")
+            if not isinstance(e, (MissingRequiredFieldError, ConnectionError, QueryError)):
+                logger.error(f"Unexpected error in get_user_workouts: {str(e)}")
+                raise WorkoutException(f"Error retrieving user workouts: {str(e)}")
         finally:
-            if cur:
+            if 'cur' in locals() and cur:
                 cur.close()
-            if conn:
+            if should_close_conn and 'conn' in locals() and conn:
                 conn.close()
-    
-    def getExercises(self, offset=0, amount=50):
-        """
-        Get a list of exercises available to the user.
-        
-        Args:
-            offset (int): Pagination offset
-            amount (int): Number of exercises to retrieve
-            
-        Returns:
-            list: List of exercise data dictionaries
-            int: Next page offset or -1 if no more pages
-            
-        Raises:
-            ConnectionError: If database connection fails
-            QueryError: If there's an error executing the query
-        """
-        conn = None
-        cur = None
-        try:
-            try:
-                conn = global_func.getConnection()
-            except Exception as e:
-                logger.error(f"Failed to connect to database: {str(e)}")
-                raise ConnectionError(str(e))
-                
-            cur = conn.cursor()
-            
-            # Get exercises with pagination - corrected SQL statement
-            get_query = """
-                SELECT name, equipment, description, single_sided, primary_muscle, secondary_muscles, createdBy 
-                FROM exercises 
-                WHERE (createdBy = %s OR createdBy IS NULL) 
-                LIMIT %s OFFSET %s
-            """
-            
-            cur.execute(get_query, (self.user_id, amount, offset * amount))
-            exercises = cur.fetchall()
-            
-            exercise_list = []
-            for exercise in exercises:
-                # Determine who created the exercise
-                if exercise[6] is None:
-                    createdBy = "GitFitBro"
-                else:
-                    createdBy = self.__getUsername__()
-                    
-                exercise_list.append({
-                    "name": exercise[0],
-                    "equipment": exercise[1],
-                    "description": exercise[2],
-                    "single_sided": exercise[3],
-                    "primary_muscle": exercise[4],
-                    "secondary_muscles": exercise[5],
-                    "createdBy": createdBy
-                })
-                
-            # Determine if there are more results
-            next_page = offset + 1 if len(exercises) >= amount else -1
-            return exercise_list, next_page
-            
-        except ConnectionError:
-            # Re-raise ConnectionError directly
-            raise
-        except Exception as e:
-            logger.error(f"Error getting exercises: {str(e)}")
-            raise QueryError(f"Failed to retrieve exercises: {str(e)}")
-        finally:
-            if cur:
-                cur.close()
-            if conn:
-                conn.close()
-    
-    def __getUsername__(self):
-        """
-        Get username for the current user ID.
-        
-        Returns:
-            str: Username
-            
-        Raises:
-            ConnectionError: If database connection fails
-            UserNotFoundError: If user is not found
-            QueryError: If there's an error executing the query
-        """
-        conn = None
-        cur = None
-        try:
-            try:
-                conn = global_func.getConnection()
-            except Exception as e:
-                logger.error(f"Failed to connect to database: {str(e)}")
-                raise ConnectionError(str(e))
-                
-            cur = conn.cursor()
-            
-            # Corrected SQL statement
-            get_query = """SELECT username FROM users WHERE id = %s"""
-            cur.execute(get_query, (self.user_id,))
-            user = cur.fetchone()
-            
-            if not user:
-                raise UserNotFoundError(f"No user found with ID: {self.user_id}")
-                
-            return user[0]
-            
-        except (ConnectionError, UserNotFoundError):
-            # Re-raise these exceptions directly
-            raise
-        except Exception as e:
-            logger.error(f"Error getting username: {str(e)}")
-            raise QueryError(f"Failed to get username: {str(e)}")
-        finally:
-            if cur:
-                cur.close()
-            if conn:
-                conn.close()
-
-    def getWorkoutStats(self, exercise_id, timeframe):
-        """
-        Get workout statistics for an exercise over a timeframe.
-        
-        Args:
-            exercise_id (int): The exercise ID
-            timeframe (int): Number of days to look back
-            
-        Returns:
-            list: List of workout statistics
-            
-        Raises:
-            ConnectionError: If database connection fails
-            UserNotFoundError: If user is not found
-            ExerciseNotFoundException: If exercise is not found
-            QueryError: If there's an error executing the query
-            InvalidWorkoutDataError: If workout data is invalid
-        """
-        if self.user_id == -1:
-            raise UserNotFoundError("User ID not provided")
-            
-        if not exercise_id or not isinstance(exercise_id, int):
-            raise InvalidWorkoutDataError("Valid exercise ID is required")
-            
-        if not timeframe or not isinstance(timeframe, int) or timeframe <= 0:
-            raise InvalidWorkoutDataError("Valid timeframe (days) is required")
-            
-        conn = None
-        cur = None
-        try:
-            try:
-                conn = global_func.getConnection()
-            except Exception as e:
-                logger.error(f"Failed to connect to database: {str(e)}")
-                raise ConnectionError(str(e))
-                
-            cur = conn.cursor()
-            
-            # Verify exercise exists
-            exercise_query = """SELECT id FROM exercises WHERE id = %s"""
-            cur.execute(exercise_query, (exercise_id,))
-            if cur.fetchone() is None:
-                raise ExerciseNotFoundException(f"No exercise found with ID: {exercise_id}")
-                
-            # Get workout stats with corrected SQL query
-            get_query = """
-                SELECT we.exercise_id, (we.sets).reps, (we.sets).weight, (we.sets).percieved_difficulty, w.workout_date
-                FROM workout_exercises we
-                JOIN workouts w ON we.workout_id = w.id
-                WHERE w.user_id = %s 
-                  AND we.exercise_id = %s
-                  AND w.workout_date > CURRENT_DATE - INTERVAL %s DAY
-                ORDER BY w.workout_date
-            """
-            
-            cur.execute(get_query, (self.user_id, exercise_id, timeframe))
-            stats_data = cur.fetchall()
-            
-            if not stats_data:
-                logger.info(f"No workout stats found for exercise {exercise_id} in the last {timeframe} days")
-                return []
-                
-            # Transform data for the response
-            stats = []
-            for row in stats_data:
-                stats.append({
-                    "exercise_id": row[0],
-                    "reps": row[1],
-                    "weight": row[2],
-                    "percieved_difficulty": row[3],
-                    "date": row[4].strftime("%Y-%m-%d %H:%M:%S") if row[4] else None
-                })
-                
-            return stats
-            
-        except (ConnectionError, UserNotFoundError, ExerciseNotFoundException, InvalidWorkoutDataError):
-            # Re-raise these exceptions directly
-            raise
-        except Exception as e:
-            logger.error(f"Error getting workout stats: {str(e)}")
-            raise QueryError(f"Failed to retrieve workout stats: {str(e)}")
-        finally:
-            if cur:
-                cur.close()
-            if conn:
-                conn.close()
-            
-class WorkoutExceptions(Exception):
-    pass
