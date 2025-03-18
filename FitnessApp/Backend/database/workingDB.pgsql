@@ -20,12 +20,14 @@ CREATE TYPE type_set_type AS ENUM (
     'warm-up', 'normal', 'drop', 'failiure'
 );
 
--- Implement Type vv
 CREATE TYPE workout_type_enum AS ENUM (
     'cardio', 'strength'
 );
 
--- Implement type ^^
+CREATE TYPE goal_type_enum AS ENUM (
+    'weight', 'cardio', 'strength'
+);
+
 
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
@@ -33,11 +35,11 @@ CREATE TABLE users (
     username VARCHAR(20) UNIQUE NOT NULL,
     fname VARCHAR(20) NOT NULL,
     lname VARCHAR(30) NOT NULL,
-    password_hash CHAR() NOT NULL, -- Need to find length of hash
+    password_hash CHAR(64) NOT NULL, -- Need to find length of hash
     dob DATE NOT NULL,
     sex CHAR NOT NULL,
-    BFL DECIMAL(6,2),  -- Stores base fitness level Need to Add ### Change BFL ###
-    KEY VARCHAR(50),  -- Stores key for password reset
+    BFL DECIMAL(8,2),  -- Stores base fitness level Need to Add ### Change BFL ###
+    KEY VARCHAR(50) UNIQUE NOT NULL,  -- Stores key for password reset
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -52,21 +54,20 @@ CREATE TABLE user_stats (
 CREATE TABLE user_goals (
     id SERIAL PRIMARY KEY,
     user_id INT REFERENCES users(id) ON DELETE CASCADE,
-    weight_goal DECIMAL(8,2), -- Possibly add weight lift goal or cardio goal ### Change weight goal ###
+    goal_type goal_type_enum NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    achieve_by DATE,
+    achieve_by DATE NOT NULL,
     achieved BOOLEAN DEFAULT FALSE,
     achieved_at TIMESTAMP,
     notes VARCHAR(250)
 );
 
--- Inherited Table to possibly change and implement vv
 CREATE TABLE weight_goals (
     target_weight DECIMAL(8,2)
 ) INHERITS (user_goals);
 
 CREATE TABLE cardio_goals (
-    target_distance DECIMAL(6,2),
+    target_distance DECIMAL(8,2),
     target_time INTERVAL
 ) INHERITS (user_goals);
 
@@ -75,9 +76,6 @@ CREATE TABLE strength_goals (
     target_reps INT,
     target_sets INT
 ) INHERITS (user_goals);
-
--- Inherited Table to possibly change and implement ^^
-
 
 
 CREATE TABLE workouts (
@@ -92,8 +90,8 @@ CREATE TABLE workouts (
 
 CREATE TABLE exercises (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL UNIQUE,
-    equipment strength_equipment,
+    name VARCHAR(100) NOT NULL,
+    equipment strength_equipment NOT NULL,
     description TEXT,
     single_sided BOOLEAN DEFAULT FALSE,
     primary_muscle muscle_group_enum[] NOT NULL, --Think about with muscle groups. Might want with repetition
@@ -108,29 +106,30 @@ CREATE TABLE workout_exercises (
     workout_id INT REFERENCES workouts(id) ON DELETE CASCADE,
     exercise_id INT REFERENCES exercises(id) ON DELETE SET NULL,
     sets set_type,
-    order SMALLINT NOT NULL, -- Implement order (Maybe) Initialized and used on back end side
+    order_exercise SMALLINT NOT NULL, -- Implement order (Maybe) Initialized and used on back end side
     notes VARCHAR(250),
     date_performed TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 
- -- Implement below
- -- ______________________________________________________________________________________
-
 CREATE TABLE user_steps (
-    user_id INT REFERENCES users(id) ON DELETE CASCADE PRIMARY KEY, -- Allows for unique user
-    date_performed DATE DEFAULT CURRENT_DATE PRIMARY KEY, -- On Unique date, even for multiple writes a day
-    steps INT
+    user_id INT REFERENCES users(id) ON DELETE CASCADE, -- Allows for unique user
+    date_performed DATE DEFAULT CURRENT_DATE, -- On Unique date, even for multiple writes a day
+    steps INT,
+    PRIMARY KEY (user_id, date_performed)
 );
 
 CREATE TABLE workout_cardio (
     id SERIAL PRIMARY KEY, -- Yes
     workout_id INT REFERENCES workouts(id) ON DELETE CASCADE, -- Yes
     duration INTERVAL NOT NULL, -- Yes
-    distance DECIMAL(6,2), -- Yes (Miles)
+    distance DECIMAL(8,2) NOT NULL, -- Yes (Miles)
     percieved_difficulty INT, -- Yes???
-    notes VARCHAR(250), -- Yes?
+    notes VARCHAR(250) -- Yes?
 );
+
+--- Implement Below
+ -- ______________________________________________________________________________________
 
 CREATE TABLE family(
     id SERIAL PRIMARY KEY,
