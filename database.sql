@@ -303,7 +303,7 @@ ALTER SEQUENCE public.workout_exercises_id_seq OWNED BY public.workout_exercises
 
 CREATE TABLE public.workouts (
     id integer NOT NULL,
-    name character varying(30) DEFAULT "Workout",
+    name character varying(30) DEFAULT 'Workout',
     user_id integer,
     workout_type character varying(50) NOT NULL,
     workout_start timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
