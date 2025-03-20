@@ -111,6 +111,18 @@ CREATE TABLE workout_exercises (
     date_performed TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Implement Below (Maybe)
+CREATE TABLE user_exercise_max(
+    id SERIAL PRIMARY KEY,
+    user_id INT REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+    exercise_id INT REFERENCES exercises(id) ON DELETE SET NULL,
+    calculated_1rm DECIMAL(8,2) NOT NULL, 
+    weight_actual DECIMAL(8,2) NOT NULL,
+    reps_actual INT NOT NULL,
+    date_performed TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+-- Implement above (Maybe)
+
 
 CREATE TABLE user_steps (
     user_id INT REFERENCES users(id) ON DELETE CASCADE, -- Allows for unique user

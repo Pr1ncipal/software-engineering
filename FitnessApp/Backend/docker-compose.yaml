@@ -43,6 +43,18 @@ services:
       dockerfile: Dockerfile
     networks:
       - private-network
+      
+  leaderboard:
+    container_name: leaderboard
+    depends_on:
+      - postgres
+    ports:
+      - "8080"
+    build: 
+      context: ./Microservices/leaderboard
+      dockerfile: Dockerfile
+    networks:
+      - private-network
 
 networks:
   private-network:
