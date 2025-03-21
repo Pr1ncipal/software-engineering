@@ -107,7 +107,12 @@ class Leaderboard():
                 
             cur = conn.cursor()
             
-            get_steps_query = sql.SQL("SELECT use.username, AVG(us.steps) FROM user_steps us JOIN users use ON us.user_id = use.id WHERE us.date >= %s AND us.date <= %s GROUP BY us.user_id, use.username ORDER BY AVG(us.steps) DESC LIMIT %s")
+            get_steps_query = sql.SQL("""SELECT use.username, AVG(us.steps) 
+                                      FROM user_steps us 
+                                      JOIN users use ON us.user_id = use.id 
+                                      WHERE us.date >= %s AND us.date <= %s 
+                                      GROUP BY us.user_id, use.username 
+                                      ORDER BY AVG(us.steps) DESC LIMIT %s""")
             start_date = datetime.datetime.now() - datetime.timedelta(days=self.days)
             end_date = datetime.datetime.now()
             
