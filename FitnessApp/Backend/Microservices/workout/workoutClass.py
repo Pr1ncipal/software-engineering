@@ -25,8 +25,7 @@ class Workout():
     """
     
     def __init__(self, id=None, user_id=None, name=None, workout_type=None, 
-                 workout_date=None, key=None, exercise_id=None, reps=None, 
-                 weight=None, sets=None, duration=None, distance=None):
+                 workout_date=None, key=None, exercises = None, duration=None, distance=None):
         """
         Initialize a Workout object.
         
@@ -63,10 +62,7 @@ class Workout():
         self.workout_type = workout_type
         self.workout_date = workout_date
         self.key = key
-        self.exercise_id = exercise_id
-        self.reps = reps
-        self.weight = weight
-        self.sets = sets
+        self.exercises = exercises
         self.duration = duration
         self.distance = distance
         
@@ -194,8 +190,9 @@ class Workout():
                 if result:
                     self.id = result[0]
                     conn.commit()
+                    self.__add_exercise__(conn)
+                    
                     logger.info(f"Created workout: ID={self.id}, Name={self.name}, Type={self.workout_type}")
-                    return self.id
                 else:
                     conn.rollback()
                     raise QueryError("Workout creation failed - no ID returned")
@@ -344,7 +341,7 @@ class Workout():
             if should_close_conn and 'conn' in locals() and conn:
                 conn.close()
     
-    def add_exercise(self, conn=None):
+    def __add_exercise__(self, conn=None):
         """
         Add an exercise to a workout.
         
@@ -365,23 +362,15 @@ class Workout():
         missing_fields = []
         if not self.id:
             missing_fields.append("workout_id")
-        if not self.exercise_id:
-            missing_fields.append("exercise_id")
-        if self.workout_type == "Strength" and (not self.sets or not self.reps or self.weight is None):
-            missing_fields.append("sets, reps, or weight")
             
         if missing_fields:
             logger.error(f"Missing required fields: {', '.join(missing_fields)}")
             raise MissingRequiredFieldError(', '.join(missing_fields))
-            
-        # Get workout if not already loaded
-        if not self.workout_type:
-            self.get_workout()
         
         addExerciseQuery = sql.SQL("""
-            INSERT INTO workout_exercises (workout_id, exercise_id, sets, reps, weight, percieved_difficulty)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """)
+            INSERT INTO workout_exercises (workout_id, exercise_id, sets, order_exercise, notes)
+            VALUES (%s, %s, ROW(%s, %s, %s, %s, %s), %s, %s)
+        """) #Figure out which is type_set_type for casting
         
         try:
             should_close_conn = False
@@ -405,16 +394,27 @@ class Workout():
                 # Add difficulty level if not provided
                 percieved_difficulty = getattr(self, 'percieved_difficulty', 3)  # Default to moderate
                 
-                cur.execute(addExerciseQuery, (
-                    self.id, 
-                    self.exercise_id, 
-                    self.sets, 
-                    self.reps, 
-                    self.weight, 
-                    percieved_difficulty
-                ))
-                conn.commit()
-                logger.info(f"Added exercise {self.exercise_id} to workout {self.id}")
+                for exercise in self.exercises:
+                    exercise_id = exercise['exercise_id']
+                    weight = exercise['weight']
+                    reps = exercise['reps']
+                    type_set = exercise['type_set']
+                    order_exercise = exercise['order_exercise']
+                    percieved_difficulty = exercise['percieved_difficulty']
+                    super_set = exercise['super_set']
+                    notes = exercise['notes']
+                
+                    cur.execute(addExerciseQuery, (
+                        self.id, 
+                        exercise_id, 
+                        #Find order of sets 
+                        order_exercise,
+                        notes
+                    ))#Fix query
+                    conn.commit()
+                    logger.info(f"Added exercise {self.exercise_id} to workout {self.id}")
+                    
+                    self.__calculate_max__(conn)
                 
             except psycopg2.Error as e:
                 conn.rollback()
@@ -650,6 +650,85 @@ class Workout():
             if not isinstance(e, (MissingRequiredFieldError, ConnectionError, QueryError)):
                 logger.error(f"Unexpected error in get_user_workouts: {str(e)}")
                 raise WorkoutException(f"Error retrieving user workouts: {str(e)}")
+        finally:
+            if 'cur' in locals() and cur:
+                cur.close()
+            if should_close_conn and 'conn' in locals() and conn:
+                conn.close()
+                
+    def __calculate_max__(self, exercise, conn=None):
+        """
+        Calculate and store the maximum weight lifted for an exercise.
+        
+        Parameters:
+        -----------
+        conn : psycopg2.connection, optional
+            Database connection
+            
+        Raises:
+        -------
+        ConnectionError : If database connection fails
+        QueryError : If database query fails
+        """
+        
+        exercise_id = exercise['exercise_id']
+        
+        # Calculate the maximum weight lifted for an exercise
+        getMaxQuery = sql.SQL("""
+            SELECT calculated 1rm, weight_actual, reps_actual
+            FROM user_exercise_max
+            WHERE exercise_id = %s AND user_id = %s
+            ORDER BY date_performed DESC
+            LIMIT 1
+        """)
+        
+        try:
+            should_close_conn = False
+            if not conn:
+                conn = global_func.getConnection()
+                should_close_conn = True
+                
+            cur = conn.cursor()
+            
+            try:
+                cur.execute(getMaxQuery, (exercise_id, self.user_id))
+                max_weight = cur.fetchone()[0]
+                weight_actual = cur.fetchone()[1]
+                reps_actual = cur.fetchone()[2]
+                
+                changed = False
+                for i in range (0, len(exercise["reps"])):
+                    
+                    if exercise["reps"][i] == 1:
+                        calculated_1rm = exercise["weight"][i]
+                    else:
+                        calculated_1rm = exercise["weight"][i] * (exercise["reps"][i] ** 0.1)
+                        
+                    if calculated_1rm > max_weight:
+                        changed = True
+                        max_weight = calculated_1rm
+                        weight_actual = exercise["weight"][i]
+                        reps_actual = exercise["reps"][i]
+                
+                if changed:
+                    newMaxQuery = sql.SQL("""
+                        INSERT INTO user_exercise_max (user_id, exercise_id, calculated_1rm, weight_actual, reps_actual)
+                        VALUES (%s, %s, %s, %s, %s)
+                    """)
+                    cur.execute(newMaxQuery, (self.user_id, exercise_id, max_weight, weight_actual, reps_actual))
+                    conn.commit()
+                
+                    logger.info(f"Calculated new max for {self.user_id} and stored max weight for exercise {self.exercise_id}")
+                
+            except psycopg2.Error as e:
+                conn.rollback()
+                logger.error(f"Database error: {str(e)}")
+                raise QueryError(f"Error calculating max weight: {str(e)}")
+                
+        except Exception as e:
+            if not isinstance(e, (ConnectionError, QueryError)):
+                logger.error(f"Unexpected error in __calculate_max__: {str(e)}")
+                raise WorkoutException(f"Error calculating max weight: {str(e)}")
         finally:
             if 'cur' in locals() and cur:
                 cur.close()

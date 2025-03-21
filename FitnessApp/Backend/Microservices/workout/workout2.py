@@ -162,6 +162,8 @@ def add_workout():
     Returns:
         flask.Response: JSON response
     """
+    #Going to have to changed for Cardio workouts
+    
     request_id = getattr(request, 'request_id', 'unknown')
     try:
         logger.info(f"Request {request_id}: Processing add_workout request")

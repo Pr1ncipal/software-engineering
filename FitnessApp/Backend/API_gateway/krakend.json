@@ -133,6 +133,31 @@
       ]
     },
     {
+      "endpoint": "/api/leaderboard/get_leaderboard",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "backend": [
+        {
+          "url_pattern": "/get_leaderboard",
+          "encoding": "no-op",
+          "sd": "static",
+          "method": "GET",
+          "host": [
+            "http://leaderboard:8080"
+          ],
+          "disable_host_sanitize": false
+        }
+      ],
+      "input_query_strings": [
+        "key",
+        "catagory",
+        "days",
+        "scope",
+        "workout",
+        "number"
+      ]
+    },
+    {
       "endpoint": "/api/family/create_family",
       "method": "POST",
       "output_encoding": "json",

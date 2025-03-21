@@ -2,7 +2,7 @@
 
 CREATE TYPE set_type AS(
     reps INT[],
-    type_set type_set_type,
+    type_set type_set_type[],
     weight DECIMAL(6,2)[],
     percieved_difficulty INT[],  -- Stores percieved difficulty (optional)
     super_set INT 

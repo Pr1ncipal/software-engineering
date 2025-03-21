@@ -1,4 +1,9 @@
 import logging
+import traceback
+from datetime import datetime
+
+# Set up logger
+logger = logging.getLogger(__name__)
 
 class WorkoutException(Exception):
     """Base exception class for all workout service errors."""
@@ -15,15 +20,30 @@ class WorkoutException(Exception):
             self.status_code = status_code
         super().__init__(self.message)
         
-        # Log the exception
-        logging.error(f"{self.error_code} ({self.status_code}): {self.message}")
+        # Log the exception with appropriate level based on status code
+        self._log_error()
+
+    def _log_error(self):
+        """Log the error with appropriate level based on status code"""
+        error_details = f"{self.__class__.__name__}: [{self.error_code}] {self.message}"
+        
+        # Use different log levels based on status code
+        if self.status_code >= 500:
+            logger.error(error_details)
+            # Add stack trace for server errors
+            logger.debug(f"Stack trace: {traceback.format_exc()}")
+        elif self.status_code >= 400:
+            logger.warning(error_details)
+        else:
+            logger.info(error_details)
 
     def to_dict(self):
         """Convert exception to a dictionary for API responses."""
         return {
             "error": self.error_code,
             "message": self.message,
-            "status": self.status_code
+            "status": self.status_code,
+            "timestamp": datetime.utcnow().isoformat()
         }
 
 
@@ -86,6 +106,13 @@ class WorkoutNotFoundException(WorkoutError):
     status_code = 404
     error_code = "workout_not_found"
     message = "The requested workout could not be found."
+
+
+class WorkoutAlreadyExistsError(WorkoutError):
+    """Raised when attempting to create a workout that already exists."""
+    status_code = 409
+    error_code = "workout_already_exists"
+    message = "A workout with this name and date already exists for this user."
 
 
 class InvalidWorkoutDataError(WorkoutError):
