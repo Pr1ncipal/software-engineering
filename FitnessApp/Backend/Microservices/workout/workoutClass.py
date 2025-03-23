@@ -24,7 +24,7 @@ class Workout():
     as well as add and manage exercises within workouts.
     """
     
-    def __init__(self, id=None, user_id=None, name=None, workout_type=None, 
+    def __init__(self, id=None, user_id=None, name=None, workout_type=None, notes = None, 
                  workout_date=None, key=None, exercises = None, duration=None, distance=None):
         """
         Initialize a Workout object.
@@ -61,6 +61,7 @@ class Workout():
         self.name = name
         self.workout_type = workout_type
         self.workout_date = workout_date
+        self.notes = notes
         self.key = key
         self.exercises = exercises
         self.duration = duration
@@ -145,22 +146,20 @@ class Workout():
             missing_fields.append("name")
         if not self.workout_type:
             missing_fields.append("workout_type")
-        if not self.workout_date:
-            missing_fields.append("workout_date")
             
         if missing_fields:
             logger.error(f"Missing required fields: {', '.join(missing_fields)}")
             raise MissingRequiredFieldError(', '.join(missing_fields))
             
         # Validate workout type
-        valid_types = ["Strength", "Cardio", "Flexibility", "Balance"]
+        valid_types = ["Strength", "Cardio"]
         if self.workout_type not in valid_types:
             logger.error(f"Invalid workout type: {self.workout_type}")
             raise InvalidWorkoutDataError(f"Invalid workout type. Must be one of: {', '.join(valid_types)}")
         
         createWorkoutQuery = sql.SQL("""
-            INSERT INTO workouts (user_id, name, workout_type, workout_date)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO workouts (user_id, name, workout_type, workout_date, notes)
+            VALUES (%s, %s, %s, %s, %s)
             RETURNING id
         """)
         
@@ -184,7 +183,7 @@ class Workout():
                     conn.rollback()
                     raise WorkoutAlreadyExistsError()
                     
-                cur.execute(createWorkoutQuery, (self.user_id, self.name, self.workout_type, self.workout_date))
+                cur.execute(createWorkoutQuery, (self.user_id, self.name, self.workout_type, self.workout_date, self.notes))
                 result = cur.fetchone()
                 
                 if result:
@@ -407,7 +406,11 @@ class Workout():
                     cur.execute(addExerciseQuery, (
                         self.id, 
                         exercise_id, 
-                        #Find order of sets 
+                        reps,
+                        type_set,
+                        weight,
+                        percieved_difficulty,
+                        super_set,
                         order_exercise,
                         notes
                     ))#Fix query
