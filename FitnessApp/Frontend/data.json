@@ -1,0 +1,13 @@
+{
+    "user": {
+        "first_name": "Ashley",
+        "last_name": "Dudney",
+        "sex": "Male",
+        "age": 21046
+    },
+    "stats": {
+        "weight": 338.48,
+        "height": 51,
+        "goal": 175.0
+    }
+}

@@ -730,30 +730,59 @@ const App = () => {
 
   const toggleChat = () => setIsOpen(!isOpen);
 
+  // DEVELOPMENTAL VERSION
   const sendMessage = async () => {
     if (!input.trim()) return;
+  
     const userMessage = { sender: "user", text: input };
     setMessages((prev) => [...prev, userMessage]);
-    
+  
     try {
       const response = await fetch("http://localhost:5000/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: input }),
+        body: JSON.stringify({
+          message: input
+        }),
       });
+  
       const data = await response.json();
       const botMessage = { sender: "bot", text: data.response };
       setMessages((prev) => [...prev, botMessage]);
-      
-      // Auto-play the bot's response as speech
+  
       speakText(data.response);
     } catch (error) {
       console.error("Error:", error);
-      setMessages((prev) => [...prev, { sender: "bot", text: "Sorry, I couldn't process that request." }]);
     }
-    
+  
     setInput("");
   };
+  
+  // WORKING VERSION 3/23/25
+  // const sendMessage = async () => {
+  //   if (!input.trim()) return;
+  //   const userMessage = { sender: "user", text: input };
+  //   setMessages((prev) => [...prev, userMessage]);
+    
+  //   try {
+  //     const response = await fetch("http://localhost:5000/chat", {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({ message: input }),
+  //     });
+  //     const data = await response.json();
+  //     const botMessage = { sender: "bot", text: data.response };
+  //     setMessages((prev) => [...prev, botMessage]);
+      
+  //     // Auto-play the bot's response as speech
+  //     speakText(data.response);
+  //   } catch (error) {
+  //     console.error("Error:", error);
+  //     setMessages((prev) => [...prev, { sender: "bot", text: "Sorry, I couldn't process that request." }]);
+  //   }
+    
+  //   setInput("");
+  // };
 
   const startRecording = () => {
     // Cancel any ongoing speech when starting a new recording
