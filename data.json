@@ -9,5 +9,11 @@
         "weight": 338.48,
         "height": 51,
         "goal": 175.0
+    },
+    "workout": {
+        "name": "Workout",
+        "type": "strength",
+        "start": "2025-03-16 04:15:14.678370",
+        "end": "2025-03-16 04:15:14.678370"
     }
 }
