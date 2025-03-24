@@ -30,7 +30,44 @@ def format_sets(set_data):
         return [f"❌ Could not parse sets: {e}"]
 
 
+def get_userName(user_id):
+    try:
+        # Connect to PostgreSQL
+        conn = psycopg2.connect(
+            dbname="sam_DB",
+            user="postgres",
+            password="password",
+            host="localhost",
+            port="5432"
+        )
+        cur = conn.cursor()
 
+        # Query the user's first and last name
+        user_info_query = sql.SQL("""
+            SELECT fname, lname
+            FROM users 
+            WHERE id = %s
+        """)
+        cur.execute(user_info_query, (user_id,))
+        user = cur.fetchone()
+
+        cur.close()
+        conn.close()
+
+        if not user:
+            print(f"❌ Error: No user found with ID {user_id}")
+            return None
+        
+        fname, lname = user
+        return {
+            "first_name": fname,
+            "last_name": lname
+        }
+
+    except psycopg2.Error as e:
+        print("Database error:", e)
+        return None
+        
 
 def get_data(user_id):
     try:

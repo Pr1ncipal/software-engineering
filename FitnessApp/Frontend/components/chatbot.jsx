@@ -642,14 +642,14 @@ import { IoChatbubbleEllipsesOutline, IoClose, IoMic, IoMicOff, IoVolumeHigh } f
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+
 const App = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState([
-    { sender: "bot", text: "Hi 👋 How can I help you with your fitness journey today? Try speaking to me!" },
-  ]);
+  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const [recordingStatus, setRecordingStatus] = useState("");
+  const [userName, setUserName] = useState("");
   const messagesEndRef = useRef(null);
   const recognitionRef = useRef(null);
   const speechSynthesisRef = useRef(window.speechSynthesis);
@@ -657,6 +657,36 @@ const App = () => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Fetch user's name when chat opens
+  // Inside your fetch in useEffect
+useEffect(() => {
+  if (isOpen && messages.length === 0) {
+    fetch("http://localhost:5000/user_name", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: 72 }) // Replace with dynamic ID later
+    })
+      .then(res => res.json())
+      .then(data => {
+        const name = data.first_name;
+        setUserName(name);
+        setMessages([
+          {
+            sender: "bot",
+            text: `Hi ${name} 👋 How can I help you with your fitness journey today?`
+          }
+        ]);
+      })
+      .catch(err => {
+        console.error("Failed to fetch name:", err);
+        setMessages([
+          { sender: "bot", text: "Hi 👋 How can I help you with your fitness journey today?" }
+        ]);
+      });
+  }
+}, [isOpen]);
+
 
   // Initialize speech recognition
   useEffect(() => {

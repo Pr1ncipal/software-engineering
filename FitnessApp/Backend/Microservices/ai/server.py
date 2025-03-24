@@ -7,7 +7,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../.
 
 from flask import Flask, request, jsonify, session
 import requests
-from AI_resources.getData import get_data
+from AI_resources.getData import get_data, get_userName
 
 app = Flask(__name__)
 app.config["SESSION_TYPE"] = "filesystem"
@@ -29,6 +29,18 @@ def generate():
     return jsonify(response_json)
 
 # user_data = 72
+
+@app.route('/user_name', methods=['POST'])
+def get_username():
+    data = request.json
+    user_id = data.get("user_id", 72)
+    info = get_userName(user_id)
+    print(info)
+    if info:
+        return jsonify(info)
+    else:
+        return jsonify({"error": "User not found"}), 404
+
 
 @app.route('/chat', methods=['POST'])
 def chat():
