@@ -1,6 +1,7 @@
 import psycopg2
 from psycopg2 import sql
 import datetime
+from datetime import timedelta, datetime
 import logging
 import traceback
 from global_func import verify_key, getConnection
@@ -12,7 +13,7 @@ logger = logging.getLogger(__name__)
 class Leaderboard():
     def __init__(self, catagory=None, days=30, scope=None, key=None, workout=None, number=50):
         logger.debug(f"Creating Leaderboard object: category={catagory}, days={days}, scope={scope}, workout={workout}, number={number}")
-        self.catagories = ["steps", "workouts", "weight", "1rm", "pace"]
+        self.catagories = ["steps", "workouts", "1rm", "pace"]
         
         # Validate category
         if catagory:
@@ -34,7 +35,14 @@ class Leaderboard():
             logger.warning(f"Invalid days value: {days}, defaulting to 30")
             self.days = 30
             
-        self.scope = scope
+        if scope is None:
+            logger.warning("Scope not specified, defaulting to 'global'")
+            self.scope = "global"
+        elif scope not in ["global", "family"]:
+            logger.warning(f"Invalid scope provided: {scope}, defaulting to 'global'")
+            self.scope = "global"
+        else:
+            self.scope = scope
         
         # Validate workout requirement for certain categories
         if self.catagory in ["weight", "1rm"] and not workout:
@@ -70,6 +78,7 @@ class Leaderboard():
         logger.info(f"Getting leaderboard for category: {self.catagory}")
         
         try:
+            logger.info(f"Retrieving leaderboard data for category: {self.catagory}")
             match self.catagory:
                 case "steps":
                     return self.get_steps_leaderboard()
@@ -107,14 +116,14 @@ class Leaderboard():
                 
             cur = conn.cursor()
             
-            get_steps_query = sql.SQL("""SELECT use.username, AVG(us.steps) 
+            get_steps_query = sql.SQL("""SELECT use.username, ROUND(AVG(us.steps),2) 
                                       FROM user_steps us 
                                       JOIN users use ON us.user_id = use.id 
-                                      WHERE us.date >= %s AND us.date <= %s 
+                                      WHERE us.date_performed >= %s AND us.date_performed <= %s 
                                       GROUP BY us.user_id, use.username 
                                       ORDER BY AVG(us.steps) DESC LIMIT %s""")
-            start_date = datetime.datetime.now() - datetime.timedelta(days=self.days)
-            end_date = datetime.datetime.now()
+            start_date = datetime.now() - timedelta(days=self.days)
+            end_date = datetime.now()
             
             logger.debug(f"Executing query with parameters: start_date={start_date}, end_date={end_date}, limit={self.number}")
             cur.execute(get_steps_query, (start_date, end_date, self.number))
@@ -157,8 +166,8 @@ class Leaderboard():
             cur = conn.cursor()
             
             get_workout_number_query = sql.SQL("SELECT use.username, COUNT(w.id) FROM workouts w JOIN users use ON w.user_id = use.id WHERE w.date >= %s AND w.date <= %s GROUP BY use.username ORDER BY COUNT(w.id) DESC LIMIT %s")
-            start_date = datetime.datetime.now() - datetime.timedelta(days=self.days)
-            end_date = datetime.datetime.now()
+            start_date = datetime.now() - timedelta(days=self.days)
+            end_date = datetime.now()
             
             logger.debug(f"Executing query with parameters: start_date={start_date}, end_date={end_date}, limit={self.number}")
             cur.execute(get_workout_number_query, (start_date, end_date, self.number))
@@ -228,8 +237,8 @@ class Leaderboard():
                                         ORDER BY max_weight DESC 
                                         LIMIT %s;
                                         """)
-            start_date = datetime.datetime.now() - datetime.timedelta(days=self.days)
-            end_date = datetime.datetime.now()
+            start_date = datetime.now() - timedelta(days=self.days)
+            end_date = datetime.now()
             
             logger.debug(f"Executing query with parameters: start_date={start_date}, end_date={end_date}, exercise_id={self.workout}, limit={self.number}")
             cur.execute(get_exercise_query, (start_date, end_date, self.workout, self.number))
@@ -342,8 +351,8 @@ class Leaderboard():
                                         ORDER BY MIN(wc.duration/wc.distance) ASC
                                         LIMIT %s
                                         """)
-            start_date = datetime.datetime.now() - datetime.timedelta(days=self.days)
-            end_date = datetime.datetime.now()
+            start_date = datetime.now() - timedelta(days=self.days)
+            end_date = datetime.now()
             
             logger.debug(f"Executing query with parameters: start_date={start_date}, end_date={end_date}, limit={self.number}")
             cur.execute(get_fastest_mile_query, (start_date, end_date, self.number))

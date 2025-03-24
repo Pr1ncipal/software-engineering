@@ -133,6 +133,23 @@
       ]
     },
     {
+      "endpoint": "/api/user/add_step_data",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "backend": [
+        {
+          "url_pattern": "/add_step_data",
+          "encoding": "no-op",
+          "sd": "static",
+          "method": "POST",
+          "host": [
+            "http://user:8080"
+          ],
+          "disable_host_sanitize": false
+        }
+      ]
+    },
+    {
       "endpoint": "/api/leaderboard/get_leaderboard",
       "method": "GET",
       "output_encoding": "no-op",
@@ -150,7 +167,7 @@
       ],
       "input_query_strings": [
         "key",
-        "catagory",
+        "category",
         "days",
         "scope",
         "workout",

@@ -51,7 +51,7 @@ def handle_leaderboard_service_error(error):
     response.status_code = error.status_code
     return response
 
-@app.route('/api/leaderboard', methods=['GET'])
+@app.route('/get_leaderboard', methods=['GET'])
 def leaderboard():
     """
     Get leaderboard data based on specified parameters.
@@ -75,11 +75,11 @@ def leaderboard():
         category = request.args.get('category')
         days = request.args.get('days', 30)
         scope = request.args.get('scope')
-        key = request.args.get('key')
+        key = "N#A6YCw}r[mU0w,I7lR23bwF\;qmd!4Z218z%$tm&bSU^>Nv4w{K-sc.+m],ky;J"
         workout = request.args.get('workout')
         number = request.args.get('number', 50)
         
-        logger.debug(f"Request {request_id}: Parameters - category={category}, days={days}, scope={scope}, workout={workout}, number={number}")
+        logger.info(f"Request {request_id}: Parameters - category={category}, days={days}, scope={scope}, workout={workout}, number={number}")
         
         # Validate required parameters
         if not key:

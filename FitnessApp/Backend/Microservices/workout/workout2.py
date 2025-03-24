@@ -32,13 +32,13 @@ def before_request():
     request.start_time = time.time()
     logger.info(f"Request {request.request_id}: {request.method} {request.path} - Started")
     logger.debug(f"Request {request.request_id}: Headers: {dict(request.headers)}")
-    if request.is_json:
+    #if request.is_json:
         # Log JSON payloads without sensitive data
-        safe_data = request.get_json(silent=True)
-        if isinstance(safe_data, dict) and "token" in safe_data:
-            safe_data["token"] = "***REDACTED***"
-        logger.debug(f"Request {request.request_id}: JSON payload: {safe_data}")
-    elif request.args:
+    #    safe_data = request.get_json(silent=True)
+    #    if isinstance(safe_data, dict) and "token" in safe_data:
+    #        safe_data["token"] = "***REDACTED***"
+    #    logger.debug(f"Request {request.request_id}: JSON payload: {safe_data}")
+    if request.args:
         # Log query parameters without sensitive data
         safe_args = request.args.copy()
         if "key" in safe_args:
@@ -102,6 +102,7 @@ def get_data_jwt(request):
     try:
         logger.debug(f"Request {request_id}: Extracting JWT token")
         token_data = get_data_json(request)
+        logger.info(f"Request {request_id}: Extracted token data: {token_data["token"][:10]}")
         if not token_data or "token" not in token_data:
             logger.warning(f"Request {request_id}: Missing authentication token")
             raise MissingTokenError("Authentication token is required")
@@ -185,20 +186,19 @@ def add_workout():
         logger.debug(f"Request {request_id}: Creating workout object with type: {data['workoutType']}")
         workout = Workout(
             user_id=key,
-            name=data.get('name', f"{data['workoutType']} Workout"),
+            name=data['name'],
             workout_type=data['workoutType'],
-            notes=data.get('notes', ''),
-            average_heart_rate=data.get('averageHeartRate'),
+            notes=data['notes'],
+            averageHR=data['averageHeartRate'],
             exercises=data['exercises']
         )
         
         # Insert workout
         logger.debug(f"Request {request_id}: Inserting workout into database")
-        workout_id = workout.insertWorkout()
-        logger.info(f"Request {request_id}: Successfully added workout with ID: {workout_id}")
+        workout.create_workout()
+        logger.info(f"Request {request_id}: Successfully added workout with ID: {workout.id}")
         return jsonify({
             "message": "Workout added successfully",
-            "workout_id": workout_id
         }), 201
     
     except (AuthenticationError, WorkoutError, DatabaseError) as e:
@@ -328,4 +328,4 @@ def get_workout_stats():
 
 if __name__ == '__main__':
     logger.info("Starting workout microservice on port 8080")
-    app.run(port=8080, host='0.0.0.0')
+    app.run(port=8080, host='0.0.0.0', debug=True)

@@ -11,7 +11,7 @@ def verify_key(key, conn=None):
     if not conn:
         conn = getConnection()
     cur = conn.cursor()
-    cur.execute("SELECT id FROM user WHERE key = %s", (key,))
+    cur.execute("SELECT id FROM users WHERE key = %s", (key,))
     result = cur.fetchone()
     
     if result:

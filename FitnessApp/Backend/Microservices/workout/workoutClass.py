@@ -25,7 +25,7 @@ class Workout():
     """
     
     def __init__(self, id=None, user_id=None, name=None, workout_type=None, notes = None, 
-                 workout_date=None, key=None, exercises = None, duration=None, distance=None):
+                 workout_date=None, key=None, exercises = None, duration=None, distance=None, averageHR = None):
         """
         Initialize a Workout object.
         
@@ -62,6 +62,7 @@ class Workout():
         self.workout_type = workout_type
         self.workout_date = workout_date
         self.notes = notes
+        self.averageHR = averageHR
         self.key = key
         self.exercises = exercises
         self.duration = duration
@@ -126,11 +127,6 @@ class Workout():
         conn : psycopg2.connection, optional
             Database connection
             
-        Returns:
-        --------
-        int
-            ID of the created workout
-            
         Raises:
         -------
         MissingRequiredFieldError : If required fields are missing
@@ -152,14 +148,14 @@ class Workout():
             raise MissingRequiredFieldError(', '.join(missing_fields))
             
         # Validate workout type
-        valid_types = ["Strength", "Cardio"]
+        valid_types = ["strength", "cardio"]
         if self.workout_type not in valid_types:
             logger.error(f"Invalid workout type: {self.workout_type}")
             raise InvalidWorkoutDataError(f"Invalid workout type. Must be one of: {', '.join(valid_types)}")
         
         createWorkoutQuery = sql.SQL("""
-            INSERT INTO workouts (user_id, name, workout_type, workout_date, notes)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO workouts (user_id, name, workout_type, workout_date, notes, average_heart_rate)
+            VALUES (%s, %s, %s, %s, %s, %s)
             RETURNING id
         """)
         
@@ -183,7 +179,7 @@ class Workout():
                     conn.rollback()
                     raise WorkoutAlreadyExistsError()
                     
-                cur.execute(createWorkoutQuery, (self.user_id, self.name, self.workout_type, self.workout_date, self.notes))
+                cur.execute(createWorkoutQuery, (self.user_id, self.name, self.workout_type, self.workout_date, self.notes, self.averageHR))
                 result = cur.fetchone()
                 
                 if result:
@@ -368,7 +364,7 @@ class Workout():
         
         addExerciseQuery = sql.SQL("""
             INSERT INTO workout_exercises (workout_id, exercise_id, sets, order_exercise, notes)
-            VALUES (%s, %s, ROW(%s, %s, %s, %s, %s), %s, %s)
+            VALUES (%s, %s, ROW(%s, %s::type_set_type[], %s, %s, %s), %s, %s)
         """) #Figure out which is type_set_type for casting
         
         try:
@@ -381,26 +377,25 @@ class Workout():
             
             try:
                 # Check if workout exists
-                cur.execute("SELECT id FROM workouts WHERE id = %s", (self.id,))
+                cur.execute(sql.SQL("SELECT id FROM workouts WHERE id = %s"), (self.id,))
                 if not cur.fetchone():
                     raise WorkoutNotFoundException()
                 
-                # Check if exercise exists
-                cur.execute("SELECT id FROM exercises WHERE id = %s", (self.exercise_id,))
-                if not cur.fetchone():
-                    raise ExerciseNotFoundException()
-                
-                # Add difficulty level if not provided
-                percieved_difficulty = getattr(self, 'percieved_difficulty', 3)  # Default to moderate
-                
                 for exercise in self.exercises:
-                    exercise_id = exercise['exercise_id']
+                    # Check if exercise exists
+                    exID = exercise['exerciseID']
+                    
+                    cur.execute(sql.SQL("SELECT id FROM exercises WHERE id = %s"), (exID,))
+                    if not cur.fetchone():
+                        raise ExerciseNotFoundException()
+                    
+                    exercise_id = exID
                     weight = exercise['weight']
                     reps = exercise['reps']
-                    type_set = exercise['type_set']
+                    type_set = exercise['setType']
                     order_exercise = exercise['order_exercise']
-                    percieved_difficulty = exercise['percieved_difficulty']
-                    super_set = exercise['super_set']
+                    percieved_difficulty = exercise['percievedDifficulty']
+                    super_set = exercise['superset']
                     notes = exercise['notes']
                 
                     cur.execute(addExerciseQuery, (
@@ -415,9 +410,9 @@ class Workout():
                         notes
                     ))#Fix query
                     conn.commit()
-                    logger.info(f"Added exercise {self.exercise_id} to workout {self.id}")
+                    logger.info(f"Added exercise {exID} to workout {self.id}")
                     
-                    self.__calculate_max__(conn)
+                    self.__calculate_max__(exercise, conn)
                 
             except psycopg2.Error as e:
                 conn.rollback()
@@ -674,11 +669,11 @@ class Workout():
         QueryError : If database query fails
         """
         
-        exercise_id = exercise['exercise_id']
+        exercise_id = exercise['exerciseID']
         
         # Calculate the maximum weight lifted for an exercise
         getMaxQuery = sql.SQL("""
-            SELECT calculated 1rm, weight_actual, reps_actual
+            SELECT calculated_1rm, weight_actual, reps_actual
             FROM user_exercise_max
             WHERE exercise_id = %s AND user_id = %s
             ORDER BY date_performed DESC
@@ -695,9 +690,17 @@ class Workout():
             
             try:
                 cur.execute(getMaxQuery, (exercise_id, self.user_id))
-                max_weight = cur.fetchone()[0]
-                weight_actual = cur.fetchone()[1]
-                reps_actual = cur.fetchone()[2]
+                found = cur.fetchone()
+                if found is None:
+                    logger.info(f"No max weight found for exercise {exercise_id}")
+                    max_weight = 0
+                    weight_actual = 0
+                    reps_actual = 0
+                else:
+                    logger.info(f"Max weight found for exercise {exercise_id} for user {self.user_id}")
+                    max_weight = found[0]
+                    weight_actual = found[1]
+                    reps_actual = found[2]
                 
                 changed = False
                 for i in range (0, len(exercise["reps"])):
@@ -721,7 +724,7 @@ class Workout():
                     cur.execute(newMaxQuery, (self.user_id, exercise_id, max_weight, weight_actual, reps_actual))
                     conn.commit()
                 
-                    logger.info(f"Calculated new max for {self.user_id} and stored max weight for exercise {self.exercise_id}")
+                    logger.info(f"Calculated new max for {self.user_id} and stored max weight for exercise {exercise_id}")
                 
             except psycopg2.Error as e:
                 conn.rollback()

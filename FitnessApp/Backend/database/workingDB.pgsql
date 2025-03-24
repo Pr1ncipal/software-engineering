@@ -39,7 +39,7 @@ CREATE TABLE users (
     dob DATE NOT NULL,
     sex CHAR NOT NULL,
     BFL DECIMAL(8,2),  -- Stores base fitness level Need to Add ### Change BFL ###
-    KEY VARCHAR(50) UNIQUE NOT NULL,  -- Stores key for password reset
+    KEY VARCHAR(64) UNIQUE NOT NULL,  -- Stores key for password reset
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

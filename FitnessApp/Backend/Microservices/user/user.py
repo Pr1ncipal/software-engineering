@@ -20,6 +20,7 @@ import logging
 import time
 import uuid
 import base64
+import datetime
 
 # Configure logging
 logging.basicConfig(level=logging.INFO,
@@ -92,7 +93,8 @@ def get_data_jwt(request):
     request_id = getattr(request, 'request_id', 'unknown')
     try:
         logger.debug(f"Request {request_id}: Extracting JWT token")
-        token = request.get_data() #Assuming request cant be changed
+        token = get_data_json(request).get('token')
+        
         if not token:
             logger.warning(f"Request {request_id}: Missing authentication token")
             raise MissingTokenError()
@@ -100,23 +102,29 @@ def get_data_jwt(request):
         try:
             logger.debug(f"Request {request_id}: Pre-decoding token to extract key")
             payload = jwt.decode(token, options={"verify_signature": False})
+            
             logger.debug(f"Request {request_id}: Verifying key in database")
-            key = global_func.verify_key(payload['key']) #Might make class method
+            key = global_func.verify_key(base64.b64decode(payload['key']).decode()) #Might make class method
             
             if not key:
                 logger.warning(f"Request {request_id}: Invalid key in token")
                 raise InvalidTokenError("The provided key is invalid or does not exist")
             
             logger.debug(f"Request {request_id}: Decoding token with verification")
-            decoded = jwt.decode(token, payload['key'], algorithms=['HS256'])
+            
+            decoded = jwt.decode(token, base64.b64decode(payload['key']).decode('utf-8'), algorithms=['HS256'])
+            
             logger.info(f"Request {request_id}: Successfully authenticated user ID: {key}")
             return decoded, key
+        
         except jwt.ExpiredSignatureError:
             logger.warning(f"Request {request_id}: Expired JWT token")
             raise ExpiredTokenError()
+        
         except jwt.InvalidTokenError as e:
             logger.warning(f"Request {request_id}: Invalid JWT token: {str(e)}")
             raise InvalidTokenError(str(e))
+        
     except (MissingTokenError, InvalidTokenError, ExpiredTokenError):
         # Re-raise these authentication exceptions
         raise
@@ -423,6 +431,103 @@ def get_user_stats():
         logger.error(f"Request {request_id}: Unexpected error in get_user_stats: {str(e)}")
         logger.error(f"Request {request_id}: {traceback.format_exc()}")
         raise UserServiceError(f"An unexpected error occurred while retrieving user stats")
+    
+@app.route('/add_step_data', methods=['POST'])
+def step_data():
+    """
+    Add step data for the authenticated user.
+    
+    Returns:
+        flask.Response: JSON response with step data addition status
+    """
+    request_id = getattr(request, 'request_id', 'unknown')
+    
+    try:
+        logger.info(f"Request {request_id}: Processing add_step_data request")
+        data, key = get_data_jwt(request)
+        
+        # Validate request data
+        if not data:
+            logger.warning(f"Request {request_id}: No step data provided")
+            raise InvalidStatsDataError("No step data provided")
+        
+        # Check required fields
+        if 'steps' not in data:
+            logger.warning(f"Request {request_id}: Missing required steps field")
+            raise MissingRequiredFieldError('steps')
+        
+        # Get steps value
+        steps = data['steps']
+        
+        # Validate steps value
+        try:
+            steps_value = steps
+            if steps_value < 0:
+                logger.warning(f"Request {request_id}: Invalid steps value: {steps} (negative)")
+                raise InvalidStatsDataError("Steps value must be a positive number")
+        except (ValueError, TypeError):
+            logger.warning(f"Request {request_id}: Invalid steps value: {steps} (not a number)")
+            raise InvalidStatsDataError("Steps value must be a number")
+        
+        # Process date
+        if 'date' not in data:
+            date = datetime.date.today()
+            logger.debug(f"Request {request_id}: No date provided, using today's date: {date}")
+        else:
+            try:
+                # Attempt to parse date string if it's not already a date object
+                if isinstance(data['date'], str):
+                    date = datetime.datetime.strptime(data['date'], "%Y-%m-%d").date()
+                else:
+                    date = data['date']
+                
+                # Validate date is not in the future
+                if date > datetime.date.today():
+                    logger.warning(f"Request {request_id}: Future date provided: {date}")
+                    raise InvalidStatsDataError("Cannot add step data for future dates")
+                
+                logger.debug(f"Request {request_id}: Using provided date: {date}")
+            except ValueError:
+                logger.warning(f"Request {request_id}: Invalid date format: {data['date']}")
+                raise InvalidStatsDataError("Date must be in YYYY-MM-DD format")
+        
+        # Create user object and validate
+        logger.debug(f"Request {request_id}: Creating user stats object with key: {data["key"]}...")
+        try:
+            user = userClass.UserStats(id=key)
+            
+            if user.id is None or user.id == -1:
+                logger.warning(f"Request {request_id}: User not found for step data addition")
+                raise UserNotFoundException()
+                
+            logger.debug(f"Request {request_id}: User found, inserting step data: steps={steps}, date={date}")
+            
+            # Insert steps data
+            user.insertSteps(steps, date)
+            
+            logger.info(f"Request {request_id}: Successfully added {steps} steps for user ID: {user.id} on {date}")
+            return jsonify({
+                "message": "Step data added successfully",
+                "steps": steps,
+                "date": date.isoformat() if hasattr(date, 'isoformat') else date
+            }), 201
+            
+        except ConnectionError as e:
+            logger.error(f"Request {request_id}: Database connection error: {str(e)}")
+            raise
+        except QueryError as e:
+            logger.error(f"Request {request_id}: Database query error: {str(e)}")
+            raise
+            
+    except (UserNotFoundException, InvalidStatsDataError, MissingRequiredFieldError, 
+           ConnectionError, QueryError, AuthenticationError) as e:
+        # These are already logged by the exception class itself
+        logger.debug(f"Request {request_id}: Re-raising specific exception: {e.__class__.__name__}")
+        raise
+    except Exception as e:
+        logger.error(f"Request {request_id}: Unexpected error in add_step_data: {str(e)}")
+        logger.error(f"Request {request_id}: {traceback.format_exc()}")
+        raise UserServiceError(f"An unexpected error occurred while adding step data")
 
 if __name__ == '__main__':
     logger.info("Starting user microservice on port 8080")

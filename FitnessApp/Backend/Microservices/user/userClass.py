@@ -506,9 +506,9 @@ class UserStats(User):
     :type height: int
     :type weight: float
     """
-    def __init__(self, email = None, fname=None, lname=None, pass_hash=None, dob=None, sex=None, BFL=None, key=None, height = None, weight = None, username = None):
+    def __init__(self, id = None, email = None, fname=None, lname=None, pass_hash=None, dob=None, sex=None, BFL=None, key=None, height = None, weight = None, username = None):
         logger.debug(f"Creating UserStats object: username={username}, email={email}, height={height}, weight={weight}")
-        super().__init__(fname=fname, lname=lname, pass_hash=pass_hash, dob=dob, sex=sex, BFL=BFL, key=key, email=email, username=username)
+        super().__init__(id = id, fname=fname, lname=lname, pass_hash=pass_hash, dob=dob, sex=sex, BFL=BFL, key=key, email=email, username=username)
         self.weight = weight
         self.height = height
     
@@ -728,6 +728,103 @@ class UserStats(User):
             if conn:
                 conn.close()
             logger.debug("Database connection closed")
+            
+    def insertSteps(self, steps, date, conn = None):
+        """
+        Inserts the user steps into the database
+        
+        :param steps: The number of steps the user has taken
+        :param date: The date the steps were taken
+        :param conn: The connection to the database
+        
+        :type steps: int
+        :type date: datetime or str
+        :type conn: psycopg2.connection
+        
+        :raises UserNotFoundException: When user ID is not found
+        :raises InvalidStatsDataError: When steps data is invalid
+        :raises ConnectionError: When database connection fails
+        :raises QueryError: When there's an error executing the query
+        """
+        logger.info(f"Inserting steps for user ID {self.id}: steps={steps}, date={date}")
+        
+        # Validate user ID
+        if self.id is None or self.id == -1:
+            logger.warning("Cannot insert steps - Invalid user ID")
+            raise UserNotFoundException()
+        
+        # Validate steps data
+        if steps is None:
+            logger.warning("Cannot insert steps - No steps data provided")
+            raise InvalidStatsDataError("Steps value is required")
+        
+        try:
+            # Validate steps is a positive number
+            steps_value = int(steps)
+            if steps_value < 0:
+                logger.warning(f"Invalid steps value: {steps} (negative)")
+                raise InvalidStatsDataError("Steps value must be a positive number")
+        except (ValueError, TypeError):
+            logger.warning(f"Invalid steps value: {steps} (not a number)")
+            raise InvalidStatsDataError("Steps value must be a number")
+        
+        # Prepare SQL statements
+        insertStepsQuery = sql.SQL("""INSERT INTO user_steps (user_id, steps, date_performed) VALUES (%s, %s, %s)""")
+        checkStepsQuery = sql.SQL("""SELECT steps FROM user_steps WHERE user_id = %s AND date_performed = %s""")
+        updateStepsQuery = sql.SQL("""UPDATE user_steps SET steps = %s WHERE user_id = %s AND date_performed = %s""")
+        
+        try:
+            should_close_conn = False
+            logger.debug("Establishing database connection")
+            
+            if not conn:
+                should_close_conn = True
+                try:
+                    conn = global_func.getConnection()
+                except Exception as e:
+                    logger.error(f"Failed to connect to database: {str(e)}")
+                    raise ConnectionError(str(e))
+            
+            cur = conn.cursor()
+            try:
+                # Check if steps already exist for this date
+                logger.debug(f"Checking if steps already exist for user ID {self.id} on {date}")
+                cur.execute(checkStepsQuery, (self.id, date))
+                result = cur.fetchone()
+                
+                if result:
+                    # Update existing steps
+                    logger.debug(f"Steps already exist for user ID {self.id} on {date}, updating from {result[0]} to {steps_value}")
+                    cur.execute(updateStepsQuery, (steps_value, self.id, date))
+                else:
+                    # Insert new steps
+                    logger.debug(f"Inserting {steps_value} steps for user ID {self.id} on {date}")
+                    cur.execute(insertStepsQuery, (self.id, steps_value, date))
+                
+                # Commit the transaction
+                conn.commit()
+                logger.info(f"Successfully {'updated' if result else 'inserted'} steps for user ID {self.id} on {date}")
+                
+            except psycopg2.Error as e:
+                conn.rollback()
+                logger.error(f"Database error while processing steps: {str(e)}")
+                raise QueryError(f"Error processing steps: {str(e)}")
+                
+        except (UserNotFoundException, InvalidStatsDataError, ConnectionError, QueryError):
+            # Re-raise specific exceptions
+            logger.debug("Re-raising specific exception")
+            raise
+        except Exception as e:
+            # For any other exceptions, convert to QueryError
+            logger.error(f"Unexpected error in insertSteps: {str(e)}")
+            logger.debug(traceback.format_exc())
+            raise QueryError(f"Error inserting steps: {str(e)}")
+        finally:
+            if 'cur' in locals() and cur:
+                cur.close()
+            if should_close_conn and 'conn' in locals() and conn:
+                conn.close()
+                logger.debug("Database connection closed")
 
     def __jsonifyTuple__(self, data, keys):
         """
