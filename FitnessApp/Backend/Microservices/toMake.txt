@@ -1,10 +1,4 @@
-- Create Family (done)
-- Get Family (done)
-- Delete Family (done)
-- add user to Family (Should only be admin? - Easier admin can then add whoever they want. Need user verification) (request - harder)
-- Delete User (done)
-- Leaderboard (?) Wednesday
-- Add Person to workout ???
-- Update user fitness or activity Score
-- AI integration? (Likely will use llama)
-- Create final pages for it all? So we are on the same page with things?
+- Adrian data filter and make endpoints
+- Debug issues from Landon
+- Make tables for sam
+- Create and finish direct input
