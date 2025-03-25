@@ -53,6 +53,16 @@ class User():
             self.id = id
         else:
             logger.debug(f"Key provided, fetching user data for key {key[:5]}...")
+            self.email = None
+            self.username = None
+            self.fname = None
+            self.lname = None
+            self.pass_hash = None
+            self.dob = None
+            self.sex = None
+            self.BFL = None
+            self.id = None
+            
             self.getUser()
         
     def getUser(self, conn = None):
