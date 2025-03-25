@@ -101,8 +101,11 @@ def get_data_jwt(request):
     request_id = getattr(request, 'request_id', 'unknown')
     try:
         logger.debug(f"Request {request_id}: Extracting JWT token")
+        
         token_data = get_data_json(request)
+        
         logger.info(f"Request {request_id}: Extracted token data: {token_data["token"][:10]}")
+        
         if not token_data or "token" not in token_data:
             logger.warning(f"Request {request_id}: Missing authentication token")
             raise MissingTokenError("Authentication token is required")
@@ -110,21 +113,24 @@ def get_data_jwt(request):
         token = token_data["token"]
         logger.debug(f"Request {request_id}: Processing JWT token: {token[:10]}...")
         
-        try:
-            logger.debug(f"Request {request_id}: Pre-decoding token to extract key")
-            payload = jwt.decode(token, options={"verify_signature": False})
-        
-            if 'key' not in payload:
-                logger.warning(f"Request {request_id}: Token doesn't contain a key")
-                raise InvalidTokenError("Token doesn't contain a key")
-                
+        try:             
             # Decode the base64 key
             try:
-                logger.debug(f"Request {request_id}: Decoding base64 key")
-                decoded_key = base64.b64decode(payload['key']).decode('utf-8')
+                logger.debug(f"Request {request_id}: Extracting Authorization header")
+                auth_header = request.headers.get('Authorization')
+                
+                if not auth_header or not auth_header.startswith('ApiKey '):
+                    logger.warning(f"Request {request_id}: Missing or invalid Authorization header")
+                    raise MissingTokenError("Authorization header is required and must start with 'Bearer '")
+                
+                encoded_key = auth_header.split(' ')[1]
+                
+                logger.debug(f"Request {request_id}: Decoding base64 API key from Authorization header")
+                
+                decoded_key = base64.b64decode(encoded_key).decode('utf-8')
             except Exception as e:
-                logger.error(f"Request {request_id}: Failed to decode key: {str(e)}")
-                raise InvalidTokenError("Invalid key format in token")
+                logger.error(f"Request {request_id}: Failed to decode API key: {str(e)}")
+                raise InvalidTokenError("Invalid API key format in Authorization header")
                 
             # Verify key exists in database
             logger.debug(f"Request {request_id}: Verifying key in database")
@@ -184,14 +190,27 @@ def add_workout():
 
         # Create workout object
         logger.debug(f"Request {request_id}: Creating workout object with type: {data['workoutType']}")
-        workout = Workout(
-            user_id=key,
-            name=data['name'],
-            workout_type=data['workoutType'],
-            notes=data['notes'],
-            averageHR=data['averageHeartRate'],
-            exercises=data['exercises']
-        )
+        
+        if data['workoutType'] == "Strength":
+            
+            workout = Workout(
+                user_id=key,
+                name=data['name'],
+                workout_type=data['workoutType'],
+                notes=data['notes'],
+                averageHR=data['averageHeartRate'],
+                exercises=data['exercises']
+            )
+        else:
+            workout = Workout(
+                user_id=key,
+                name=data['name'],
+                workout_type=data['workoutType'],
+                notes=data['notes'],
+                averageHR=data['averageHeartRate'],
+                distance=data['distance'],
+                duration=data['duration']
+            )
         
         # Insert workout
         logger.debug(f"Request {request_id}: Inserting workout into database")
@@ -221,10 +240,12 @@ def get_workouts():
     try:
         logger.info(f"Request {request_id}: Processing get_workouts request")
         # Get key from query parameters
-        key_param = request.args.get('key')
-        if not key_param:
-            logger.warning(f"Request {request_id}: Missing authentication key")
-            raise MissingTokenError("Authentication key is required")
+        key_param = request.headers.get('Authorization')
+        if not key_param or not key_param.startswith('ApiKey '):
+            logger.warning(f"Request {request_id}: Missing or invalid Authorization header")
+            raise MissingTokenError("Authorization header is required and must start with 'ApiKey '")
+                
+        key_param = key_param.split(' ')[1]
             
         try:
             logger.debug(f"Request {request_id}: Decoding base64 key")
@@ -278,10 +299,13 @@ def get_workout_stats():
     try:
         logger.info(f"Request {request_id}: Processing get_workout_stats request")
         # Get key from query parameters
-        key_param = request.args.get('key')
-        if not key_param:
-            logger.warning(f"Request {request_id}: Missing authentication key")
-            raise MissingTokenError("Authentication key is required")
+        key_param = request.headers.get('Authorization')
+        
+        if not key_param or not key_param.startswith('ApiKey '):
+            logger.warning(f"Request {request_id}: Missing or invalid Authorization header")
+            raise MissingTokenError("Authorization header is required and must start with 'ApiKey '")
+                
+        key_param = key_param.split(' ')[1]
             
         try:
             logger.debug(f"Request {request_id}: Decoding base64 key")

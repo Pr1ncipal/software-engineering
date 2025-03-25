@@ -48,7 +48,7 @@ CREATE TABLE user_stats (
     user_id INT REFERENCES users(id) ON DELETE CASCADE NOT NULL, -- Add Not Null constraint
     height INT NOT NULL,  -- Stores height in inches
     weight DECIMAL(8,2) NOT NULL,  -- Stores weight in pounds ### Change weight ###
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOt NULL -- Change to NOT NULL
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL -- Change to NOT NULL
 );
 
 CREATE TABLE user_goals (
@@ -139,6 +139,13 @@ CREATE TABLE workout_cardio (
     percieved_difficulty INT, -- Yes???
     notes VARCHAR(250) -- Yes?
 );
+
+-- Sam tables vv
+
+
+
+
+-- Sam Tables ^^
 
 --- Implement Below
  -- ______________________________________________________________________________________

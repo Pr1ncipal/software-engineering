@@ -4,7 +4,7 @@
   "name": "gitfitbro API",
   "timeout": "3000ms",
   "cache_ttl": "300s",
-  "output_encoding": "json",
+  "output_encoding": "no-op",
   "endpoints": [
     {
       "endpoint": "/api/workout/add_workout",
@@ -21,6 +21,9 @@
           ],
           "disable_host_sanitize": false
         }
+      ],
+      "input_headers": [
+        "Authorization"
       ]
     },
     {
@@ -42,26 +45,26 @@
       "input_query_strings": [
         "key",
         "page"
+      ],
+      "input_headers": [
+        "Authorization"
       ]
     },
     {
       "endpoint": "/api/workout/get_workouts",
       "method": "GET",
-      "output_encoding": "json",
+      "output_encoding": "no-op",
+      "input_query_strings": [],
+      "input_headers": [
+        "Authorization"
+      ],
       "backend": [
         {
-          "url_pattern": "/get_workouts",
+          "url_pattern": "/",
           "encoding": "no-op",
           "sd": "static",
-          "method": "GET",
-          "host": [
-            "http://workout:8080"
-          ],
-          "disable_host_sanitize": false
+          "method": "GET"
         }
-      ],
-      "input_query_strings": [
-        "key"
       ]
     },
     {
@@ -101,35 +104,53 @@
     {
       "endpoint": "/api/user/update_user",
       "method": "PUT",
-      "output_encoding": "json",
+      "output_encoding": "no-op",
+      "input_headers": [
+        "Authorization"
+      ],
       "backend": [
         {
-          "url_pattern": "/update_user",
-          "encoding": "json",
+          "url_pattern": "/",
+          "encoding": "no-op",
           "sd": "static",
-          "method": "PUT",
-          "host": [
-            "http://user:8080"
-          ],
-          "disable_host_sanitize": false
+          "method": "PUT"
         }
       ]
     },
     {
       "endpoint": "/api/user/delete_user",
       "method": "DELETE",
-      "output_encoding": "json",
+      "output_encoding": "no-op",
+      "input_headers": [
+        "Authorization"
+      ],
       "backend": [
         {
-          "url_pattern": "/delete_user",
-          "encoding": "json",
+          "url_pattern": "/",
+          "encoding": "no-op",
           "sd": "static",
-          "method": "DELETE",
+          "method": "DELETE"
+        }
+      ]
+    },
+    {
+      "endpoint": "/api/user/validate_token",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "backend": [
+        {
+          "url_pattern": "/validate_token",
+          "encoding": "no-op",
+          "sd": "static",
+          "method": "GET",
           "host": [
             "http://user:8080"
           ],
           "disable_host_sanitize": false
         }
+      ],
+      "input_headers": [
+        "Authorization"
       ]
     },
     {
@@ -147,6 +168,10 @@
           ],
           "disable_host_sanitize": false
         }
+      ],
+      "input_query_strings": [],
+      "input_headers": [
+        "Authorization"
       ]
     },
     {
@@ -166,12 +191,14 @@
         }
       ],
       "input_query_strings": [
-        "key",
         "category",
         "days",
         "scope",
         "workout",
         "number"
+      ],
+      "input_headers": [
+        "Authorization"
       ]
     },
     {
@@ -185,10 +212,14 @@
           "sd": "static",
           "method": "POST",
           "host": [
-            "http://family"
+            "http://family",
+            "http://family:8080"
           ],
           "disable_host_sanitize": false
         }
+      ],
+      "input_headers": [
+        "Authorization"
       ]
     },
     {
@@ -202,10 +233,14 @@
           "sd": "static",
           "method": "GET",
           "host": [
-            "http://family"
+            "http://family",
+            "http://family:8080"
           ],
           "disable_host_sanitize": false
         }
+      ],
+      "input_headers": [
+        "Authorization"
       ]
     },
     {
@@ -219,10 +254,14 @@
           "sd": "static",
           "method": "PUT",
           "host": [
-            "http://family"
+            "http://family",
+            "http://family:8080"
           ],
           "disable_host_sanitize": false
         }
+      ],
+      "input_headers": [
+        "Authorization"
       ]
     },
     {
@@ -236,10 +275,14 @@
           "sd": "static",
           "method": "DELETE",
           "host": [
-            "http://family"
+            "http://family",
+            "http://family:8080"
           ],
           "disable_host_sanitize": false
         }
+      ],
+      "input_headers": [
+        "Authorization"
       ]
     },
     {
@@ -253,7 +296,8 @@
           "sd": "static",
           "method": "GET",
           "host": [
-            "http://family"
+            "http://family",
+            "http://family:8080"
           ],
           "disable_host_sanitize": false
         }
@@ -261,6 +305,9 @@
       "input_query_strings": [
         "family_id",
         "family_name"
+      ],
+      "input_headers": [
+        "Authorization"
       ]
     },
     {
@@ -274,7 +321,8 @@
           "sd": "static",
           "method": "DELETE",
           "host": [
-            "http://family"
+            "http://family",
+            "http://family:8080"
           ],
           "disable_host_sanitize": false
         }
@@ -283,6 +331,9 @@
         "key",
         "user_id",
         "family_name"
+      ],
+      "input_headers": [
+        "Authorization"
       ]
     },
     {
@@ -296,11 +347,34 @@
           "sd": "static",
           "method": "PUT",
           "host": [
-            "http://family"
+            "http://family",
+            "http://family:8080"
           ],
           "disable_host_sanitize": false
         }
+      ],
+      "input_headers": [
+        "Authorization"
       ]
     }
-  ]
+  ],
+  "extra_config": {
+    "security/cors": {
+      "allow_origins": [
+        "*"
+      ],
+      "expose_headers": [
+        "Content-Length"
+      ],
+      "max_age": "12h",
+      "allow_methods": [
+        "GET",
+        "HEAD",
+        "POST"
+      ],
+      "allow_headers": [
+        "*"
+      ]
+    }
+  }
 }

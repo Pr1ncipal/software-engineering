@@ -25,7 +25,7 @@ class Workout():
     """
     
     def __init__(self, id=None, user_id=None, name=None, workout_type=None, notes = None, 
-                 workout_date=None, key=None, exercises = None, duration=None, distance=None, averageHR = None):
+                 workout_date=None, key=None, exercises = None, duration=None, distance=None, averageHR = None, cardiopd = None):
         """
         Initialize a Workout object.
         
@@ -67,6 +67,7 @@ class Workout():
         self.exercises = exercises
         self.duration = duration
         self.distance = distance
+        self.cardiopd = cardiopd
         
         if key and not user_id:
             self._get_user_id_from_key()
@@ -185,7 +186,10 @@ class Workout():
                 if result:
                     self.id = result[0]
                     conn.commit()
-                    self.__add_exercise__(conn)
+                    if self.workout_type == "Strength":
+                        self.__add_exercise__(conn)
+                    else:
+                        self.__add_cardio__(conn)
                     
                     logger.info(f"Created workout: ID={self.id}, Name={self.name}, Type={self.workout_type}")
                 else:
@@ -430,7 +434,7 @@ class Workout():
             if should_close_conn and 'conn' in locals() and conn:
                 conn.close()
     
-    def add_cardio(self, conn=None):
+    def __add_cardio__(self, conn=None):
         """
         Add cardio details to a workout.
         
@@ -453,14 +457,12 @@ class Workout():
             missing_fields.append("workout_id")
         if self.duration is None:
             missing_fields.append("duration")
+        if self.distance is None:
+            missing_fields.append("distance")
         
         if missing_fields:
             logger.error(f"Missing required fields: {', '.join(missing_fields)}")
             raise MissingRequiredFieldError(', '.join(missing_fields))
-        
-        # Get workout if not already loaded
-        if not self.workout_type:
-            self.get_workout()
             
         # Ensure this is a cardio workout
         if self.workout_type != "Cardio":
@@ -487,7 +489,7 @@ class Workout():
                     raise WorkoutNotFoundException()
                 
                 # Add difficulty level if not provided
-                percieved_difficulty = getattr(self, 'percieved_difficulty', 3)  # Default to moderate
+                percieved_difficulty = getattr(self, 'cardiopd', 3)  # Default to moderate
                 
                 # Distance can be null (e.g., for stationary bike)
                 distance = self.distance if self.distance is not None else 0

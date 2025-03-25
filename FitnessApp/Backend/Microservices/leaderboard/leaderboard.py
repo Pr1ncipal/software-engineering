@@ -71,20 +71,55 @@ def leaderboard():
     logger.info(f"Request {request_id}: Processing leaderboard request")
     
     try:
-        # Get parameters with defaults
+        # Extract API key from Authorization header
+        auth_header = request.headers.get('Authorization')
+        
+        if not auth_header or not auth_header.startswith('ApiKey '):
+            logger.warning(f"Request {request_id}: Missing or invalid Authorization header")
+            raise AuthenticationError("Authorization header is required and must start with 'ApiKey '")
+                
+        encoded_key = auth_header.split(' ')[1]
+        
+        # Decode base64 key
+        try:
+            logger.debug(f"Request {request_id}: Decoding base64 API key")
+            key = base64.b64decode(encoded_key).decode('utf-8')
+        except Exception as e:
+            logger.warning(f"Request {request_id}: Invalid base64 encoding in API key: {str(e)}")
+            raise InvalidKeyError("API key contains invalid base64 encoding")
+        
+        # Get and validate parameters
         category = request.args.get('category')
-        days = request.args.get('days', 30)
+        
+        # Validate days parameter
+        try:
+            days = int(request.args.get('days', 30))
+            if days <= 0:
+                logger.warning(f"Request {request_id}: Invalid days parameter: {days} (must be positive)")
+                raise InvalidDateRangeError("Days parameter must be a positive integer")
+        except ValueError:
+            logger.warning(f"Request {request_id}: Invalid days parameter: {request.args.get('days')}")
+            raise InvalidDateRangeError("Days parameter must be a number")
+        
         scope = request.args.get('scope')
-        key = "N#A6YCw}r[mU0w,I7lR23bwF\;qmd!4Z218z%$tm&bSU^>Nv4w{K-sc.+m],ky;J"
         workout = request.args.get('workout')
-        number = request.args.get('number', 50)
+        
+        # Validate number parameter
+        try:
+            number = int(request.args.get('number', 50))
+            if number <= 0:
+                logger.warning(f"Request {request_id}: Invalid number parameter: {number} (must be positive)")
+                raise InvalidNumberError("Number parameter must be a positive integer")
+        except ValueError:
+            logger.warning(f"Request {request_id}: Invalid number parameter: {request.args.get('number')}")
+            raise InvalidNumberError("Number parameter must be a number")
+        
+        # Validate key presence
+        if not key:
+            logger.warning(f"Request {request_id}: Empty API key after decoding")
+            raise MissingKeyError()
         
         logger.info(f"Request {request_id}: Parameters - category={category}, days={days}, scope={scope}, workout={workout}, number={number}")
-        
-        # Validate required parameters
-        if not key:
-            logger.warning(f"Request {request_id}: Missing authentication key")
-            raise MissingKeyError()
         
         # Create leaderboard object and get data
         try:
@@ -107,6 +142,10 @@ def leaderboard():
     except LeaderboardServiceError:
         # These are already logged and will be handled by the error handler
         raise
+
+    except AuthenticationError:
+        raise
+    
     except Exception as e:
         logger.error(f"Request {request_id}: Unhandled exception: {str(e)}")
         logger.error(f"Request {request_id}: {traceback.format_exc()}")

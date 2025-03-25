@@ -136,6 +136,64 @@ class User():
             if conn:
                 conn.close()
             logger.debug("Database connection closed")
+            
+    def validateUser(self, conn = None):
+        """
+        Validates the user information
+        
+        :param conn: The connection to the database
+        :type conn: psycopg2.connection
+        
+        :return: None
+        :raises MissingRequiredFieldError: When required user fields are missing
+        :raises UserNotFoundException: When user ID is not found
+        :raises ConnectionError: When database connection fails
+        :raises QueryError: When there's an error executing the query
+        """
+        logger.info(f"Validating user with key {self.key[:5]}...")
+        
+        if self.key is None:
+            logger.warning("Cannot validate user - No key provided")
+            raise UserNotFoundException()
+            
+        # Check required fields
+        
+        checkKeyQuery = sql.SQL("""SELECT id FROM users WHERE key = %s""")
+        
+        try:
+            try:
+                logger.debug("Establishing database connection")
+                if not conn:
+                    conn = global_func.getConnection()
+            except Exception as e:
+                logger.error(f"Failed to connect to database: {str(e)}")
+                raise ConnectionError(str(e))
+                
+            cur = conn.cursor()
+            logger.debug(f"Checking if user exists with key {self.key[:5]}...")
+            result = global_func.verify_key(self.key)
+            
+            if result:
+                logger.info(f"User with key {self.key[:5]} exists")
+                return True
+            else:
+                logger.warning(f"No user found with key {self.key[:5]}")
+                return False
+        
+        except (ConnectionError, UserNotFoundException):
+            # Re-raise these specific exceptions
+            logger.debug("Re-raising specific exception")
+            raise
+        except Exception as e:
+            logger.error(f"Error validating user: {str(e)}")
+            logger.debug(traceback.format_exc())
+            raise QueryError(f"Error validating user: {str(e)}")
+        finally:
+            if 'cur' in locals() and cur:
+                cur.close()
+            if conn:
+                conn.close()
+            logger.debug("Database connection closed")
         
     def createUser(self, conn = None):
         """

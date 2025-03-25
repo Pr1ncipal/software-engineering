@@ -100,11 +100,15 @@ def get_data_jwt(request):
             raise MissingTokenError()
         
         try:
-            logger.debug(f"Request {request_id}: Pre-decoding token to extract key")
-            payload = jwt.decode(token, options={"verify_signature": False})
+            key = request.headers.get('Authorization')
+            if not key or not key.startswith('ApiKey '):
+                logger.warning(f"Request {request_id}: Missing or invalid Authorization header")
+                raise MissingTokenError("Authorization header is required and must start with 'ApiKey '")
+                
+            key = key.split(' ')[1]
             
             logger.debug(f"Request {request_id}: Verifying key in database")
-            key = global_func.verify_key(base64.b64decode(payload['key']).decode()) #Might make class method
+            user_key = global_func.verify_key(base64.b64decode(key).decode()) #Might make class method
             
             if not key:
                 logger.warning(f"Request {request_id}: Invalid key in token")
@@ -112,10 +116,10 @@ def get_data_jwt(request):
             
             logger.debug(f"Request {request_id}: Decoding token with verification")
             
-            decoded = jwt.decode(token, base64.b64decode(payload['key']).decode('utf-8'), algorithms=['HS256'])
+            decoded = jwt.decode(token, base64.b64decode(key).decode('utf-8'), algorithms=['HS256'])
             
-            logger.info(f"Request {request_id}: Successfully authenticated user ID: {key}")
-            return decoded, key
+            logger.info(f"Request {request_id}: Successfully authenticated user ID: {user_key}")
+            return decoded, user_key
         
         except jwt.ExpiredSignatureError:
             logger.warning(f"Request {request_id}: Expired JWT token")
@@ -243,6 +247,52 @@ def login():
         logger.error(f"Request {request_id}: Unexpected error in login: {str(e)}")
         logger.error(f"Request {request_id}: {traceback.format_exc()}")
         raise UserServiceError(f"An unexpected error occurred during login")
+    
+@app.route('/validate_token', methods=['GET'])
+def validate_token():
+    """
+    Validate an authentication token.
+    
+    Returns:
+        flask.Response: JSON response with token validation status
+    """
+    request_id = getattr(request, 'request_id', 'unknown')
+    try:
+        logger.info(f"Request {request_id}: Processing validate_token request")
+        key = request.headers.get('Authorization')
+        logger.info(f"request.headers: {request.headers}")
+        logger.info(f"Request {request_id}: Key: {key}")
+        
+        if not key or not key.startswith('ApiKey '):
+            logger.warning(f"Request {request_id}: Missing or invalid Authorization header")
+            raise MissingTokenError("Authorization header is required and must start with 'ApiKey '")
+        
+        key = key.split(' ')[1]
+        
+        key = base64.b64decode(key).decode()
+        
+        logger.info(f"Request {request_id}: Decoded key: {key}")
+        
+        logger.debug(f"Request {request_id}: Verifying key in database")
+        try:
+            user = userClass.User(key=key)
+        except UserNotFoundException:
+            logger.warning(f"Request {request_id}: User not found for token validation")
+            return jsonify({"message": "Invalid token"}), 401
+        except Exception as e:
+            logger.warning(f"Request {request_id}: Invalid key in token: {str(e)}")
+            raise InvalidTokenError("The provided key is invalid or does not exist")
+        
+        logger.info(f"Request {request_id}: Token validation successful for user ID: {key}")
+        return jsonify({"username": user.username, "key": user.key}), 200
+        
+    except UserServiceError:
+        # Let the global error handler handle these
+        raise
+    except Exception as e:
+        logger.error(f"Request {request_id}: Unexpected error in validate_token: {str(e)}")
+        logger.error(f"Request {request_id}: {traceback.format_exc()}")
+        raise UserServiceError(f"An unexpected error occurred while validating token")
 
 @app.route('/update_user', methods=['POST'])
 def update_user():
@@ -311,10 +361,15 @@ def delete_user():
     request_id = getattr(request, 'request_id', 'unknown')
     try:
         logger.info(f"Request {request_id}: Processing delete_user request")
-        key = request.args.get('key')
-        if not key:
-            logger.warning(f"Request {request_id}: Missing authentication key for user deletion")
-            raise MissingTokenError("Authentication key is required for user deletion")
+        key = request.headers.get('Authorization')
+        
+        if not key or not key.startswith('ApiKey '):
+            logger.warning(f"Request {request_id}: Missing or invalid Authorization header")
+            raise MissingTokenError("Authorization header is required and must start with 'ApiKey '")
+                
+        key = key.split(' ')[1]
+        
+        key = base64.b64decode(key).decode()
         
         logger.debug(f"Request {request_id}: Creating user object with key: {key[:5]}...")
         user = userClass.User(key=key)
@@ -395,10 +450,15 @@ def get_user_stats():
     request_id = getattr(request, 'request_id', 'unknown')
     try:
         logger.info(f"Request {request_id}: Processing get_user_stats request")
-        key = request.args.get('key')
-        if not key:
-            logger.warning(f"Request {request_id}: Missing authentication key for stats retrieval")
-            raise MissingTokenError("Authentication key is required to retrieve user stats")
+        key = request.headers.get('Authorization')
+        
+        if not key or not key.startswith('ApiKey '):
+            logger.warning(f"Request {request_id}: Missing or invalid Authorization header")
+            raise MissingTokenError("Authorization header is required and must start with 'ApiKey '")
+                
+        key = key.split(' ')[1]
+        
+        key = base64.b64decode(key).decode()
         
         try:
             days = int(request.args.get('days', 0))
