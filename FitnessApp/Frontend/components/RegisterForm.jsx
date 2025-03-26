@@ -147,7 +147,7 @@ export default function RegisterForm() {
   
       console.log("Sending user data:", userData); // Log for debugging
       
-      const response = await fetch('http://10.28.4.234:8080/api/user/create_user', {
+      const response = await fetch('http://0.0.0.0:8080/api/user/create_user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userData)

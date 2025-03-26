@@ -130,7 +130,7 @@ def leaderboard():
             leaderboard_data = lb.get_leaderboard()
             
             logger.info(f"Request {request_id}: Successfully retrieved leaderboard data with {len(leaderboard_data) if leaderboard_data else 0} entries")
-            return jsonify({'leaderboard': leaderboard_data, 'category': lb.catagory}), 200
+            return jsonify({'leaderboard': leaderboard_data, 'category': lb.category}), 200
             
         except psycopg2.Error as e:
             logger.error(f"Request {request_id}: Database error: {str(e)}")

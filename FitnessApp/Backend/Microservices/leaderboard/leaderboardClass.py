@@ -11,19 +11,19 @@ from leaderboardErrors import *
 logger = logging.getLogger(__name__)
 
 class Leaderboard():
-    def __init__(self, catagory=None, days=30, scope=None, key=None, workout=None, number=50):
-        logger.debug(f"Creating Leaderboard object: category={catagory}, days={days}, scope={scope}, workout={workout}, number={number}")
-        self.catagories = ["steps", "workouts", "1rm", "pace"]
+    def __init__(self, category=None, days=30, scope=None, key=None, workout=None, number=50):
+        logger.debug(f"Creating Leaderboard object: category={category}, days={days}, scope={scope}, workout={workout}, number={number}")
+        self.categories = ["steps", "workouts", "1rm", "pace"]
         
         # Validate category
-        if catagory:
-            if catagory not in self.catagories:
-                logger.warning(f"Invalid category provided: {catagory}, defaulting to 'steps'")
-                self.catagory = "steps"
+        if category:
+            if category not in self.categories:
+                logger.warning(f"Invalid category provided: {category}, defaulting to 'steps'")
+                self.category = "steps"
             else:
-                self.catagory = catagory
+                self.category = category
         else:
-            self.catagory = "steps"
+            self.category = "steps"
             
         # Validate days
         try:
@@ -45,7 +45,7 @@ class Leaderboard():
             self.scope = scope
         
         # Validate workout requirement for certain categories
-        if self.catagory in ["weight", "1rm"] and not workout:
+        if self.category in ["weight", "1rm"] and not workout:
             logger.error("Workout ID is required for weight and 1rm leaderboards")
             raise MissingWorkoutError()
             
@@ -75,11 +75,11 @@ class Leaderboard():
                 raise InvalidKeyError()
             
     def get_leaderboard(self):
-        logger.info(f"Getting leaderboard for category: {self.catagory}")
+        logger.info(f"Getting leaderboard for category: {self.category}")
         
         try:
-            logger.info(f"Retrieving leaderboard data for category: {self.catagory}")
-            match self.catagory:
+            logger.info(f"Retrieving leaderboard data for category: {self.category}")
+            match self.category:
                 case "steps":
                     return self.get_steps_leaderboard()
                 case "workouts":
@@ -91,8 +91,8 @@ class Leaderboard():
                 case "pace":
                     return self.get_fastest_avg_pace()
                 case _:
-                    logger.error(f"Invalid category: {self.catagory}")
-                    raise InvalidCategoryError(f"Category '{self.catagory}' is not supported")
+                    logger.error(f"Invalid category: {self.category}")
+                    raise InvalidCategoryError(f"Category '{self.category}' is not supported")
         except (ConnectionError, QueryError, DataError, ParameterError):
             # Re-raise specific exceptions
             raise
