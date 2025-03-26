@@ -128,31 +128,34 @@ def get_data_jwt(request):
 def add_exercise():
     try:
         if request.is_json:
-            data, key= get_data_jwt(request)
+            logger.debug(f"Received data: {request.get_json()}")
+            data, key = get_data_jwt(request)
+            
             if not key:
+                logger.error(f"Invalid user key: {data}")
                 return jsonify({"message": data}), 400
-            elif not data and not key:
+            
+            if not data and not key:
+                logger.error("No input data provided")
                 return jsonify({"message": "No input data provided"}), 400
-        
-            #workout = Workout(workout_type=data['workoutType'], notes=data['notes'],
-            #                           average_heart_rate=data['averageHeartRate'], total_weight_lifted=data['totalWeightLifted'], 
-            #                           exercises=data['exercises'], user_id=key)
-        
-            #workout.insertWorkout() # need to figure out how to call this and assure insert
 
-            yes = insert_into_db(data, key)
-        
-            if yes:
+            # Attempting to insert workout data into DB
+            success = insert_into_db(data, key)
+            
+            if success:
+                logger.info("Workout saved successfully")
                 return jsonify({"message": "Workout Saved Successfully"}), 201
             else:
-                return jsonify({"message": "Workout Save failed 2"}), 400 #Attempted to insert into database but failed
+                logger.error("Failed to save workout into the database")
+                return jsonify({"message": "Workout Save failed"}), 400
         else:
+            logger.error("Request did not contain valid JSON")
             return jsonify({"message": "Workout Save failed 1"}), 400
     
     except Exception as error:
-        print(f"Error inserting into database: {error}")
-        return jsonify({"message": "Workout Save failed 3", "Error": {error}}), 400
-    
+        logger.critical(f"Error during workout save process: {error}")
+        return jsonify({"message": "Workout Save failed 3", "Error": str(error)}), 400
+
 @app.route('/get_workouts', methods=['GET'])
 def get_workouts():
     key = verify_key(request.args.get('key')) #Assuming the key is passed as a query parameter, May need to edit

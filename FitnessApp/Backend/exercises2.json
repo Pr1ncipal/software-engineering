@@ -1,0 +1,64 @@
+{
+    "exercises": [
+        {
+            "exerciseID": 273,
+            "superset": 1,
+            "order_exercise": 1,
+            "reps": [5, 5, 6, 6],
+            "setType": ["warm-up", "normal", "normal", "normal"],
+            "weight": [45, 135, 155, 175],
+            "percievedDifficulty": [4, 6, 7, 8],
+            "notes": "Bench press session."
+        },
+        {
+            "exerciseID": 716,
+            "superset": 2,
+            "order_exercise": 2,
+            "reps": [5, 6, 7, 8],
+            "setType": ["warm-up", "normal", "normal", "normal"],
+            "weight": [45, 135, 185, 225],
+            "percievedDifficulty": [3, 6, 8, 9],
+            "notes": "Squat session with progressive load."
+        },
+        {
+            "exerciseID": 523,
+            "superset": 3,
+            "order_exercise": 3,
+            "reps": [4, 5, 6, 7],
+            "setType": ["warm-up", "normal", "normal", "normal"],
+            "weight": [135, 225, 275, 315],
+            "percievedDifficulty": [5, 7, 8, 9],
+            "notes": "Deadlift session with focus on form."
+        },
+        {
+            "exerciseID": 273,
+            "superset": 4,
+            "order_exercise": 4,
+            "reps": [6, 6, 8, 8],
+            "setType": ["warm-up", "normal", "normal", "normal"],
+            "weight": [45, 155, 175, 195],
+            "percievedDifficulty": [4, 7, 8, 9],
+            "notes": "Another round of bench press with increased intensity."
+        },
+        {
+            "exerciseID": 716,
+            "superset": 5,
+            "order_exercise": 5,
+            "reps": [5, 6, 7, 8],
+            "setType": ["warm-up", "normal", "normal", "normal"],
+            "weight": [45, 185, 205, 225],
+            "percievedDifficulty": [3, 7, 8, 9],
+            "notes": "Squat session focusing on depth."
+        },
+        {
+            "exerciseID": 523,
+            "superset": 6,
+            "order_exercise": 6,
+            "reps": [4, 5, 6, 6],
+            "setType": ["warm-up", "normal", "normal", "normal"],
+            "weight": [135, 225, 275, 315],
+            "percievedDifficulty": [5, 7, 8, 9],
+            "notes": "Deadlift session, aiming for explosive power."
+        }
+    ]
+}
