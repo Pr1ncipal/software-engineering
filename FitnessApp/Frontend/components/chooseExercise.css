@@ -1,0 +1,202 @@
+.exercise-selector {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.exercise-selector h1 {
+  text-align: center;
+  color: #2c3e50;
+  margin-bottom: 30px;
+  font-size: 28px;
+}
+
+.muscle-group {
+  margin-bottom: 25px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+}
+
+.muscle-group h2 {
+  background-color: #3498db;
+  color: white;
+  padding: 12px 20px;
+  margin: 0;
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.exercise-list {
+  list-style-type: none;
+  margin: 0;
+  padding: 15px;
+}
+
+.exercise-item {
+  margin-bottom: 10px;
+}
+
+.exercise-button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  padding: 15px;
+  text-align: left;
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 5px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.exercise-button:hover {
+  background-color: #f0f7ff;
+  border-color: #3498db;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+}
+
+.exercise-button:active {
+  transform: translateY(0);
+}
+
+.exercise-name {
+  font-weight: 600;
+  font-size: 16px;
+  margin-bottom: 5px;
+  color: #2c3e50;
+}
+
+.exercise-muscles {
+  font-size: 14px;
+  color: #7f8c8d;
+}
+
+.loading-indicator {
+  text-align: center;
+  padding: 20px;
+  color: #7f8c8d;
+  font-style: italic;
+  background-color: rgba(255, 255, 255, 0.7);
+  border-radius: 5px;
+  margin-top: 15px;
+}
+
+.end-message {
+  text-align: center;
+  padding: 20px;
+  color: #7f8c8d;
+  font-style: italic;
+  margin-top: 15px;
+}
+
+/* Loading animation for initial page load */
+@keyframes pulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
+}
+
+p {
+  text-align: center;
+  padding: 20px;
+}
+
+p:first-of-type {
+  animation: pulse 1.5s infinite;
+  color: #3498db;
+  font-weight: 500;
+}
+
+/* Error state styling */
+p:last-of-type {
+  color: #e74c3c;
+  background-color: #fdf3f2;
+  border-left: 4px solid #e74c3c;
+  padding: 15px 20px;
+  border-radius: 4px;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .exercise-selector {
+    padding: 15px;
+  }
+  
+  .exercise-selector h1 {
+    font-size: 24px;
+  }
+  
+  .muscle-group h2 {
+    font-size: 18px;
+    padding: 10px 15px;
+  }
+  
+  .exercise-button {
+    padding: 12px;
+  }
+  
+  .exercise-name {
+    font-size: 15px;
+  }
+  
+  .exercise-muscles {
+    font-size: 13px;
+  }
+}
+
+/* Scroll indicator to help users know they can scroll */
+.exercise-selector::after {
+  content: "";
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #3498db;
+  opacity: 0.8;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='white' viewBox='0 0 24 24'%3E%3Cpath d='M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z'/%3E%3C/svg%3E");
+  background-size: 24px;
+  background-position: center;
+  background-repeat: no-repeat;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  z-index: 100;
+  animation: fadeInOut 3s infinite;
+  pointer-events: none;
+}
+
+.exercise-selector.scrolled-bottom::after {
+  display: none;
+}
+
+@keyframes fadeInOut {
+  0% { opacity: 0; }
+  20% { opacity: 0.8; }
+  80% { opacity: 0.8; }
+  100% { opacity: 0; }
+}
+
+/* Add this to your component to handle the scroll indicator */
+/* Add to your useEffect:
+  const handleScroll = () => {
+    const scrolled = window.scrollY + window.innerHeight;
+    const isBottom = document.body.scrollHeight - scrolled < 50;
+    const selector = document.querySelector('.exercise-selector');
+    if (selector) {
+      if (isBottom) {
+        selector.classList.add('scrolled-bottom');
+      } else {
+        selector.classList.remove('scrolled-bottom');
+      }
+    }
+  };
+  
+  window.addEventListener('scroll', handleScroll);
+  return () => window.removeEventListener('scroll', handleScroll);
+*/

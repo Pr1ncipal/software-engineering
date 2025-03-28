@@ -742,3 +742,78 @@ class Workout():
                 cur.close()
             if should_close_conn and 'conn' in locals() and conn:
                 conn.close()
+    
+    def get_exercises(self, number = 50, muscle_group = None, page = 0):
+        """
+        Get exercises from the database.
+        
+        Parameters:
+        -----------
+        number : int, optional
+            Number of exercises to return (default: 100)
+        muscle_group : str, optional
+            Muscle group to filter by
+            
+        Returns:
+        --------
+        list
+            List of exercise dictionaries
+            
+        Raises:
+        -------
+        ConnectionError : If database connection fails
+        QueryError : If database query fails
+        """
+        getExercisesQueryAll = sql.SQL("""
+            SELECT id, name, muscle_group, description
+            FROM exercises
+            WHERE is_deleted = FALSE
+            AND (created_by IS NULL OR created_by = %s)
+            AND muscle_group = ANY(%s)
+            ORDER BY name
+            OFFSET %s
+            LIMIT %s
+        """)
+        
+        getExercisesQueryNoMuscle = sql.SQL("""
+            SELECT id, name, muscle_group, description
+            FROM exercises
+            WHERE is_deleted = FALSE
+            AND (created_by IS NULL OR created_by = %s)
+            ORDER BY name
+            OFFSET %s
+            LIMIT %s""")
+        
+        try:
+            conn = global_func.getConnection()
+            cur = conn.cursor()
+            
+            if muscle_group is None:
+                cur.execute(getExercisesQueryNoMuscle, (self.user_id, page*number, number))
+            else:
+                cur.execute(getExercisesQueryAll, (self.user_id, muscle_group, page*number, number))
+                
+            exercises = []
+            
+            for row in cur.fetchall():
+                exercises.append({
+                    "id": row[0],
+                    "name": row[1],
+                    "muscle_group": row[2],
+                    "description": row[3]
+                })
+            
+            logger.info(f"Retrieved {len(exercises)} exercises")
+            return exercises, page+1
+            
+        except psycopg2.Error as e:
+            logger.error(f"Database error: {str(e)}")
+            raise QueryError(f"Error retrieving exercises: {str(e)}")
+        except Exception as e:
+            logger.error(f"Unexpected error in get_exercises: {str(e)}")
+            raise WorkoutException(f"Error retrieving exercises: {str(e)}")
+        finally:
+            if 'cur' in locals() and cur:
+                cur.close()
+            if 'conn' in locals() and conn:
+                conn.close()
