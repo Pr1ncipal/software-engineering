@@ -18,6 +18,21 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
+-- Name: challenge_metric; Type: TYPE; Schema: public; Owner: postgres
+--
+
+CREATE TYPE public.challenge_metric AS ENUM (
+    'workouts',
+    'steps',
+    'weight',
+    'distance',
+    'time'
+);
+
+
+ALTER TYPE public.challenge_metric OWNER TO postgres;
+
+--
 -- Name: goal_type_enum; Type: TYPE; Schema: public; Owner: postgres
 --
 
@@ -110,6 +125,18 @@ CREATE TYPE public.strength_equipment AS ENUM (
 ALTER TYPE public.strength_equipment OWNER TO postgres;
 
 --
+-- Name: typepredictivetype; Type: TYPE; Schema: public; Owner: postgres
+--
+
+CREATE TYPE public.typepredictivetype AS ENUM (
+    'weight',
+    'lift'
+);
+
+
+ALTER TYPE public.typepredictivetype OWNER TO postgres;
+
+--
 -- Name: workout_type_enum; Type: TYPE; Schema: public; Owner: postgres
 --
 
@@ -198,6 +225,91 @@ ALTER SEQUENCE public.exercises_id_seq OWNED BY public.exercises.id;
 
 
 --
+-- Name: motivational_messages; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.motivational_messages (
+    id integer NOT NULL,
+    message character varying(250) NOT NULL,
+    category character varying(50) NOT NULL
+);
+
+
+ALTER TABLE public.motivational_messages OWNER TO postgres;
+
+--
+-- Name: motivational_messages_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.motivational_messages_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.motivational_messages_id_seq OWNER TO postgres;
+
+--
+-- Name: motivational_messages_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.motivational_messages_id_seq OWNED BY public.motivational_messages.id;
+
+
+--
+-- Name: predictive_exercise; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.predictive_exercise (
+    predictive_id integer NOT NULL,
+    exercise_id integer NOT NULL
+);
+
+
+ALTER TABLE public.predictive_exercise OWNER TO postgres;
+
+--
+-- Name: predictiveanalysis; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.predictiveanalysis (
+    id integer NOT NULL,
+    user_id integer,
+    predictive public.typepredictivetype NOT NULL,
+    predictive_value numeric(8,2) NOT NULL,
+    confidence numeric(5,2) NOT NULL,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+ALTER TABLE public.predictiveanalysis OWNER TO postgres;
+
+--
+-- Name: predictiveanalysis_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.predictiveanalysis_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.predictiveanalysis_id_seq OWNER TO postgres;
+
+--
+-- Name: predictiveanalysis_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.predictiveanalysis_id_seq OWNED BY public.predictiveanalysis.id;
+
+
+--
 -- Name: strength_goals; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -210,6 +322,43 @@ INHERITS (public.user_goals);
 
 
 ALTER TABLE public.strength_goals OWNER TO postgres;
+
+--
+-- Name: user_engagement; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.user_engagement (
+    id integer NOT NULL,
+    user_id integer,
+    last_login timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    day_streak integer DEFAULT 1,
+    last_workout timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+ALTER TABLE public.user_engagement OWNER TO postgres;
+
+--
+-- Name: user_engagement_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.user_engagement_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.user_engagement_id_seq OWNER TO postgres;
+
+--
+-- Name: user_engagement_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.user_engagement_id_seq OWNED BY public.user_engagement.id;
+
 
 --
 -- Name: user_exercise_max; Type: TABLE; Schema: public; Owner: postgres
@@ -522,6 +671,20 @@ ALTER TABLE ONLY public.exercises ALTER COLUMN id SET DEFAULT nextval('public.ex
 
 
 --
+-- Name: motivational_messages id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.motivational_messages ALTER COLUMN id SET DEFAULT nextval('public.motivational_messages_id_seq'::regclass);
+
+
+--
+-- Name: predictiveanalysis id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.predictiveanalysis ALTER COLUMN id SET DEFAULT nextval('public.predictiveanalysis_id_seq'::regclass);
+
+
+--
 -- Name: strength_goals id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
@@ -540,6 +703,13 @@ ALTER TABLE ONLY public.strength_goals ALTER COLUMN created_at SET DEFAULT CURRE
 --
 
 ALTER TABLE ONLY public.strength_goals ALTER COLUMN achieved SET DEFAULT false;
+
+
+--
+-- Name: user_engagement id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.user_engagement ALTER COLUMN id SET DEFAULT nextval('public.user_engagement_id_seq'::regclass);
 
 
 --
@@ -1502,10 +1672,42 @@ COPY public.exercises (id, name, equipment, description, single_sided, primary_m
 
 
 --
+-- Data for Name: motivational_messages; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.motivational_messages (id, message, category) FROM stdin;
+\.
+
+
+--
+-- Data for Name: predictive_exercise; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.predictive_exercise (predictive_id, exercise_id) FROM stdin;
+\.
+
+
+--
+-- Data for Name: predictiveanalysis; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.predictiveanalysis (id, user_id, predictive, predictive_value, confidence, updated_at) FROM stdin;
+\.
+
+
+--
 -- Data for Name: strength_goals; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
 COPY public.strength_goals (id, user_id, goal_type, created_at, achieve_by, achieved, achieved_at, notes, target_weight, target_reps, target_sets) FROM stdin;
+\.
+
+
+--
+-- Data for Name: user_engagement; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.user_engagement (id, user_id, last_login, day_streak, last_workout) FROM stdin;
 \.
 
 
@@ -1783,6 +1985,11 @@ COPY public.user_stats (id, user_id, height, weight, created_at) FROM stdin;
 48	48	65	233.43	2025-03-23 19:23:51.69884
 49	49	50	143.04	2025-03-23 19:23:51.731851
 50	50	48	310.29	2025-03-23 19:23:51.762324
+51	51	74	250.00	2025-03-30 14:14:37.493371
+52	53	74	250.00	2025-03-30 14:17:38.915376
+53	54	74	250.00	2025-03-30 14:24:07.851873
+54	55	74	250.00	2025-03-30 14:32:50.070251
+55	56	74	250.00	2025-03-30 15:04:16.196541
 \.
 
 
@@ -2846,6 +3053,11 @@ COPY public.users (id, email, username, fname, lname, password_hash, dob, sex, b
 48	alantaph1b@umich.edu	alantaph1b	Audie	Lantaph	25692bdb9eb4f01e4bbc2bfdab03c173bca01e0dbaa95227c71d88da9ef48882	2006-02-28	F	\N	<JF5G9rD@M]>Cv_;Bi`yV2T`%G!@aa6h]#htpb{RP=1:V2`}4S?k+rDg98QF4aYp	2025-03-23 19:23:51.688757
 49	chaswell1c@comcast.net	chaswell1c	Conroy	Haswell	7d910f87182369c3f213588a26d0f91016893c8b0ab0692505b22a54b0fdc56c	1988-02-24	M	\N	BGQsrg&XGmwtLAXQ/paYLPJ.{W`4=<jhLG?+-un}o}O!}Ut8DcZ$G3>3Y7h[jG`+	2025-03-23 19:23:51.721511
 50	agarret1d@wp.com	agarret1d	Anabella	Garret	cd3ec17ac28a0a29979d615867624922b51347f65e95a9f88d1b6b8bdae918c7	1956-11-20	F	\N	eiyBw]l[o#2CEpDo1|},=/kF8}zVxWCH),LZFR[.[9&8H1UqozBIaHT@){kmK+TV	2025-03-23 19:23:51.752282
+51	testuser@example.com	testuser	test	user	5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8	2002-11-23	M	\N	hP/.IjwSgOu7A?_;mQBjE{7CS(_5^DpU5q!0FK9h5ily={}DOR/Y&Il*Y,Y7s`H3	2025-03-30 14:14:37.341739
+53	testuser1@example.com	testuser1	test	user	5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8	2002-11-23	M	\N	mq4&8$Q$gC2IlSSm`u&{y%@!h&0RB}WJ?V=;lA4qUk@bYchD0~hLV5_SDX$fq*ph	2025-03-30 14:17:38.742691
+54	testuser2@example.com	testuser2	test2	user	5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8	2002-11-23	M	\N	xhvaqkI{kXWXX!z2tShUt_re1OSEe\\LXCAS`madA#I~k5jgm2y9WT\\ZpuYHqB>h`	2025-03-30 14:24:07.655789
+55	testuser3@example.com	testuser3	test	user	5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8	2002-11-23	M	\N	yV}}<MG.,5cN?}d.3$]lak4$4:T,wqNo5(kkw_smZ|@G@iL[@+t4rjEv>.P{K,@^	2025-03-30 14:32:49.829952
+56	testuser5@example.com	testuser5	test	user	5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8	2002-11-23	M	\N	U3Ev7f8U|aj5c?=Ia[aK:F9R2KF1#XMERo6!PqYCbzpoq=6n&`a.q]].QNNDD\\ZJ	2025-03-30 15:04:16.003074
 \.
 
 
@@ -3402,6 +3614,27 @@ SELECT pg_catalog.setval('public.exercises_id_seq', 873, true);
 
 
 --
+-- Name: motivational_messages_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.motivational_messages_id_seq', 1, false);
+
+
+--
+-- Name: predictiveanalysis_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.predictiveanalysis_id_seq', 1, false);
+
+
+--
+-- Name: user_engagement_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.user_engagement_id_seq', 1, false);
+
+
+--
 -- Name: user_exercise_max_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
@@ -3419,14 +3652,14 @@ SELECT pg_catalog.setval('public.user_goals_id_seq', 1, false);
 -- Name: user_stats_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.user_stats_id_seq', 50, true);
+SELECT pg_catalog.setval('public.user_stats_id_seq', 55, true);
 
 
 --
 -- Name: users_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.users_id_seq', 50, true);
+SELECT pg_catalog.setval('public.users_id_seq', 56, true);
 
 
 --
@@ -3456,6 +3689,38 @@ SELECT pg_catalog.setval('public.workouts_id_seq', 105, true);
 
 ALTER TABLE ONLY public.exercises
     ADD CONSTRAINT exercises_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: motivational_messages motivational_messages_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.motivational_messages
+    ADD CONSTRAINT motivational_messages_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: predictive_exercise predictive_exercise_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.predictive_exercise
+    ADD CONSTRAINT predictive_exercise_pkey PRIMARY KEY (predictive_id, exercise_id);
+
+
+--
+-- Name: predictiveanalysis predictiveanalysis_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.predictiveanalysis
+    ADD CONSTRAINT predictiveanalysis_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: user_engagement user_engagement_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.user_engagement
+    ADD CONSTRAINT user_engagement_pkey PRIMARY KEY (id);
 
 
 --
@@ -3552,6 +3817,38 @@ ALTER TABLE ONLY public.workouts
 
 ALTER TABLE ONLY public.exercises
     ADD CONSTRAINT exercises_createdby_fkey FOREIGN KEY (createdby) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: predictive_exercise predictive_exercise_exercise_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.predictive_exercise
+    ADD CONSTRAINT predictive_exercise_exercise_id_fkey FOREIGN KEY (exercise_id) REFERENCES public.exercises(id) ON DELETE CASCADE;
+
+
+--
+-- Name: predictive_exercise predictive_exercise_predictive_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.predictive_exercise
+    ADD CONSTRAINT predictive_exercise_predictive_id_fkey FOREIGN KEY (predictive_id) REFERENCES public.predictiveanalysis(id) ON DELETE CASCADE;
+
+
+--
+-- Name: predictiveanalysis predictiveanalysis_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.predictiveanalysis
+    ADD CONSTRAINT predictiveanalysis_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: user_engagement user_engagement_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.user_engagement
+    ADD CONSTRAINT user_engagement_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --
