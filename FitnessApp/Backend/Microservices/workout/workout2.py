@@ -105,7 +105,7 @@ def get_data_jwt(request):
         
         token_data = get_data_json(request)
         
-        logger.info(f"Request {request_id}: Extracted token data: {token_data["token"][:10]}")
+        logger.info(f"Request {request_id}: Extracted token data: {token_data['token'][:10]}")
         
         if not token_data or "token" not in token_data:
             logger.warning(f"Request {request_id}: Missing authentication token")
