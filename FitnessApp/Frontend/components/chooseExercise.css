@@ -1,19 +1,25 @@
+/* Overall component structure */
 .exercise-selector {
-  max-width: 1000px;
-  margin: 0 auto;
   padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  height: 100%;
+  overflow-y: auto; /* Enable vertical scrolling */
+  display: flex;
+  flex-direction: column;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 .exercise-selector h1 {
+  font-size: 24px;
+  margin-bottom: 20px;
+  color: #333;
   text-align: center;
-  color: #2c3e50;
-  margin-bottom: 30px;
-  font-size: 28px;
 }
 
+/* Muscle group section */
 .muscle-group {
-  margin-bottom: 25px;
+  margin-bottom: 30px;
   background-color: #fff;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
@@ -21,131 +27,129 @@
 }
 
 .muscle-group h2 {
-  background-color: #3498db;
-  color: white;
-  padding: 12px 20px;
-  margin: 0;
   font-size: 20px;
-  font-weight: 500;
+  margin-bottom: 15px;
+  padding-bottom: 5px;
+  border-bottom: 2px solid #f4511e;
+  color: #333;
 }
 
-.exercise-list {
-  list-style-type: none;
-  margin: 0;
-  padding: 15px;
+/* Grid layout for exercise tiles */
+.exercise-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 15px;
+  margin-bottom: 20px;
 }
 
-.exercise-item {
-  margin-bottom: 10px;
+/* Exercise tile styling */
+.exercise-tile {
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.exercise-button {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+.exercise-tile:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.exercise-tile-button {
+  display: block;
   width: 100%;
   padding: 15px;
+  border: none;
+  background: none;
   text-align: left;
-  background-color: #f8f9fa;
-  border: 1px solid #e9ecef;
-  border-radius: 5px;
-  transition: all 0.2s ease;
   cursor: pointer;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
-.exercise-button:hover {
-  background-color: #f0f7ff;
-  border-color: #3498db;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
-}
-
-.exercise-button:active {
-  transform: translateY(0);
-}
-
-.exercise-name {
+.exercise-tile-name {
+  font-size: 18px;
   font-weight: 600;
-  font-size: 16px;
-  margin-bottom: 5px;
-  color: #2c3e50;
+  margin-bottom: 8px;
+  color: #333;
 }
 
-.exercise-muscles {
+.exercise-tile-description {
   font-size: 14px;
-  color: #7f8c8d;
+  color: #666;
+  margin-bottom: 12px;
+  line-height: 1.4;
+  /* Ensure single line with ellipsis */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-grow: 1;
 }
 
+.exercise-tile-muscles {
+  margin-top: auto;
+  font-size: 13px;
+  color: #555;
+}
+
+.exercise-tile-primary {
+  margin-bottom: 4px;
+}
+
+.exercise-tile-secondary {
+  font-size: 12px;
+  color: #777;
+}
+
+.muscle-label {
+  font-weight: 600;
+}
+
+/* Loading indicator */
 .loading-indicator {
   text-align: center;
-  padding: 20px;
-  color: #7f8c8d;
-  font-style: italic;
-  background-color: rgba(255, 255, 255, 0.7);
-  border-radius: 5px;
-  margin-top: 15px;
+  margin: 20px 0;
+  color: #666;
 }
 
 .end-message {
   text-align: center;
-  padding: 20px;
-  color: #7f8c8d;
+  margin: 20px 0;
+  color: #999;
   font-style: italic;
-  margin-top: 15px;
 }
 
-/* Loading animation for initial page load */
-@keyframes pulse {
-  0% { opacity: 0.6; }
-  50% { opacity: 1; }
-  100% { opacity: 0.6; }
-}
-
-p {
-  text-align: center;
-  padding: 20px;
-}
-
-p:first-of-type {
-  animation: pulse 1.5s infinite;
-  color: #3498db;
-  font-weight: 500;
-}
-
-/* Error state styling */
-p:last-of-type {
-  color: #e74c3c;
-  background-color: #fdf3f2;
-  border-left: 4px solid #e74c3c;
-  padding: 15px 20px;
-  border-radius: 4px;
-}
-
-/* Responsive styles */
-@media (max-width: 768px) {
+/* Ensure the component takes full height of its container */
+@media (min-height: 600px) {
   .exercise-selector {
-    padding: 15px;
+    min-height: 500px;
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .exercise-grid {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   }
   
-  .exercise-selector h1 {
-    font-size: 24px;
-  }
-  
-  .muscle-group h2 {
-    font-size: 18px;
-    padding: 10px 15px;
-  }
-  
-  .exercise-button {
+  .exercise-tile-button {
     padding: 12px;
   }
   
-  .exercise-name {
-    font-size: 15px;
+  .exercise-tile-name {
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .exercise-grid {
+    grid-template-columns: 1fr;
   }
   
-  .exercise-muscles {
-    font-size: 13px;
+  .exercise-selector {
+    padding: 15px;
   }
 }
 
@@ -200,3 +204,61 @@ p:last-of-type {
   window.addEventListener('scroll', handleScroll);
   return () => window.removeEventListener('scroll', handleScroll);
 */
+
+/* Filter container styles */
+.filter-container {
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  background-color: #f8f8f8;
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.filter-container label {
+  margin-right: 15px;
+  font-weight: 600;
+  color: #333;
+}
+
+.muscle-group-select {
+  padding: 8px 12px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  background-color: white;
+  font-size: 16px;
+  min-width: 200px;
+  color: #333;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.muscle-group-select:hover {
+  border-color: #999;
+}
+
+.muscle-group-select:focus {
+  border-color: #3498db;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+.muscle-group-select:disabled {
+  background-color: #f1f1f1;
+  cursor: not-allowed;
+}
+
+.loading-small {
+  margin-left: 10px;
+  font-size: 14px;
+  color: #777;
+  font-style: italic;
+}
+
+.no-exercises {
+  text-align: center;
+  margin: 40px 0;
+  color: #666;
+  font-size: 18px;
+}

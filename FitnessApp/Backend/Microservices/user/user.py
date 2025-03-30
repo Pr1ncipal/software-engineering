@@ -192,7 +192,7 @@ def create_user():
             user.insertStats()
             
             logger.info(f"Request {request_id}: Successfully created user with key: {user.key[:5]}...")
-            return jsonify({"message": "User created successfully", "key": user.key}), 201
+            return jsonify({"message": "User created successfully", "token": user.key}), 201
         except psycopg2.errors.UniqueViolation as e:
             logger.warning(f"Request {request_id}: User already exists error: {str(e)}")
             raise UserAlreadyExistsError()
@@ -222,7 +222,7 @@ def login():
         logger.info(f"Request {request_id}: Processing login request")
         data = get_data_json(request)
         
-        required_fields = ['username', 'password']
+        required_fields = ['username', 'pass_hash']
         missing_fields = [field for field in required_fields if field not in data]
         
         if missing_fields:
@@ -230,12 +230,12 @@ def login():
             raise MissingRequiredFieldError(", ".join(missing_fields))
         
         logger.debug(f"Request {request_id}: Attempting login for username: {data['username']}")
-        user = userClass.User(username=data['username'], pass_hash=data['password'])
+        user = userClass.User(username=data['username'], pass_hash=data['pass_hash'])
         key = user.login()
         
         if key:
             logger.info(f"Request {request_id}: Successful login for user: {data['username']}")
-            return jsonify({"message": "Login successful", "key": key}), 200
+            return jsonify({"message": "Login successful", "token": key}), 200
         else:
             logger.warning(f"Request {request_id}: Failed login attempt for username: {data['username']}")
             raise IncorrectCredentialsError()

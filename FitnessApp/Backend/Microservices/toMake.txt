@@ -20,6 +20,6 @@
 
 - Add AI tables (Need sam to review)
 
-- user stuff first
-- login page fix
-- workout choosing page
+- user stuff first ( need to test, want page, Tomrrow)
+- login page fix (Done working)
+- workout choosing pagen (Done working)

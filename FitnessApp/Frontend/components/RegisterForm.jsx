@@ -6,9 +6,36 @@ import { View, TextInput, Button, Text, Alert, StyleSheet, ScrollView, Platform,
 // import { API_URL } from './globals';
 import { Picker } from '@react-native-picker/picker';
 import CryptoJS from "crypto-js";
+import { secureStorage, AUTH_TOKEN_KEY } from '../utils/secureStorage';
+import { useNavigation } from '@react-navigation/native';
+
+// Add a custom alert function that works on both web and mobile
+const showAlert = (title, message, buttons = [{ text: 'OK' }]) => {
+  if (Platform.OS === 'web') {
+    // For web, use the browser's native alert
+    // You could also use a custom modal component here
+    if (buttons.length > 1) {
+      // If there are multiple buttons, use confirm() for simple cases
+      if (window.confirm(`${title}\n\n${message}`)) {
+        // User clicked OK/first action
+        buttons[0].onPress && buttons[0].onPress();
+      } else {
+        // User clicked Cancel/second action
+        buttons[1].onPress && buttons[1].onPress();
+      }
+    } else {
+      // Simple alert with just an OK button
+      window.alert(`${title}\n\n${message}`);
+      buttons[0].onPress && buttons[0].onPress();
+    }
+  } else {
+    // For mobile, use React Native's Alert
+    Alert.alert(title, message, buttons);
+  }
+};
 
 export default function RegisterForm() {
-  
+  const navigation = useNavigation();
 
   // Screen dimension handling
   // ------------------------------------------------------
@@ -118,51 +145,111 @@ export default function RegisterForm() {
     setErrors(newErrors);
     return isValid;
   };
+
   const handleSubmit = async () => {
     if (!validateForm()) {
-      console.log('Validation Error', 'Please correct the errors in the form');
+      showAlert('Validation Error', 'Please correct the errors in the form');
       return;
     }
     
     try {
-      const hashedPassword = await hashPassword(formData.password);
+      const hashedPassword = hashPassword(formData.password);
       
       // Format DOB as YYYY-MM-DD
       const dob = `${formData.year}-${formData.month}-${formData.day}`;
       
-      // Format height as feet'inches"
-      const height = `${formData.feet.replace("'", "")}'${formData.inches.replace("\"", "")}`;
-  
+      // Calculate height in inches from feet and inches
+      const feetValue = parseInt(formData.feet.replace("'", ""));
+      const inchesValue = parseInt(formData.inches.replace("\"", ""));
+      const heightInInches = (feetValue * 12) + inchesValue;
+
       const userData = {
         first_name: formData.first_name,
         last_name: formData.last_name,
         email: formData.email,
         username: formData.username,
-        pass_hash: hashedPassword,
+        password_hash: hashedPassword,
         dob: dob,                
         sex: formData.sex,       
-        height: formData.feet * 12 + formData.inches,          
+        height: heightInInches.toString(), // Convert to string for consistency
         weight: formData.weight
       };
-  
-      console.log("Sending user data:", userData); // Log for debugging
+
+      console.log("Sending user data:", userData);
       
-      const response = await fetch('http://10.28.4.234:8080/api/user/create_user', {
+      const response = await fetch('http://localhost:8080/api/user/create_user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userData)
-      })
-      .then(response => response.json())
-      .then(data => {
-        console.log("Success:", data);
-        Alert.alert('Success', 'User registered successfully!');
-      })
-      .then(error => console.error("Error:", error));
-
-     
+      });
+      
+      console.log("Response status:", response.status);
+      console.log("Response headers:", response.headers);
+      
+      if (!response.ok) {
+        let errorMessage;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || `Registration failed with status: ${response.status}`;
+        } catch (jsonError) {
+          errorMessage = `Registration failed with status: ${response.status}. Could not parse error details.`;
+        }
+        
+        console.error("Registration failed:", errorMessage);
+        showAlert('Registration Failed', errorMessage);
+        return;
+      }
+      
+      let data;
+      try {
+        data = await response.json();
+        console.log("Success response data:", data);
+      } catch (jsonError) {
+        console.error("Error parsing success response:", jsonError);
+        showAlert('Warning', 'Registration may have succeeded but we could not process the server response.');
+        return;
+      }
+      
+      if (data.token) {
+        try {
+          await secureStorage.setItem(AUTH_TOKEN_KEY, data.token);
+          console.log("Authentication token saved to SecureStore");
+        } catch (storageError) {
+          console.error("Error storing auth token:", storageError);
+          showAlert('Warning', 'Registration successful, but there was a problem saving your login token.');
+        }
+      } else {
+        console.warn("No authentication token received from registration");
+        showAlert('Note', 'Your account was created but no login token was provided. You may need to log in separately.');
+      }
+      
+      showAlert(
+        'Registration Successful', 
+        'Your account has been created successfully!',
+        [
+          { 
+            text: 'Go to Login', 
+            onPress: () => {
+              if (navigation) {
+                navigation.navigate('Login');
+              } else {
+                console.error("Navigation object is not available");
+              }
+            } 
+          },
+          {
+            text: 'Stay Here',
+            style: 'cancel'
+          }
+        ]
+      );
+      
     } catch (error) {
-      console.error("Error in submission:", error);
-      Alert.alert('Error', 'An unexpected error occurred.');
+      console.error("Unexpected error in registration:", error);
+      showAlert(
+        'Registration Error', 
+        error.message || 'An unexpected error occurred during registration. Please try again later.'
+      );
     }
   };
 
@@ -495,140 +582,3 @@ const styles = StyleSheet.create({
   }
 });
 // ----------------------------------------------------
-
-
-
-
-
-
-
-
-
-
-
-
-/*
-
-// OLD COPY THAT CONNECTED TO BACKEND 
-// -- IN THIS VERSION 
-// ---- NO DATE PICKER, NO GENDER PICKER, NO FEET/INCH HEIGHT SEPERATION
-// ---- NO INPUT LIMITATIONS, NO INPUT VALIDATION 
-
-import React, { useState } from 'react';
-import { View, TextInput, Button, Text, Alert, StyleSheet } from 'react-native';
-// import { API_URL } from './globals';
-import CryptoJS from "crypto-js"
-
-//   hashed password 
-//   sex is M/F, height in feet/inches, weight in lbs 
-export default function RegisterForm() {
-  const [formData, setFormData] = useState({
-    first_name: '',
-    last_name: '',
-    email: '',
-    username: '',
-    pass_hash: '',
-    dob: '',
-    sex: '',
-    height: '',
-    weight: ''
-  });
-
-  const handleChange = (name, value) => {
-    setFormData({ ...formData, [name]: value });
-  };
-
-  // Convert plain text password to SHA-256 hash
-  const hashPassword = (password) => {
-    return CryptoJS.SHA256(password).toString(CryptoJS.enc.Hex)
-  };
-
-  const handleSubmit = async () => {
-    try {
-      const hashedPassword = await hashPassword(formData.password);
-
-      const userData = {
-        first_name: formData.first_name,
-        last_name: formData.last_name,
-        email: formData.email,
-        username: formData.username,
-        pass_hash: hashedPassword, // Send hashd password
-        dob: formData.dob, 
-        sex: formData.sex.toUpperCase(), // Ensure uppercase M/F
-        height: formData.height,
-        weight: formData.weight
-      };
-
- //     const response = await fetch(API_URL +'/api/user/create_user', {
-
-                                       //  adjust IP address for API here
-      const response = await fetch('http://10.28.4.234:8080/api/user/create_user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(userData)
-      })
-      .then(response => response.json())
-      .then(data => console.log("Success:", data))
-      .then(error => console.error("Error:", error));
-
-    //  const result = await response.json();
-
-    //  if (response.ok) {
-    //    Alert.alert('Success', 'User registered successfully!');
-      //} else {
-        //Alert.alert('Error', result.error || 'Failed to register user.');
-      //}
-      
-    } catch (error) {
-      console.log(error,'Error', error);
-    }
-      
-  };
-
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Register</Text>
-      <TextInput style={styles.input} placeholder="First Name" onChangeText={text => handleChange('first_name', text)} /> // Limit to 20 chars
-      <TextInput style={styles.input} placeholder="Last Name" onChangeText={text => handleChange('last_name', text)} /> // Limit to 30 chars
-      <TextInput keyboardType = "email-address" style={styles.input} placeholder="Email" onChangeText={text => handleChange('email', text)} />
-      <TextInput style={styles.input} placeholder="Username" onChangeText={text => handleChange('username', text)} /> // Limit to 20 chars
-      <TextInput style={styles.input} placeholder="First Name" onChangeText={text => handleChange('first_name', text)} /> // Limit to 20 chars
-      <TextInput style={styles.input} placeholder="Last Name" onChangeText={text => handleChange('last_name', text)} /> // Limit to 30 chars
-      <TextInput keyboardType = "email-address" style={styles.input} placeholder="Email" onChangeText={text => handleChange('email', text)} />
-      <TextInput style={styles.input} placeholder="Username" onChangeText={text => handleChange('username', text)} /> // Limit to 20 chars
-      <TextInput style={styles.input} placeholder="Password" secureTextEntry onChangeText={text => handleChange('password', text)} />
-
-      <TextInput style={styles.input} placeholder="Date of Birth (YYYY-MM-DD)" onChangeText={text => handleChange('dob', text)} />
-      <TextInput style={styles.input} placeholder="Sex (Male/Female)" maxLength={1} onChangeText={text => handleChange('sex', text)} />
-      <TextInput style={styles.input} placeholder="Height" keyboardType="numeric" onChangeText={text => handleChange('height', text)} />
-      <TextInput style={styles.input} placeholder="Weight (in lbs)" keyboardType="numeric" onChangeText={text => handleChange('weight', text)} />
-      <Button title="Register" onPress={handleSubmit} />
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    marginBottom: 20,
-    padding: 20,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 10
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    textAlign: 'center'
-  },
-  input: {
-    height: 40,
-    borderColor: '#ccc',
-    borderWidth: 1,
-    marginBottom: 10,
-    paddingHorizontal: 8,
-    backgroundColor: 'white',
-    borderRadius: 5
-  }
-});
-
-*/

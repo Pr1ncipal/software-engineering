@@ -112,7 +112,6 @@ CREATE TABLE workout_exercises (
     date_performed TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Implement Below (Maybe)
 CREATE TABLE user_exercise_max(
     id SERIAL PRIMARY KEY,
     user_id INT REFERENCES users(id) ON DELETE CASCADE NOT NULL,
@@ -122,7 +121,6 @@ CREATE TABLE user_exercise_max(
     reps_actual INT NOT NULL,
     date_performed TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )
--- Implement above (Maybe)
 
 
 CREATE TABLE user_steps (
@@ -157,7 +155,7 @@ CREATE TABLE user_engagement (
     last_workout TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 );
 
-CREATE TYPE ENUM typePredictiveType AS (
+CREATE TYPE typePredictiveType AS ENUM(
     'weight', 'lift'
 );
 
@@ -176,10 +174,11 @@ CREATE TABLE predictive_exercise(
     PRIMARY KEY (predictive_id, exercise_id)
 );
 
-CREATE TYPE ENUM challenge_metric AS (
+CREATE TYPE challenge_metric AS ENUM (
     'workouts', 'steps', 'weight', 'distance', 'time'
 );
 
+-- Have to be implemented after family vvv
 CREATE TABLE family_challenges(
     id SERIAL PRIMARY KEY,
     family_id INT REFERENCES family(id) ON DELETE CASCADE,
@@ -221,6 +220,8 @@ CREATE TABLE family_challenge_progress_dec(
 CREATE TABLE family_challenge_progress_time(
     progress INTERVAL NOT NULL
 ) INHERITS (family_challenge_progress);
+
+-- Have to be implemented after family ^^^
 
 -- Sam Tables ^^
 

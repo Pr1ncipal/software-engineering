@@ -43,8 +43,30 @@
         }
       ],
       "input_query_strings": [
-        "key",
-        "page"
+        "page",
+        "number",
+        "muscle_group"
+      ],
+      "input_headers": [
+        "Authorization"
+      ]
+    },
+
+    {
+      "endpoint": "/api/workout/get_exercise_muscles",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "backend": [
+        {
+          "url_pattern": "/get_exercise_muscles",
+          "encoding": "no-op",
+          "sd": "static",
+          "method": "GET",
+          "host": [
+            "http://workout:8080"
+          ],
+          "disable_host_sanitize": false
+        }
       ],
       "input_headers": [
         "Authorization"
@@ -85,7 +107,7 @@
       ]
     },
     {
-      "endpoint": "/login",
+      "endpoint": "/api/user/login",
       "method": "POST",
       "output_encoding": "no-op",
       "backend": [
