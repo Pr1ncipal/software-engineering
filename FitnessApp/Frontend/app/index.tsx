@@ -9,6 +9,7 @@ import WorkoutForm from '@/components/WorkoutForm';
 import RegisterForm from '@/components/RegisterForm';
 import App from '@/components/loginApp';
 import Leaderboard from '@/components/Leaderboard';
+import ChooseExercise from '@/components/chooseExercise';
 
 const Tab = createBottomTabNavigator();
 
@@ -38,6 +39,20 @@ export default function AppTabs() {
                 color={color} 
               />;
             }
+            else if (route.name === 'Choose Exercise') {
+              return <Ionicons
+                name={focused ? 'fitness' : 'fitness-outline'}
+                size={size}
+                color={color}
+              />;
+            }
+            else if (route.name === 'Choose Exercise') {
+              return <Ionicons
+                name={focused ? 'fitness' : 'fitness-outline'}
+                size={size}
+                color={color}
+              />;
+            }
           },
           tabBarActiveTintColor: '#f4511e',
           tabBarInactiveTintColor: 'gray',
@@ -52,6 +67,10 @@ export default function AppTabs() {
         <Tab.Screen name="Login" component={App} />
         <Tab.Screen name="Leaderboard" component={Leaderboard} />
 
+        <Tab.Screen 
+          name="Choose Exercise" 
+          component={() => <ChooseExercise onExerciseSelect={() => {}} />} 
+        />
       </Tab.Navigator>
     </>
   );

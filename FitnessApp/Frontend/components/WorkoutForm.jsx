@@ -1,20 +1,27 @@
-import React, { useState } from 'react';
-import { View, TextInput, Button, StyleSheet, Text, Alert, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, TextInput, Button, StyleSheet, Text, Alert, ScrollView, TouchableOpacity, Modal } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
+import { secureStorage, AUTH_TOKEN_KEY } from '../utils/secureStorage';
+import ChooseExercise from './chooseExercise';
+import encode from 'jwt-encode';
+import decode from 'jwt-decode';
 
 export default function WorkoutForm() {
   // User and workout metadata
-  const [userName, setUserName] = useState('');
+  const [workoutName, setWorkoutName] = useState('');
   const [workoutType, setWorkoutType] = useState('Strength');
   const [notes, setNotes] = useState('');
   const [heartRate, setHeartRate] = useState('');
-  const [totalWeight, setTotalWeight] = useState('');
+  
+  // Modal state for exercise picker
+  const [exerciseModalVisible, setExerciseModalVisible] = useState(false);
+  const [currentExerciseIndex, setCurrentExerciseIndex] = useState(null);
   
   // Exercises array
   const [exercises, setExercises] = useState([{
-    exerciseID: Date.now(), // Using timestamp as temporary ID
+    exerciseID: Date.now().toString(),
     exerciseOrder: 1,
-    superset: '-1', // Changed to string to work better with TextInput
+    superset: '-1',
     exerciseName: '',
     reps: ['0'],
     setType: ['Normal'],
@@ -29,10 +36,53 @@ export default function WorkoutForm() {
   // Difficulty options for the Picker
   const difficultyOptions = [1, 2, 3, 4, 5];
 
+  // Auth state
+  const [authToken, setAuthToken] = useState(null);
+
+  // Add effect to get auth token
+  useEffect(() => {
+    const getAuthToken = async () => {
+      try {
+        const token = await secureStorage.getItem(AUTH_TOKEN_KEY);
+        setAuthToken(token);
+      } catch (err) {
+        console.error('Error retrieving auth token:', err);
+        Alert.alert('Error', 'Authentication failed. Please log in again.');
+      }
+    };
+    
+    getAuthToken();
+  }, []);
+
+  // Open exercise selection modal for a specific exercise
+  const openExerciseModal = (exerciseIndex) => {
+    setCurrentExerciseIndex(exerciseIndex);
+    setExerciseModalVisible(true);
+  };
+
+  // Handle exercise selection from the modal
+  const handleExerciseSelect = (selectedExercise) => {
+    if (currentExerciseIndex !== null) {
+      const updatedExercises = [...exercises];
+      updatedExercises[currentExerciseIndex].exerciseName = selectedExercise.name;
+      
+      // If the exercise has an ID from the database, store it
+      if (selectedExercise.id) {
+        updatedExercises[currentExerciseIndex].databaseExerciseId = selectedExercise.id;
+      }
+      
+      setExercises(updatedExercises);
+    }
+    // Close the modal
+    setExerciseModalVisible(false);
+    setCurrentExerciseIndex(null);
+  };
+
   // Add a new exercise to the list
   const addExercise = () => {
+    const newExerciseId = Date.now().toString();
     setExercises([...exercises, {
-      exerciseID: Date.now(),
+      exerciseID: newExerciseId,
       exerciseOrder: exercises.length + 1,
       superset: '-1',
       exerciseName: '',
@@ -104,72 +154,95 @@ export default function WorkoutForm() {
   };
 
   const handleSubmit = async () => {
-    if (!userName) {
-      Alert.alert('Error', 'Please enter a user name');
+    if (!workoutName) {
+      Alert.alert('Error', 'Please enter a workout name');
       return;
     }
-  
+
     if (exercises.some(ex => !ex.exerciseName)) {
       Alert.alert('Error', 'Please name all exercises');
       return;
     }
-  
-    // Prepare the workout data
-    const workoutData = {
-      user: userName,
-      workoutType: workoutType,
-      notes: notes,
-      averageHeartRate: heartRate ? Number(heartRate) : 0,
-      totalWeightLifted: totalWeight ? Number(totalWeight) : 0,
-      exercises: exercises.map(ex => parseNumericValues({
-        exerciseID: ex.exerciseID,
-        exerciseOrder: ex.exerciseOrder,
-        superset: ex.superset,
-        exerciseName: ex.exerciseName,
-        reps: ex.reps,
-        setType: ex.setType,
-        weight: ex.weight,
-        perceivedDifficulty: ex.perceivedDifficulty,
-        exerciseNotes: ex.exerciseNotes
-      }))
-    };
-  
+
     try {
-      // Send workout data to the server
-      const response = await fetch('http://localhost:8080/api/create_workout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(workoutData)
-      });
-  
-      const result = await response.json();
-  
-      if (response.ok) {
-        Alert.alert('Success', 'Workout data submitted successfully!');
-      } else {
-        Alert.alert('Error', result.error || 'Failed to submit workout data.');
+      // Get auth headers and token
+      const headers = await secureStorage.getAuthHeader();
+      const authToken = await secureStorage.getItem(AUTH_TOKEN_KEY);
+      
+      if (!headers || !authToken) {
+        Alert.alert('Error', 'You must be logged in to submit a workout.');
+        return;
       }
+      
+      // Prepare the workout data
+      const workoutData = {
+        name: workoutName,
+        workoutType: workoutType.toLowerCase(),
+        notes: notes,
+        averageHeartRate: heartRate ? Number(heartRate) : 0,
+        exercises: exercises.map((ex, index) => parseNumericValues({
+          exerciseID: ex.databaseExerciseId || null,
+          superset: ex.superset === '-1' ? -1 : parseInt(ex.superset) || -1,
+          order_exercise: index + 1,
+          reps: ex.reps.map(rep => parseInt(rep) || 0),
+          setType: ex.setType.map(type => type.toLowerCase()),
+          weight: ex.weight.map(w => parseFloat(w) || 0),
+          percievedDifficulty: ex.perceivedDifficulty.map(diff => parseInt(diff) || 5),
+          notes: ex.exerciseNotes
+        }))
+      };
+      
+      // Sign the workout data using the auth token as the secret
+      const workoutJWT = encode(workoutData, authToken);
+      
+      // Prepare the payload with the JWT
+      const payload = {
+        token: workoutJWT
+      };
+      
+      // Send the JWT payload to the server with auth headers
+      const response = await fetch('http://localhost:8080/api/workout/create_workout', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          ...headers
+        },
+        body: JSON.stringify(payload)
+      });
+    
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Server responded with status ${response.status}`);
+      }
+      
+      const result = await response.json();
+    
+      Alert.alert('Success', 'Workout data submitted successfully!');
+      
+      // Optional: Reset the form after successful submission
+      resetForm();
+      
     } catch (error) {
-      Alert.alert('Error', 'Could not connect to the server.');
+      console.error('Error submitting workout:', error);
+      Alert.alert('Error', `Failed to submit workout: ${error.message}`);
     }
   };
 
   // Reset the form
   const resetForm = () => {
-    setUserName('');
+    setWorkoutName('');
     setWorkoutType('Strength');
     setNotes('');
     setHeartRate('');
-    setTotalWeight('');
     setExercises([{
-      exerciseID: Date.now(),
+      exerciseID: Date.now().toString(),
       exerciseOrder: 1,
       superset: '-1',
       exerciseName: '',
       reps: ['0'],
       setType: ['Normal'],
       weight: ['0'],
-      perceivedDifficulty: [''],
+      perceivedDifficulty: ['5'],
       exerciseNotes: ''
     }]);
   };
@@ -184,9 +257,9 @@ export default function WorkoutForm() {
         
         <TextInput
           style={styles.input}
-          placeholder="User Name"
-          value={userName}
-          onChangeText={setUserName}
+          placeholder="Workout Name"
+          value={workoutName}
+          onChangeText={setWorkoutName}
         />
         
         <View style={styles.pickerContainer}>
@@ -214,14 +287,6 @@ export default function WorkoutForm() {
         />
         
         <TextInput
-          style={styles.input}
-          placeholder="Total Weight Lifted (kg)"
-          keyboardType="numeric"
-          value={totalWeight}
-          onChangeText={setTotalWeight}
-        />
-        
-        <TextInput
           style={styles.textArea}
           placeholder="Workout Notes"
           multiline
@@ -244,23 +309,59 @@ export default function WorkoutForm() {
             </TouchableOpacity>
           </View>
 
-          <TextInput
-            style={styles.input}
-            placeholder="Exercise Name (e.g., Bench Press)"
-            value={exercise.exerciseName}
-            onChangeText={(value) => updateExerciseField(exerciseIndex, 'exerciseName', value)}
-          />
+          {/* Replace the exercise name input with a button */}
+          <View style={styles.exerciseNameContainer}>
+            <TouchableOpacity
+              style={styles.selectExerciseFullButton}
+              onPress={() => openExerciseModal(exerciseIndex)}
+            >
+              <Text style={styles.selectExerciseButtonLabel}>Exercise:</Text>
+              <Text 
+                style={[
+                  styles.selectedExerciseName, 
+                  { fontWeight: exercise.exerciseName ? '500' : '400' }
+                ]}
+              >
+                {exercise.exerciseName || "Select an exercise"}
+              </Text>
+            </TouchableOpacity>
+          </View>
 
+          {/* Replace the superset input with a dropdown picker */}
           <View style={styles.row}>
-            <View style={styles.halfInput}>
-              <Text style={styles.label}>Superset Group (-1 for none)</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Superset"
-                keyboardType="numeric"
-                value={exercise.superset}
-                onChangeText={(value) => updateExerciseField(exerciseIndex, 'superset', value)}
-              />
+            <View style={styles.fullInput}>
+              <Text style={styles.label}>Superset With</Text>
+              <View style={styles.pickerWrapper}>
+                <Picker
+                  selectedValue={exercise.superset}
+                  onValueChange={(value) => {
+                    // Update this exercise's superset
+                    updateExerciseField(exerciseIndex, 'superset', value);
+                    
+                    // If a superset is selected (not -1), also update the other exercise
+                    if (value !== '-1') {
+                      const otherExerciseIndex = exercises.findIndex(ex => ex.exerciseID.toString() === value);
+                      if (otherExerciseIndex !== -1) {
+                        const updatedExercises = [...exercises];
+                        updatedExercises[otherExerciseIndex].superset = exercise.exerciseID.toString();
+                        setExercises(updatedExercises);
+                      }
+                    }
+                  }}
+                  style={styles.picker}
+                >
+                  <Picker.Item label="No Superset" value="-1" />
+                  {exercises
+                    .filter((ex, idx) => idx !== exerciseIndex)
+                    .map((ex, idx) => (
+                      <Picker.Item 
+                        key={ex.exerciseID}
+                        label={ex.exerciseName || `Unnamed Exercise ${ex.exerciseOrder}`}
+                        value={ex.exerciseID.toString()}
+                      />
+                    ))}
+                </Picker>
+              </View>
             </View>
           </View>
 
@@ -338,9 +439,43 @@ export default function WorkoutForm() {
 
       {/* Submit and Reset Buttons */}
       <View style={styles.buttonsContainer}>
-        <Button title="Submit Workout" onPress={handleSubmit} />
-        <Button title="Reset Form" onPress={resetForm} />
+        <TouchableOpacity 
+          style={styles.resetButton}
+          onPress={resetForm}
+        >
+          <Text style={styles.resetButtonText}>Reset Form</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={styles.submitButton}
+          onPress={handleSubmit}
+        >
+          <Text style={styles.submitButtonText}>Submit Workout</Text>
+        </TouchableOpacity>
       </View>
+
+      {/* Exercise Selection Modal */}
+      <Modal
+        visible={exerciseModalVisible}
+        animationType="slide"
+        onRequestClose={() => setExerciseModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Select an Exercise</Text>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setExerciseModalVisible(false)}
+            >
+              <Text style={styles.closeButtonText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.modalContent}>
+            <ChooseExercise onExerciseSelect={handleExerciseSelect} />
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -349,21 +484,21 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: '#f4f4f9', // Soft background color
+    backgroundColor: '#f4f4f9',
   },
   title: {
     fontSize: 26,
     marginBottom: 20,
     textAlign: 'center',
     fontWeight: '600',
-    color: '#2c3e50', // Darker text color
+    color: '#2c3e50',
   },
   section: {
     marginBottom: 20,
-    backgroundColor: '#ffffff', // White background for sections
+    backgroundColor: '#ffffff',
     padding: 20,
     borderRadius: 15,
-    shadowColor: '#000', // Subtle shadow for depth
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 10,
@@ -372,16 +507,16 @@ const styles = StyleSheet.create({
     fontSize: 20,
     marginBottom: 10,
     fontWeight: '500',
-    color: '#34495e', // Muted color for titles
+    color: '#34495e',
   },
   input: {
     height: 45,
-    borderColor: '#ced6e0', // Lighter border color
+    borderColor: '#ced6e0',
     borderWidth: 1,
     marginBottom: 15,
     paddingLeft: 12,
     borderRadius: 10,
-    backgroundColor: '#ecf0f1', // Light gray input background
+    backgroundColor: '#ecf0f1',
     fontSize: 16,
   },
   textArea: {
@@ -422,7 +557,7 @@ const styles = StyleSheet.create({
   label: {
     marginBottom: 8,
     fontWeight: '500',
-    color: '#7f8c8d', // Subtle color for labels
+    color: '#7f8c8d',
   },
   row: {
     flexDirection: 'row',
@@ -455,7 +590,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   removeButton: {
-    backgroundColor: '#e74c3c', // Red button for remove
+    backgroundColor: '#e74c3c',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 10,
@@ -485,7 +620,7 @@ const styles = StyleSheet.create({
   setTitle: {
     fontWeight: 'bold',
     fontSize: 16,
-    color: '#2c3e50', // Darker color for set title
+    color: '#2c3e50',
   },
   removeSetButton: {
     backgroundColor: '#e74c3c',
@@ -496,14 +631,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   addButton: {
-    backgroundColor: '#1abc9c', // Soft teal for add button
+    backgroundColor: '#1abc9c',
     padding: 15,
     borderRadius: 10,
     alignItems: 'center',
     marginTop: 15,
   },
   addExerciseButton: {
-    backgroundColor: '#3498db', // Blue for add exercise button
+    backgroundColor: '#3498db',
     padding: 15,
     borderRadius: 10,
     alignItems: 'center',
@@ -518,14 +653,97 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   submitButton: {
-    backgroundColor: '#27ae60', // Green submit button
+    backgroundColor: '#27ae60',
     padding: 15,
     borderRadius: 10,
     alignItems: 'center',
+    flex: 1,
+    marginLeft: 10,
   },
   submitButtonText: {
     color: 'white',
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  resetButton: {
+    backgroundColor: '#95a5a6',
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 10,
+  },
+  resetButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  exerciseNameContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  selectExerciseFullButton: {
+    backgroundColor: '#ecf0f1',
+    borderColor: '#ced6e0',
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 15,
+  },
+  selectExerciseButtonLabel: {
+    fontWeight: '500',
+    color: '#7f8c8d',
+    marginRight: 8,
+  },
+  selectedExerciseName: {
+    fontSize: 16,
+    color: '#2c3e50',
+    flex: 1,
+    fontWeight: '500',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#f4f4f9',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    backgroundColor: '#3498db',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  closeButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  closeButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  modalContent: {
+    flex: 1,
+  },
+  buttonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginVertical: 20,
+  },
+  setRow: {
+    backgroundColor: '#f9f9f9',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 10,
   },
 });

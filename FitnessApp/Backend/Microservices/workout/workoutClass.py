@@ -742,3 +742,146 @@ class Workout():
                 cur.close()
             if should_close_conn and 'conn' in locals() and conn:
                 conn.close()
+    
+    def get_exercises(self, number = 50, muscle_group = None, page = 0):
+        """
+        Get exercises from the database.
+        
+        Parameters:
+        -----------
+        number : int, optional
+            Number of exercises to return (default: 100)
+        muscle_group : str, optional
+            Muscle group to filter by
+            
+        Returns:
+        --------
+        list
+            List of exercise dictionaries
+            
+        Raises:
+        -------
+        ConnectionError : If database connection fails
+        QueryError : If database query fails
+        """
+        getExercisesQueryAll = sql.SQL("""
+            SELECT id, name, primary_muscle, secondary_muscles, description
+            FROM exercises
+            WHERE is_deleted = FALSE
+            AND (createdby IS NULL OR createdby = %s)
+            AND %s = ANY(primary_muscle)
+            ORDER BY name
+            OFFSET %s
+            LIMIT %s
+        """)
+        
+        getExercisesQueryNoMuscle = sql.SQL("""
+            SELECT id, name, primary_muscle, secondary_muscles, description
+            FROM exercises
+            WHERE is_deleted = FALSE
+            AND (createdby IS NULL OR createdby = %s)
+            ORDER BY name
+            OFFSET %s
+            LIMIT %s""")
+        
+        try:
+            conn = global_func.getConnection()
+            cur = conn.cursor()
+            
+            if muscle_group is None:
+                cur.execute(getExercisesQueryNoMuscle, (self.user_id, page*number, number))
+            else:
+                cur.execute(getExercisesQueryAll, (self.user_id, muscle_group, page*number, number))
+                
+            exercises = []
+            
+            for row in cur.fetchall():
+                # Convert primary_muscle to array format for frontend
+                primary = row[2]
+                if primary and isinstance(primary, str):
+                    # Handle string format like '{muscle}' by extracting 'muscle'
+                    if primary.startswith('{') and primary.endswith('}'):
+                        primary = [primary[1:-1].replace('"', '').replace("'", "")]
+                    else:
+                        primary = [primary]
+                elif primary is None:
+                    primary = []
+                    
+                # Convert secondary_muscle to array format for frontend
+                secondary = row[3]
+                if secondary and isinstance(secondary, str):
+                    # Handle string format like '{muscle1,muscle2}' by extracting and splitting
+                    if secondary.startswith('{') and secondary.endswith('}'):
+                        secondary = secondary[1:-1].split(',')
+                        secondary = [s.strip().replace('"', '').replace("'", "") for s in secondary]
+                    else:
+                        secondary = [secondary]
+                elif secondary is None:
+                    secondary = []
+                    
+                exercises.append({
+                    "id": row[0],
+                    "name": row[1],
+                    "primary_muscle": primary,
+                    "secondary_muscle": secondary,
+                    "description": row[4]
+                })
+            
+            logger.info(f"Retrieved {len(exercises)} exercises")
+            return exercises, page+1
+            
+        except psycopg2.Error as e:
+            logger.error(f"Database error: {str(e)}")
+            raise QueryError(f"Error retrieving exercises: {str(e)}")
+        except Exception as e:
+            logger.error(f"Unexpected error in get_exercises: {str(e)}")
+            raise WorkoutException(f"Error retrieving exercises: {str(e)}")
+        finally:
+            if 'cur' in locals() and cur:
+                cur.close()
+            if 'conn' in locals() and conn:
+                conn.close()
+    
+    def get_muscles(self):
+        """
+        Get all muscle groups from the database.
+        
+        Returns:
+        --------
+        list
+            List of muscle group names
+            
+        Raises:
+        -------
+        ConnectionError : If database connection fails
+        QueryError : If database query fails
+        """
+        getMusclesQuery = sql.SQL("""
+            SELECT DISTINCT unnest(primary_muscle) AS muscle
+            FROM exercises
+            WHERE is_deleted = FALSE
+            AND (createdby IS NULL OR createdby = %s)
+        """)
+        
+        try:
+            conn = global_func.getConnection()
+            cur = conn.cursor()
+            
+            cur.execute(getMusclesQuery, (self.user_id,))
+            muscles = [row[0] for row in cur.fetchall()]
+            
+            logger.info(f"Retrieved {len(muscles)} unique muscle groups")
+            return muscles
+            
+        except psycopg2.Error as e:
+            logger.error(f"Database error: {str(e)}")
+            raise QueryError(f"Error retrieving muscle groups: {str(e)}")
+        except Exception as e:
+            logger.error(f"Unexpected error in get_muscles: {str(e)}")
+            raise WorkoutException(f"Error retrieving muscle groups: {str(e)}")
+        finally:
+            if 'cur' in locals() and cur:
+                cur.close()
+            if 'conn' in locals() and conn:
+                conn.close()
+

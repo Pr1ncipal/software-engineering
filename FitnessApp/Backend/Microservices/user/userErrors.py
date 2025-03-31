@@ -170,3 +170,37 @@ class AccountLockedError(LoginError):
     """Raised when an account is locked due to too many failed login attempts."""
     error_code = "account_locked"
     message = "Your account has been temporarily locked due to too many failed login attempts."
+
+
+# Goal Related Errors
+class GoalError(UserServiceError):
+    """Base class for goal related errors."""
+    status_code = 400
+    error_code = "goal_error"
+    message = "An error occurred while processing fitness goals."
+
+
+class InvalidGoalTypeError(GoalError):
+    """Raised when an invalid goal type is provided."""
+    error_code = "invalid_goal_type"
+    message = "The provided goal type is invalid. Valid types are 'weight', 'cardio', and 'strength'."
+    
+    def __init__(self, goal_type=None):
+        if goal_type:
+            message = f"Invalid goal type: '{goal_type}'. Valid types are 'weight', 'cardio', and 'strength'."
+            super().__init__(message=message)
+        else:
+            super().__init__()
+
+
+class GoalNotFoundException(GoalError):
+    """Raised when a requested goal is not found."""
+    status_code = 404
+    error_code = "goal_not_found"
+    message = "The requested fitness goal could not be found."
+
+
+class InvalidGoalDataError(GoalError):
+    """Raised when provided goal data is invalid."""
+    error_code = "invalid_goal_data"
+    message = "The provided goal data is invalid."

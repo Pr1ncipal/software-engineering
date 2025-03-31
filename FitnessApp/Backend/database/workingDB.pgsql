@@ -40,6 +40,7 @@ CREATE TABLE users (
     sex CHAR NOT NULL,
     BFL DECIMAL(8,2),  -- Stores base fitness level Need to Add ### Change BFL ###
     KEY VARCHAR(64) UNIQUE NOT NULL,  -- Stores key for password reset
+    -- Possibly: xp INT DEFAULT 0,  -- Stores experience points
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -72,9 +73,9 @@ CREATE TABLE cardio_goals (
 ) INHERITS (user_goals);
 
 CREATE TABLE strength_goals (
+    target_exercise INT REFERENCES exercises(id) ON DELETE SET NULL, -- Implement
     target_weight DECIMAL(8,2),
-    target_reps INT,
-    target_sets INT
+    target_reps INT --Delete target sets
 ) INHERITS (user_goals);
 
 
@@ -111,7 +112,6 @@ CREATE TABLE workout_exercises (
     date_performed TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Implement Below (Maybe)
 CREATE TABLE user_exercise_max(
     id SERIAL PRIMARY KEY,
     user_id INT REFERENCES users(id) ON DELETE CASCADE NOT NULL,
@@ -121,7 +121,6 @@ CREATE TABLE user_exercise_max(
     reps_actual INT NOT NULL,
     date_performed TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 )
--- Implement above (Maybe)
 
 
 CREATE TABLE user_steps (
@@ -142,8 +141,87 @@ CREATE TABLE workout_cardio (
 
 -- Sam tables vv
 
+CREATE TABLE motivational_messages (
+    id SERIAL PRIMARY KEY,
+    message VARCHAR(250) NOT NULL,
+    category VARCHAR(50) NOT NULL
+);
 
+CREATE TABLE user_engagement (
+    id SERIAL PRIMARY KEY,
+    user_id INT REFERENCES users(id) ON DELETE CASCADE,
+    last_login TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    day_streak INT DEFAULT 1,
+    last_workout TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+);
 
+CREATE TYPE typePredictiveType AS ENUM(
+    'weight', 'lift'
+);
+
+CREATE TABLE predictiveAnalysis(
+    id SERIAL PRIMARY KEY,
+    user_id INT REFERENCES users(id) ON DELETE CASCADE,
+    predictive typePredictiveType NOT NULL,
+    predictive_value DECIMAL(8,2) NOT NULL,
+    confidence DECIMAL(5,2) NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE predictive_exercise(
+    predictive_id INT REFERENCES predictiveAnalysis(id) ON DELETE CASCADE,
+    exercise_id INT REFERENCES exercises(id) ON DELETE CASCADE,
+    PRIMARY KEY (predictive_id, exercise_id)
+);
+
+CREATE TYPE challenge_metric AS ENUM (
+    'workouts', 'steps', 'weight', 'distance', 'time'
+);
+
+-- Have to be implemented after family vvv
+CREATE TABLE family_challenges(
+    id SERIAL PRIMARY KEY,
+    family_id INT REFERENCES family(id) ON DELETE CASCADE,
+    challenge_name VARCHAR(50) NOT NULL,
+    challenge_description VARCHAR(250),
+    target_metric challenge_metric NOT NULL,
+    challenge_start TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    challenge_end TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE int_challenge(
+    target_value INT NOT NULL
+) INHERITS (family_challenges);
+
+CREATE TABLE dec_challenge(
+    target_value DECIMAL(8,2) NOT NULL
+) INHERITS (family_challenges);
+
+CREATE TABLE time_challenge(
+    target_value INTERVAL NOT NULL
+) INHERITS (family_challenges);
+
+CREATE TABLE family_challenge_progress(
+    family_challenge_id INT REFERENCES family_challenges(id) ON DELETE CASCADE,
+    user_id INT REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    PRIMARY KEY (family_challenge_id, user_id)
+);
+
+CREATE TABLE family_challenge_progress_int(
+    progress INT NOT NULL
+) INHERITS (family_challenge_progress);
+
+CREATE TABLE family_challenge_progress_dec(
+    progress DECIMAL(8,2) NOT NULL
+) INHERITS (family_challenge_progress);
+
+CREATE TABLE family_challenge_progress_time(
+    progress INTERVAL NOT NULL
+) INHERITS (family_challenge_progress);
+
+-- Have to be implemented after family ^^^
 
 -- Sam Tables ^^
 

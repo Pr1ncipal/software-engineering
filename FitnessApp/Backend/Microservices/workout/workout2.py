@@ -11,9 +11,10 @@ from WorkoutExceptions import *
 import base64
 import time
 import uuid
+import json
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, 
+logging.basicConfig(level=logging.DEBUG, 
                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                    handlers=[
                        logging.FileHandler("workout_api.log"),
@@ -105,7 +106,7 @@ def get_data_jwt(request):
         
         token_data = get_data_json(request)
         
-        logger.info(f"Request {request_id}: Extracted token data: {token_data["token"][:10]}")
+        logger.info(f"Request {request_id}: Extracted token data: {token_data['token'][:10]}")
         
         if not token_data or "token" not in token_data:
             logger.warning(f"Request {request_id}: Missing authentication token")
@@ -355,6 +356,179 @@ def get_workout_stats():
         logger.error(f"Request {request_id}: {traceback.format_exc()}")
         raise WorkoutException(f"Failed to get workout stats: {str(e)}")
     
+@app.route('/get_exercises', methods=['GET'])
+def getExercises():
+    """
+    Get all exercises in the database.
+    
+    Returns:
+        flask.Response: JSON response with exercises
+    """
+    request_id = getattr(request, 'request_id', 'unknown')
+    try:
+        logger.info(f"Request {request_id}: Processing get_exercises request")
+        
+        # Get authorization from header
+        key_param = request.headers.get('Authorization')
+        logger.debug(f"Request {request_id}: Authorization header: {'present' if key_param else 'missing'}")
+        
+        if not key_param or not key_param.startswith('ApiKey '):
+            logger.warning(f"Request {request_id}: Missing or invalid Authorization header format")
+            raise MissingTokenError("Authorization header is required and must start with 'ApiKey '")
+                
+        key_param = key_param.split(' ')[1]
+        logger.info(f"Request {request_id}: API key extracted from header: {key_param}")
+            
+        # Decode the API key
+        try:
+            logger.debug(f"Request {request_id}: Decoding base64 key")
+            decoded_key = base64.b64decode(key_param).decode('utf-8')
+        except Exception as e:
+            logger.error(f"Request {request_id}: Failed to decode key: {str(e)}")
+            raise InvalidTokenError("Invalid key format - not valid base64")
+            
+        # Verify key exists in database
+        logger.debug(f"Request {request_id}: Verifying key in database")
+        user_id = global_func.verify_key(decoded_key)
+        
+        if not user_id:
+            logger.warning(f"Request {request_id}: Invalid authentication key")
+            raise InvalidTokenError("Invalid authentication key")
+        
+        logger.debug(f"Request {request_id}: Successfully authenticated user ID: {user_id}")
+        
+        # Process query parameters
+        try:
+            # Convert number parameter and validate
+            number_param = request.args.get('number', '50')
+            logger.debug(f"Request {request_id}: Raw number parameter: {number_param}")
+            
+            try:
+                number = int(number_param)
+                if number <= 0 or number > 1000:  # Set reasonable limits
+                    logger.warning(f"Request {request_id}: Invalid number value {number}, using default 50")
+                    number = 50
+            except ValueError:
+                logger.warning(f"Request {request_id}: Invalid number parameter format: {number_param}, using default 50")
+                number = 50
+                
+            # Process muscle group filter
+            muscle_group = request.args.get('muscle_group')
+            logger.debug(f"Request {request_id}: Muscle group filter: {muscle_group or 'none'}")
+            
+            # Convert page parameter and validate
+            page_param = request.args.get('page', '0')
+            logger.debug(f"Request {request_id}: Raw page parameter: {page_param}")
+            
+            try:
+                page = int(page_param)
+                if page < 0:
+                    logger.warning(f"Request {request_id}: Negative page value {page}, defaulting to 0")
+                    page = 0
+            except ValueError:
+                logger.warning(f"Request {request_id}: Invalid page parameter format: {page_param}, using default 0")
+                page = 0
+                
+            logger.info(f"Request {request_id}: Getting exercises with parameters - number: {number}, muscle_group: {muscle_group}, page: {page}")
+            
+        except Exception as e:
+            logger.error(f"Request {request_id}: Error processing query parameters: {str(e)}")
+            raise InvalidWorkoutDataError(f"Invalid query parameters: {str(e)}")
+            
+        # Create workout object and fetch exercises
+        workout = Workout(user_id=user_id)
+        logger.debug(f"Request {request_id}: Fetching exercises from database")
+        
+        try:
+            exercises, next_page = workout.get_exercises(number, muscle_group, page)
+            exercise_count = len(exercises) if exercises else 0
+            
+            logger.info(f"Request {request_id}: Successfully retrieved {exercise_count} exercises, next page: {next_page}")
+            
+            # Log some details about the result (without excessive details)
+            if exercise_count > 0:
+                logger.debug(f"Request {request_id}: First few exercise names: {', '.join([ex.get('name', 'unnamed') for ex in exercises[:3]])}...")
+                
+            with open("sentJson.json", "w") as f:
+                f.write(json.dumps({"exercises": exercises, "page": next_page}))
+                
+            return jsonify({"exercises": exercises, "page": next_page}), 200
+            
+        except Exception as e:
+            logger.error(f"Request {request_id}: Database error retrieving exercises: {str(e)}")
+            raise DatabaseError(f"Error retrieving exercises: {str(e)}")
+    
+    except (AuthenticationError, WorkoutError, DatabaseError) as e:
+        # These will be handled by the global error handler
+        logger.debug(f"Request {request_id}: Re-raising caught exception to global handler: {e.__class__.__name__}")
+        raise
+    except Exception as e:
+        logger.error(f"Request {request_id}: Unexpected error in get_exercises: {str(e)}")
+        logger.error(f"Request {request_id}: {traceback.format_exc()}")
+        raise WorkoutException(f"Failed to get exercises: {str(e)}")
+    
+@app.route('/get_exercise_muscles', methods=['GET'])
+def get_exercise_muscles():
+    """
+    Get muscles associated with a specific exercise.
+    
+    Returns:
+        flask.Response: JSON response with muscle data
+    """
+    request_id = getattr(request, 'request_id', 'unknown')
+    try:
+        logger.info(f"Request {request_id}: Processing get_exercise_muscles request")
+        
+        # Get authorization from header
+        key_param = request.headers.get('Authorization')
+        logger.debug(f"Request {request_id}: Authorization header: {'present' if key_param else 'missing'}")
+        
+        if not key_param or not key_param.startswith('ApiKey '):
+            logger.warning(f"Request {request_id}: Missing or invalid Authorization header format")
+            raise MissingTokenError("Authorization header is required and must start with 'ApiKey '")
+                
+        key_param = key_param.split(' ')[1]
+        logger.info(f"Request {request_id}: API key extracted from header: {key_param}")
+            
+        # Decode the API key
+        try:
+            logger.debug(f"Request {request_id}: Decoding base64 key")
+            decoded_key = base64.b64decode(key_param).decode('utf-8')
+        except Exception as e:
+            logger.error(f"Request {request_id}: Failed to decode key: {str(e)}")
+            raise InvalidTokenError("Invalid key format - not valid base64")
+            
+        # Verify key exists in database
+        logger.debug(f"Request {request_id}: Verifying key in database")
+        user_id = global_func.verify_key(decoded_key)
+        
+        if not user_id:
+            logger.warning(f"Request {request_id}: Invalid authentication key")
+            raise InvalidTokenError("Invalid authentication key")
+        
+        logger.debug(f"Request {request_id}: Successfully authenticated user ID: {user_id}")
+        
+        # Create workout object and fetch muscles
+        workout = Workout(user_id=user_id)
+        logger.debug(f"Request {request_id}: Fetching muscles")
+        
+        try:
+            muscles = workout.get_muscles()
+            muscle_count = len(muscles) if muscles else 0
+            
+            logger.info(f"Request {request_id}: Successfully retrieved {muscle_count} muscles")
+            return jsonify({"muscles": muscles}), 200
+        except Exception as e:
+            logger.error(f"Request {request_id}: Database error retrieving muscles: {str(e)}")
+            raise DatabaseError(f"Error retrieving muscles: {str(e)}")
+    except (AuthenticationError, WorkoutError, DatabaseError) as e:
+        # These will be handled by the global error handler
+        logger.debug(f"Request {request_id}: Re-raising caught exception to global handler: {e.__class__.__name__}")
+        raise
+    except Exception as e:
+        logger.error(f"Request {request_id}: Unexpected error in get_exercise_muscles: {str(e)}")
+        logger.error(f"Request {request_id}: {traceback.format_exc()}")
+        raise WorkoutException(f"Failed to get exercise muscles: {str(e)}")
 
 if __name__ == '__main__':
     logger.info("Starting workout microservice on port 8080")

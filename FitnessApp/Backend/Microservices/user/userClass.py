@@ -6,6 +6,8 @@ import random
 import string
 import logging
 import traceback
+import threading
+import queue
 # Import your existing error classes
 from userErrors import *
 
@@ -690,8 +692,110 @@ class UserStats(User):
             if conn:
                 conn.close()
             logger.debug("Database connection closed")
+            
+    def getUserStatsSingle(self, starting = False, height = None,conn = None):
+        if self.id is None or self.id == -1:
+            logger.warning("Cannot get stats - Invalid user ID")
+            raise UserNotFoundException()
+        if starting:
+            getUserStatsQuery = sql.SQL("""SELECT height, weight, created_at FROM user_stats WHERE user_id = %s and height = %s ORDER BY created_at ASC LIMIT 1""")
+        else:
+            getUserStatsQuery = sql.SQL("""SELECT height, weight, created_at FROM user_stats WHERE user_id = %s ORDER BY created_at DESC LIMIT 1""")
+        try:
+            try:
+                logger.debug("Establishing database connection")
+                if not conn:
+                    conn = global_func.getConnection()
+            except Exception as e:
+                logger.error(f"Failed to connect to database: {str(e)}")
+                raise ConnectionError(str(e))
+                
+            cur = conn.cursor()
+            logger.debug(f"Executing query to fetch stats for user ID {self.id}")
+            if starting:
+                cur.execute(getUserStatsQuery, (self.id, height))
+            else:
+                cur.execute(getUserStatsQuery, (self.id,))
+            result = cur.fetchone()
+            
+            if result:
+                stats = self.__jsonifyTuple__(result, ("height", "weight", "date"))
+                logger.info(f"Found stats record for user ID {self.id}")
+                return stats
+            else:
+                logger.warning(f"No stats found for user ID {self.id}")
+                raise StatsNotFoundException()
+        except (UserNotFoundException, StatsNotFoundException, ConnectionError):
+            logger.debug("Re-raising specific exception")
+            raise
+        except Exception as e:
+            logger.error(f"Error retrieving stats: {str(e)}")
+            logger.debug(traceback.format_exc())
+            raise QueryError(f"Error retrieving stats: {str(e)}")
+        finally:
+            if 'cur' in locals() and cur:
+                cur.close()
+            if conn:
+                conn.close()
+            logger.debug("Database connection closed")
+            
+    def getGoal(self, goalType, number, exercise = None, conn = None):
+        
+        if self.id is None or self.id == -1:
+            logger.warning("Cannot get goal - Invalid user ID")
+            raise UserNotFoundException()
+        
+        if goalType not in ['weight', 'cardio', 'strength']:
+            logger.warning("Cannot get goal - Invalid goal type")
+            raise InvalidGoalTypeError()
+        elif(goalType == 'weight'):
+            getGoalQuery = sql.SQL("""SELECT target_weight FROM weight_goals WHERE user_id = %s AND goal_type = %s ORDER_BY created_at DESC LIMIT %s""")
+        elif(goalType == 'cardio'):
+            getGoalQuery = sql.SQL("""SELECT target_distance, target_time FROM cardio_goals WHERE user_id = %s AND goal_type = %s ORDER_BY created_at DESC LIMIT %s""")
+        elif(goalType == 'strength'):
+            getGoalQuery = sql.SQL("""SELECT target_weight, target_reps FROM strength_goals WHERE user_id = %s AND goal_type = %s and target_exercise = %s ORDER_BY created_at DESC LIMIT %s""")
+            
+        try:
+            try:
+                logger.debug("Establishing database connection")
+                if not conn:
+                    conn = global_func.getConnection()
+            except Exception as e:
+                logger.error(f"Failed to connect to database: {str(e)}")
+                raise ConnectionError(str(e))
+                
+            cur = conn.cursor()
+            logger.debug(f"Executing query to fetch goal for user ID {self.id}")
+            if goalType == 'strength':
+                if exercise == None:
+                    logger.warning("Cannot get goal - Invalid exercise")
+                    raise InvalidGoalTypeError
+                cur.execute(getGoalQuery, (self.id, goalType, exercise, number))
+            else:
+                cur.execute(getGoalQuery, (self.id, goalType, number))
+            result = cur.fetchone()
+            
+            if result:
+                logger.info(f"Found goal record for user ID {self.id}")
+                return result[0]
+            else:
+                logger.warning(f"No goal found for user ID {self.id}")
+                return None
+        except (UserNotFoundException, ConnectionError):
+            logger.debug("Re-raising specific exception")
+            raise
+        except Exception as e:
+            logger.error(f"Error retrieving goal: {str(e)}")
+            logger.debug(traceback.format_exc())
+            raise QueryError(f"Error retrieving goal: {str(e)}")
+        finally:
+            if 'cur' in locals() and cur:
+                cur.close()
+            if conn:
+                conn.close()
+            logger.debug("Database connection closed")
     
-    def getUserActivities(self, verbose = False, days = 7, conn = None):
+    def getUserActivities(self, verbose = False, days = 7, number = 50, conn = None):
         """
         Gets the user activities from the database
         
@@ -715,12 +819,18 @@ class UserStats(User):
             logger.warning("Cannot get activities - Invalid user ID")
             raise UserNotFoundException()
             
-        getUserActivitiesQuery = sql.SQL("""SELECT id, name, workout_type, workout_date FROM workouts WHERE user_id = %s AND workout_date >= CURRENT_DATE - interval '%s day'""")
+        getUserActivitiesQuery = sql.SQL("""SELECT id, name, workout_type, workout_date FROM workouts WHERE user_id = %s AND workout_date >= CURRENT_DATE - interval '%s day' ORDER BY workout_date DESC LIMIT %s""")
 
         if verbose:
             logger.debug("Preparing detailed workout queries")
-            getWorkoutDetailsQueryStrength = sql.SQL("""SELECT (SELECT name FROM exercises WHERE id = %s), sets.reps, sets.percieved_difficulty, sets.weight, sets.type_set FROM workout_exercises WHERE workout_id = %s ORDER BY exercise_name""")
-            getWorkoutDetailsQueryCardio = sql.SQL("""SELECT duration, distance, percieved_difficulty FROM workout_cardio WHERE workout_id = %s""")
+            getWorkoutDetailsQueryStrength = sql.SQL("""SELECT e.name, e.single_sided, we.sets.reps, we.sets.percieved_difficulty, we.sets.weight, we.sets.type_set 
+                                                     FROM workout_exercises we
+                                                     JOIN exercises e ON e.id = we.exercise_id
+                                                     WHERE workout_id = %s 
+                                                     ORDER BY exercise_name""")
+            getWorkoutDetailsQueryCardio = sql.SQL("""SELECT duration, distance, percieved_difficulty 
+                                                   FROM workout_cardio 
+                                                   WHERE workout_id = %s""")
             
         try:
             try:
@@ -733,7 +843,7 @@ class UserStats(User):
                 
             cur = conn.cursor()
             logger.debug(f"Executing query to fetch activities for user ID {self.id} from last {days} days")
-            cur.execute(getUserActivitiesQuery, (self.id, days))
+            cur.execute(getUserActivitiesQuery, (self.id, days, number))
             result = cur.fetchall()
             
             workouts = {}
@@ -750,12 +860,12 @@ class UserStats(User):
                         workout_id = row[0]
                         workout_type = row[2]
                         
-                        if workout_type == "Strength":
+                        if workout_type == "strength":
                             logger.debug(f"Fetching strength workout details for workout ID {workout_id}")
-                            cur.execute(getWorkoutDetailsQueryStrength, (workout_id, workout_id))
-                            keys = ("exercise_name", "reps", "percieved_difficulty", "weight", "type_set")
+                            cur.execute(getWorkoutDetailsQueryStrength, (workout_id,))
+                            keys = ("exercise_name", "single_sided", "reps", "percieved_difficulty", "weight", "type_set")
                             
-                        elif workout_type == "Cardio":
+                        elif workout_type == "cardio":
                             logger.debug(f"Fetching cardio workout details for workout ID {workout_id}")
                             cur.execute(getWorkoutDetailsQueryCardio, (workout_id,))
                             keys = ("duration", "distance", "percieved_difficulty")
@@ -796,6 +906,122 @@ class UserStats(User):
             if conn:
                 conn.close()
             logger.debug("Database connection closed")
+            
+    def __calculate_calories__(self, activity_type, speed, weight_kg, duration_seconds):
+    
+        MET_VALUES = {
+        "walking": {
+            2.0: 2.3, 2.5: 2.9, 3.0: 3.3, 3.5: 4.3, 4.0: 5.0, 4.5: 7.0, 5.0: 8.3
+        },
+        "running": {
+            4.0: 6.0, 5.0: 8.3, 5.2: 9.0, 6.0: 9.8, 6.7: 10.5, 7.0: 11.0, 7.5: 11.5,
+            8.0: 11.8, 9.0: 12.8, 10.0: 14.5, 12.0: 19.0
+        }
+        }
+        duration_minutes = duration_seconds / 60 
+        duration_hours = duration_minutes / 60
+        met = MET_VALUES.get(activity_type, {}).get(speed)
+
+        if not met:
+            # Find the closest MET values above and below the given speed
+            speeds = sorted(MET_VALUES.get(activity_type, {}).keys())
+            lower_met, upper_met = None, None
+            for s in speeds:
+                if s <= speed:
+                    lower_met = MET_VALUES[activity_type][s]
+                if s > speed and upper_met is None:
+                    upper_met = MET_VALUES[activity_type][s]
+                    break
+
+            if lower_met is None or upper_met is None:
+                logger.warning(f"Cannot calculate MET for speed {speed} in activity type {activity_type}")
+                raise InvalidStatsDataError(f"Invalid speed {speed} for activity type {activity_type}")
+
+            # Calculate the average MET
+            met = (lower_met + upper_met) / 2
+
+        calories_burned = met * weight_kg * duration_hours
+        return {"calories_burned": round(calories_burned, 2)}
+    
+    def formatUserPage(self, activities, conn = None):        
+        for activity in activities:
+            final1 = {}
+            if activity['type'] == 'strength':
+                final = {"Total Weight Lifted": 0, "Total Sets": 0, "Muscle Groups": [], "Date Performed": activity['date']}
+                totalWeightLifted = 0
+                totalSets = 0
+                for exercise in activity['details']:
+                    q = queue.Queue()
+                    muscles = threading.Thread(target=self.__findMuscles__, args=(exercise['exercise_name'], q, conn)) #Need to return from thread
+                    muscles.start()
+                    for i in range(len(exercise['type_set'])):
+                        if exercise["single_sided"] == True:
+                            totalWeightLifted += exercise['weight'][i] * 2 * exercise['reps'][i]
+                        else:
+                            totalWeightLifted += exercise['weight'][i] * exercise['reps'][i]
+                        totalSets += 1
+                        
+                    muscles.join()
+                    final["Total Weight Lifted"] += totalWeightLifted
+                    final["Total Sets"] += totalSets
+                    muscle = q.get()
+                    if muscle:
+                        for m in muscle:
+                            if m not in final["Muscle Groups"]:
+                                final["Muscle Groups"].append(m)
+                final1[activity['name']] = final
+            elif activity['type'] == 'cardio':
+                final = {"Total Distance": 0, "Total Time": 0, "Calories Burned": 0, "Date Performed": activity['date']}
+                avg_pace = float(activity['details'][0]['distance'] / activity['details'][0]['duration'])
+                calories = self.__calculate_calories__("running", round(avg_pace,1), self.weight, activity['details'][0]['duration'])
+                final["Calories Burned"] = calories['calories_burned']
+                final1[activity['name']] = final
+        return final1
+                
+    
+    def __findMuscles__(self, exercise, q, conn = None):
+        findMusclesQuery = sql.SQL("""SELECT primary_muscle, secondary_muscle FROM exercises WHERE name = %s""")
+        
+        try:
+            try:
+                logger.debug("Establishing database connection")
+                if not conn:
+                    conn = global_func.getConnection()
+            except Exception as e:
+                logger.error(f"Failed to connect to database: {str(e)}")
+                raise ConnectionError(str(e))
+                
+            cur = conn.cursor()
+            logger.debug(f"Executing query to find muscles for exercise {exercise}")
+            cur.execute(findMusclesQuery, (exercise,))
+            result = cur.fetchone()
+            
+            if result:
+                logger.info(f"Found muscles for exercise {exercise}")
+                
+                # Convert tuple to list
+                final = []
+                for element in result:
+                    for muscle in element:
+                        final.append(muscle)
+                return final
+            else:
+                logger.warning(f"No muscles found for exercise {exercise}")
+                return None
+        except ConnectionError:
+            logger.debug("Re-raising ConnectionError")
+            raise
+        except Exception as e:
+            logger.error(f"Error finding muscles: {str(e)}")
+            logger.debug(traceback.format_exc())
+            raise QueryError(f"Error finding muscles: {str(e)}")
+        finally:
+            if 'cur' in locals() and cur:
+                cur.close()
+            if conn:
+                conn.close()
+            logger.debug("Database connection closed")
+        
             
     def insertSteps(self, steps, date, conn = None):
         """

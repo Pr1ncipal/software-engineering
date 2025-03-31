@@ -192,7 +192,7 @@ def create_user():
             user.insertStats()
             
             logger.info(f"Request {request_id}: Successfully created user with key: {user.key[:5]}...")
-            return jsonify({"message": "User created successfully", "key": user.key}), 201
+            return jsonify({"message": "User created successfully", "token": user.key}), 201
         except psycopg2.errors.UniqueViolation as e:
             logger.warning(f"Request {request_id}: User already exists error: {str(e)}")
             raise UserAlreadyExistsError()
@@ -222,7 +222,7 @@ def login():
         logger.info(f"Request {request_id}: Processing login request")
         data = get_data_json(request)
         
-        required_fields = ['username', 'password']
+        required_fields = ['username', 'pass_hash']
         missing_fields = [field for field in required_fields if field not in data]
         
         if missing_fields:
@@ -230,12 +230,12 @@ def login():
             raise MissingRequiredFieldError(", ".join(missing_fields))
         
         logger.debug(f"Request {request_id}: Attempting login for username: {data['username']}")
-        user = userClass.User(username=data['username'], pass_hash=data['password'])
+        user = userClass.User(username=data['username'], pass_hash=data['pass_hash'])
         key = user.login()
         
         if key:
             logger.info(f"Request {request_id}: Successful login for user: {data['username']}")
-            return jsonify({"message": "Login successful", "key": key}), 200
+            return jsonify({"message": "Login successful", "token": key}), 200
         else:
             logger.warning(f"Request {request_id}: Failed login attempt for username: {data['username']}")
             raise IncorrectCredentialsError()
@@ -588,7 +588,68 @@ def step_data():
         logger.error(f"Request {request_id}: Unexpected error in add_step_data: {str(e)}")
         logger.error(f"Request {request_id}: {traceback.format_exc()}")
         raise UserServiceError(f"An unexpected error occurred while adding step data")
+    
+    
+@app.route('/get_user_page', methods=['GET'])
+def get_user_page():
+    """
 
+    """
+    request_id = getattr(request, 'request_id', 'unknown')
+    try:
+        logger.info(f"Request {request_id}: Processing user page request")
+        key = request.headers.get('Authorization')
+        
+        if not key or not key.startswith('ApiKey '):
+            logger.warning(f"Request {request_id}: Missing or invalid Authorization header")
+            raise MissingTokenError("Authorization header is required and must start with 'ApiKey '")
+                
+        key = key.split(' ')[1]
+        
+        key = base64.b64decode(key).decode()
+
+        user = userClass.UserStats(key=key)
+        
+        starting_weight = user.getUserStatsSingle(starting=True, height= user.height)
+        current_weight = user.getUserStatsSingle()
+        goal_weight = user.getGoal("weight", 1)
+        
+        if starting_weight is None:
+            starting_weight = ''
+        if current_weight is None:
+            current_weight = ''
+        if goal_weight is None:
+            goal_weight = ''
+            
+        activities = user.getUserActivities(verbose=True, days= 30, number= 10)
+        
+        if activities is None:
+            activities = ''
+        else:
+        
+            formattedActivities = user.formatUserPage(activities)
+        
+            
+        final = {
+            "starting_weight": starting_weight,
+            "current_weight": current_weight,
+            "goal_weight": goal_weight,
+            "activities": formattedActivities
+        }
+        
+        logger.info(f"Request {request_id}: Successfully retrieved user page data")
+        return jsonify({"message": "User page data retrieved successfully", "data": final}), 200
+    
+    except UserServiceError:
+        # Let the global error handler handle these
+        raise
+    except Exception as e:
+        logger.error(f"Request {request_id}: Unexpected error in get_user_page: {str(e)}")
+        logger.error(f"Request {request_id}: {traceback.format_exc()}")
+        raise UserServiceError(f"An unexpected error occurred while retrieving user page data")
+
+
+        
 if __name__ == '__main__':
     logger.info("Starting user microservice on port 8080")
     app.run(host='0.0.0.0', port=8080)
