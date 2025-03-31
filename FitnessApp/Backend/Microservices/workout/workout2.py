@@ -76,7 +76,8 @@ def get_data_json(request):
         InvalidWorkoutDataError: If request doesn't contain valid JSON
     """
     request_id = getattr(request, 'request_id', 'unknown')
-    if request.is_json:
+    logger.debug(f"Request {request_id}: {request.headers}")
+    if request.is_json():
         logger.debug(f"Request {request_id}: Extracting JSON data")
         return request.get_json()
     else:
@@ -174,8 +175,13 @@ def add_workout():
     request_id = getattr(request, 'request_id', 'unknown')
     try:
         logger.info(f"Request {request_id}: Processing add_workout request")
+        logger.info(request.headers)
+        logger.info(request.get_json())
         data, key = get_data_jwt(request)
         
+        if data is None:
+            raise InvalidWorkoutDataError("Failed to parse JSON data")
+
         if not data:
             logger.warning(f"Request {request_id}: No workout data provided")
             raise InvalidWorkoutDataError("No workout data provided")

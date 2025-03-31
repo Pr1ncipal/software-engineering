@@ -3,6 +3,8 @@ import jwt
 import requests
 import base64
 
+import requests.auth
+
 KEYS_FILE_PATH = 'keys.txt'
 WORKOUTS_FILE_PATH = 'workouts.json'
 EXERCISES_FILE_PATH = 'exercises.json'
@@ -41,9 +43,10 @@ def send_workout_data(workout_data, api_key):
     
     headers = {
         "Authorization": f"ApiKey {encoded_api_key}",  # API Key encoded in Base64
-        "Content-Type": "application/json",  
-        "Accept": "application/json"
+        "Content-Type": "application/json",
+        "Accept": "*/*"
     }
+
 
     # Debugging Output
     print("---- DEBUG REQUEST ----")
