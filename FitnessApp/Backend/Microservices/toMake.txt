@@ -16,10 +16,12 @@
 
 - Create and finish direct input
 
-
-
 - Add AI tables (Need sam to review)
 
 - user stuff first ( need to test, want page, Tomrrow)
 - login page fix (Done working)
 - workout choosing pagen (Done working)
+
+
+- Fix workout input script
+- 

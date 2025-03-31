@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { View, TextInput, Button, StyleSheet, Text, Alert, ScrollView, TouchableOpacity, Modal } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, TextInput, StyleSheet, Text, Alert, ScrollView, TouchableOpacity, Modal, Button } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { secureStorage, AUTH_TOKEN_KEY } from '../utils/secureStorage';
 import ChooseExercise from './chooseExercise';
 import encode from 'jwt-encode';
-import decode from 'jwt-decode';
+import * as NetworkUtils from '../utils/networkUtils'; // Add a new utility file for network operations
 
 export default function WorkoutForm() {
-  // User and workout metadata
+  // Workout metadata state
   const [workoutName, setWorkoutName] = useState('');
   const [workoutType, setWorkoutType] = useState('Strength');
   const [notes, setNotes] = useState('');
@@ -17,8 +17,15 @@ export default function WorkoutForm() {
   const [exerciseModalVisible, setExerciseModalVisible] = useState(false);
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(null);
   
-  // Exercises array
-  const [exercises, setExercises] = useState([{
+  // Auth state
+  const [authToken, setAuthToken] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  
+  // Loading state
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Initial exercise template
+  const createEmptyExercise = useCallback(() => ({
     exerciseID: Date.now().toString(),
     exerciseOrder: 1,
     superset: '-1',
@@ -28,26 +35,49 @@ export default function WorkoutForm() {
     weight: ['0'],
     perceivedDifficulty: ['5'],
     exerciseNotes: ''
-  }]);
+  }), []);
+  
+  // Exercises array
+  const [exercises, setExercises] = useState(() => [createEmptyExercise()]);
 
-  // Set types for dropdown
+  // Constants for dropdowns
   const setTypes = ['Warmup', 'Normal', 'Drop', 'Failure'];
-
-  // Difficulty options for the Picker
   const difficultyOptions = [1, 2, 3, 4, 5];
 
-  // Auth state
-  const [authToken, setAuthToken] = useState(null);
-
-  // Add effect to get auth token
+  // Load auth token on component mount
   useEffect(() => {
     const getAuthToken = async () => {
       try {
+        // Check for network connection first
+        const isConnected = await NetworkUtils.isNetworkAvailable();
+        if (!isConnected) {
+          Alert.alert('No Connection', 'You are offline. Please connect to the internet and try again.');
+          setIsAuthenticated(false);
+          return;
+        }
+        
         const token = await secureStorage.getItem(AUTH_TOKEN_KEY);
-        setAuthToken(token);
+        if (token) {
+          // Validate token with a quick API call
+          const isValid = await NetworkUtils.validateToken(token);
+          
+          if (isValid) {
+            setAuthToken(token);
+            setIsAuthenticated(true);
+          } else {
+            // Token exists but is invalid - user needs to log in again
+            Alert.alert('Session Expired', 'Your session has expired. Please log in again.');
+            secureStorage.removeItem(AUTH_TOKEN_KEY);
+            setIsAuthenticated(false);
+          }
+        } else {
+          Alert.alert('Authentication Required', 'Please log in to continue.');
+          setIsAuthenticated(false);
+        }
       } catch (err) {
-        console.error('Error retrieving auth token:', err);
-        Alert.alert('Error', 'Authentication failed. Please log in again.');
+        console.error('Error retrieving or validating auth token:', err);
+        Alert.alert('Authentication Error', 'Failed to authenticate. Please try logging in again.');
+        setIsAuthenticated(false);
       }
     };
     
@@ -55,95 +85,154 @@ export default function WorkoutForm() {
   }, []);
 
   // Open exercise selection modal for a specific exercise
-  const openExerciseModal = (exerciseIndex) => {
+  const openExerciseModal = useCallback((exerciseIndex) => {
     setCurrentExerciseIndex(exerciseIndex);
     setExerciseModalVisible(true);
-  };
+  }, []);
 
   // Handle exercise selection from the modal
-  const handleExerciseSelect = (selectedExercise) => {
+  const handleExerciseSelect = useCallback((selectedExercise) => {
     if (currentExerciseIndex !== null) {
-      const updatedExercises = [...exercises];
-      updatedExercises[currentExerciseIndex].exerciseName = selectedExercise.name;
-      
-      // If the exercise has an ID from the database, store it
-      if (selectedExercise.id) {
-        updatedExercises[currentExerciseIndex].databaseExerciseId = selectedExercise.id;
-      }
-      
-      setExercises(updatedExercises);
+      setExercises(prevExercises => {
+        const updatedExercises = [...prevExercises];
+        updatedExercises[currentExerciseIndex] = {
+          ...updatedExercises[currentExerciseIndex],
+          exerciseName: selectedExercise.name,
+          databaseExerciseId: selectedExercise.id || null
+        };
+        return updatedExercises;
+      });
     }
-    // Close the modal
     setExerciseModalVisible(false);
     setCurrentExerciseIndex(null);
-  };
+  }, [currentExerciseIndex]);
 
   // Add a new exercise to the list
-  const addExercise = () => {
-    const newExerciseId = Date.now().toString();
-    setExercises([...exercises, {
-      exerciseID: newExerciseId,
-      exerciseOrder: exercises.length + 1,
-      superset: '-1',
-      exerciseName: '',
-      reps: ['0'],
-      setType: ['Normal'],
-      weight: ['0'],
-      perceivedDifficulty: ['5'],
-      exerciseNotes: ''
-    }]);
-  };
+  const addExercise = useCallback(() => {
+    setExercises(prevExercises => [
+      ...prevExercises, 
+      {
+        ...createEmptyExercise(),
+        exerciseID: Date.now().toString(),
+        exerciseOrder: prevExercises.length + 1
+      }
+    ]);
+  }, [createEmptyExercise]);
 
   // Add a new set to an exercise
-  const addSet = (exerciseIndex) => {
-    const updatedExercises = [...exercises];
-    updatedExercises[exerciseIndex].reps.push('0');
-    updatedExercises[exerciseIndex].setType.push('Normal');
-    updatedExercises[exerciseIndex].weight.push('0');
-    updatedExercises[exerciseIndex].perceivedDifficulty.push('5');
-    setExercises(updatedExercises);
-  };
+  const addSet = useCallback((exerciseIndex) => {
+    setExercises(prevExercises => {
+      const updatedExercises = [...prevExercises];
+      const exercise = {...updatedExercises[exerciseIndex]};
+      exercise.reps = [...exercise.reps, '0'];
+      exercise.setType = [...exercise.setType, 'Normal'];
+      exercise.weight = [...exercise.weight, '0'];
+      exercise.perceivedDifficulty = [...exercise.perceivedDifficulty, '5'];
+      updatedExercises[exerciseIndex] = exercise;
+      return updatedExercises;
+    });
+  }, []);
 
   // Update exercise values
-  const updateExerciseField = (exerciseIndex, field, value) => {
-    const updatedExercises = [...exercises];
-    updatedExercises[exerciseIndex][field] = value;
-    setExercises(updatedExercises);
-  };
+  const updateExerciseField = useCallback((exerciseIndex, field, value) => {
+    setExercises(prevExercises => {
+      const updatedExercises = [...prevExercises];
+      updatedExercises[exerciseIndex] = {
+        ...updatedExercises[exerciseIndex],
+        [field]: value
+      };
+      return updatedExercises;
+    });
+  }, []);
 
   // Update set values
-  const updateSetField = (exerciseIndex, field, setIndex, value) => {
-    const updatedExercises = [...exercises];
-    updatedExercises[exerciseIndex][field][setIndex] = value;
-    setExercises(updatedExercises);
-  };
+  const updateSetField = useCallback((exerciseIndex, field, setIndex, value) => {
+    setExercises(prevExercises => {
+      const updatedExercises = [...prevExercises];
+      const updatedSets = [...updatedExercises[exerciseIndex][field]];
+      updatedSets[setIndex] = value;
+      updatedExercises[exerciseIndex] = {
+        ...updatedExercises[exerciseIndex],
+        [field]: updatedSets
+      };
+      return updatedExercises;
+    });
+  }, []);
+
+  // Handle superset selection
+  const handleSupersetChange = useCallback((exerciseIndex, value) => {
+    setExercises(prevExercises => {
+      const updatedExercises = [...prevExercises];
+      
+      // Update this exercise's superset
+      updatedExercises[exerciseIndex] = {
+        ...updatedExercises[exerciseIndex],
+        superset: value
+      };
+      
+      // If a superset is selected (not -1), also update the other exercise
+      if (value !== '-1') {
+        const otherExerciseIndex = prevExercises.findIndex(ex => ex.exerciseID.toString() === value);
+        if (otherExerciseIndex !== -1) {
+          updatedExercises[otherExerciseIndex] = {
+            ...updatedExercises[otherExerciseIndex],
+            superset: updatedExercises[exerciseIndex].exerciseID.toString()
+          };
+        }
+      }
+      
+      return updatedExercises;
+    });
+  }, []);
 
   // Remove an exercise
-  const removeExercise = (exerciseIndex) => {
-    const updatedExercises = exercises.filter((_, index) => index !== exerciseIndex);
-    // Update order numbers
-    updatedExercises.forEach((exercise, index) => {
-      exercise.exerciseOrder = index + 1;
+  const removeExercise = useCallback((exerciseIndex) => {
+    setExercises(prevExercises => {
+      const updatedExercises = prevExercises.filter((_, index) => index !== exerciseIndex);
+      
+      // Update order numbers
+      return updatedExercises.map((ex, idx) => ({
+        ...ex,
+        exerciseOrder: idx + 1
+      }));
     });
-    setExercises(updatedExercises);
-  };
+  }, []);
 
   // Remove a set
-  const removeSet = (exerciseIndex, setIndex) => {
-    if (exercises[exerciseIndex].reps.length > 1) {
-      const updatedExercises = [...exercises];
-      updatedExercises[exerciseIndex].reps.splice(setIndex, 1);
-      updatedExercises[exerciseIndex].setType.splice(setIndex, 1);
-      updatedExercises[exerciseIndex].weight.splice(setIndex, 1);
-      updatedExercises[exerciseIndex].perceivedDifficulty.splice(setIndex, 1);
-      setExercises(updatedExercises);
-    } else {
-      Alert.alert('Cannot Remove', 'Each exercise must have at least one set');
-    }
-  };
+  const removeSet = useCallback((exerciseIndex, setIndex) => {
+    setExercises(prevExercises => {
+      const updatedExercises = [...prevExercises];
+      const exercise = updatedExercises[exerciseIndex];
+      
+      if (exercise.reps.length <= 1) {
+        Alert.alert('Cannot Remove', 'Each exercise must have at least one set');
+        return prevExercises;
+      }
+      
+      const updatedReps = [...exercise.reps];
+      const updatedSetTypes = [...exercise.setType];
+      const updatedWeights = [...exercise.weight];
+      const updatedDifficulties = [...exercise.perceivedDifficulty];
+      
+      updatedReps.splice(setIndex, 1);
+      updatedSetTypes.splice(setIndex, 1);
+      updatedWeights.splice(setIndex, 1);
+      updatedDifficulties.splice(setIndex, 1);
+      
+      updatedExercises[exerciseIndex] = {
+        ...exercise,
+        reps: updatedReps,
+        setType: updatedSetTypes,
+        weight: updatedWeights,
+        perceivedDifficulty: updatedDifficulties
+      };
+      
+      return updatedExercises;
+    });
+  }, []);
 
   // Parse numeric values before submission
-  const parseNumericValues = (data) => {
+  const parseNumericValues = useCallback((data) => {
     return {
       ...data,
       superset: parseInt(data.superset) || -1,
@@ -151,107 +240,30 @@ export default function WorkoutForm() {
       weight: data.weight.map(w => parseFloat(w) || 0),
       perceivedDifficulty: data.perceivedDifficulty.map(diff => parseInt(diff) || 5)
     };
-  };
-
-  const handleSubmit = async () => {
-    if (!workoutName) {
-      Alert.alert('Error', 'Please enter a workout name');
-      return;
-    }
-
-    if (exercises.some(ex => !ex.exerciseName)) {
-      Alert.alert('Error', 'Please name all exercises');
-      return;
-    }
-
-    try {
-      // Get auth headers and token
-      const headers = await secureStorage.getAuthHeader();
-      const authToken = await secureStorage.getItem(AUTH_TOKEN_KEY);
-      
-      if (!headers || !authToken) {
-        Alert.alert('Error', 'You must be logged in to submit a workout.');
-        return;
-      }
-      
-      // Prepare the workout data
-      const workoutData = {
-        name: workoutName,
-        workoutType: workoutType.toLowerCase(),
-        notes: notes,
-        averageHeartRate: heartRate ? Number(heartRate) : 0,
-        exercises: exercises.map((ex, index) => parseNumericValues({
-          exerciseID: ex.databaseExerciseId || null,
-          superset: ex.superset === '-1' ? -1 : parseInt(ex.superset) || -1,
-          order_exercise: index + 1,
-          reps: ex.reps.map(rep => parseInt(rep) || 0),
-          setType: ex.setType.map(type => type.toLowerCase()),
-          weight: ex.weight.map(w => parseFloat(w) || 0),
-          percievedDifficulty: ex.perceivedDifficulty.map(diff => parseInt(diff) || 5),
-          notes: ex.exerciseNotes
-        }))
-      };
-      
-      // Sign the workout data using the auth token as the secret
-      const workoutJWT = encode(workoutData, authToken);
-      
-      // Prepare the payload with the JWT
-      const payload = {
-        token: workoutJWT
-      };
-      
-      // Send the JWT payload to the server with auth headers
-      const response = await fetch('http://localhost:8080/api/workout/create_workout', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          ...headers
-        },
-        body: JSON.stringify(payload)
-      });
-    
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Server responded with status ${response.status}`);
-      }
-      
-      const result = await response.json();
-    
-      Alert.alert('Success', 'Workout data submitted successfully!');
-      
-      // Optional: Reset the form after successful submission
-      resetForm();
-      
-    } catch (error) {
-      console.error('Error submitting workout:', error);
-      Alert.alert('Error', `Failed to submit workout: ${error.message}`);
-    }
-  };
+  }, []);
 
   // Reset the form
-  const resetForm = () => {
+  const resetForm = useCallback(() => {
+    console.log('Resetting form');
     setWorkoutName('');
     setWorkoutType('Strength');
     setNotes('');
     setHeartRate('');
-    setExercises([{
-      exerciseID: Date.now().toString(),
-      exerciseOrder: 1,
-      superset: '-1',
-      exerciseName: '',
-      reps: ['0'],
-      setType: ['Normal'],
-      weight: ['0'],
-      perceivedDifficulty: ['5'],
-      exerciseNotes: ''
-    }]);
-  };
+    setExercises([createEmptyExercise()]);
+  }, [createEmptyExercise]);
 
+  // Close the exercise modal
+  const handleCloseModal = useCallback(() => {
+    setExerciseModalVisible(false);
+    setCurrentExerciseIndex(null);
+  }, []);
+
+  // Update the Submit button to show loading state
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.title}>Log Your Workout</Text>
 
-      {/* User and Workout Info */}
+      {/* Workout Info */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Workout Info</Text>
         
@@ -309,7 +321,7 @@ export default function WorkoutForm() {
             </TouchableOpacity>
           </View>
 
-          {/* Replace the exercise name input with a button */}
+          {/* Exercise selector button */}
           <View style={styles.exerciseNameContainer}>
             <TouchableOpacity
               style={styles.selectExerciseFullButton}
@@ -327,33 +339,20 @@ export default function WorkoutForm() {
             </TouchableOpacity>
           </View>
 
-          {/* Replace the superset input with a dropdown picker */}
+          {/* Superset selector */}
           <View style={styles.row}>
             <View style={styles.fullInput}>
               <Text style={styles.label}>Superset With</Text>
               <View style={styles.pickerWrapper}>
                 <Picker
                   selectedValue={exercise.superset}
-                  onValueChange={(value) => {
-                    // Update this exercise's superset
-                    updateExerciseField(exerciseIndex, 'superset', value);
-                    
-                    // If a superset is selected (not -1), also update the other exercise
-                    if (value !== '-1') {
-                      const otherExerciseIndex = exercises.findIndex(ex => ex.exerciseID.toString() === value);
-                      if (otherExerciseIndex !== -1) {
-                        const updatedExercises = [...exercises];
-                        updatedExercises[otherExerciseIndex].superset = exercise.exerciseID.toString();
-                        setExercises(updatedExercises);
-                      }
-                    }
-                  }}
+                  onValueChange={(value) => handleSupersetChange(exerciseIndex, value)}
                   style={styles.picker}
                 >
                   <Picker.Item label="No Superset" value="-1" />
                   {exercises
                     .filter((ex, idx) => idx !== exerciseIndex)
-                    .map((ex, idx) => (
+                    .map((ex) => (
                       <Picker.Item 
                         key={ex.exerciseID}
                         label={ex.exerciseName || `Unnamed Exercise ${ex.exerciseOrder}`}
@@ -365,6 +364,7 @@ export default function WorkoutForm() {
             </View>
           </View>
 
+          {/* Exercise notes */}
           <TextInput
             style={styles.textArea}
             placeholder="Exercise Notes"
@@ -389,7 +389,7 @@ export default function WorkoutForm() {
               </View>
 
               <View style={styles.halfInput}>
-                <Text style={styles.label}>Weight (kg)</Text>
+                <Text style={styles.label}>Weight (lbs)</Text>
                 <TextInput
                   style={styles.input}
                   placeholder="Weight"
@@ -421,6 +421,7 @@ export default function WorkoutForm() {
             </View>
           ))}
 
+          {/* Add Set button */}
           <TouchableOpacity
             style={styles.addButton}
             onPress={() => addSet(exerciseIndex)}
@@ -430,6 +431,7 @@ export default function WorkoutForm() {
         </View>
       ))}
 
+      {/* Add Exercise button */}
       <TouchableOpacity 
         style={styles.addButton}
         onPress={addExercise}
@@ -442,15 +444,124 @@ export default function WorkoutForm() {
         <TouchableOpacity 
           style={styles.resetButton}
           onPress={resetForm}
+          disabled={isSubmitting}
         >
           <Text style={styles.resetButtonText}>Reset Form</Text>
         </TouchableOpacity>
         
         <TouchableOpacity 
           style={styles.submitButton}
-          onPress={handleSubmit}
+          onPress={async () => {
+            console.log('Submit button clicked');
+            
+            // Basic validation
+            if (!workoutName) {
+              setNotes(prev => prev + "\nError: Please enter a workout name");
+              console.log("Missing workout name");
+              return;
+            }
+
+            if (exercises.some(ex => !ex.exerciseName)) {
+              setNotes(prev => prev + "\nError: Please name all exercises");
+              console.log("Missing exercise name(s)");
+              return;
+            }
+            
+            try {
+              setIsSubmitting(true);
+              setNotes(prev => prev + "\nSubmitting workout...");
+              
+              // Get auth token
+              const token = await secureStorage.getItem(AUTH_TOKEN_KEY);
+              
+              if (!token) {
+                setNotes(prev => prev + "\nError: Not authenticated");
+                console.log("No auth token found");
+                setIsSubmitting(false);
+                return;
+              }
+              
+              // Prepare auth headers
+              const headers = NetworkUtils.getAuthHeaders(token);
+              
+              // Format workout data
+              const workoutData = {
+                name: workoutName,
+                workoutType: workoutType.toLowerCase(),
+                notes: notes,
+                averageHeartRate: heartRate ? Number(heartRate) : 0,
+                exercises: exercises.map((ex, index) => ({
+                  exerciseID: ex.databaseExerciseId || null,
+                  superset: ex.superset === '-1' ? -1 : parseInt(ex.superset) || -1,
+                  order_exercise: index + 1,
+                  reps: ex.reps.map(rep => parseInt(rep) || 0),
+                  setType: ex.setType.map(type => type.toLowerCase()),
+                  weight: ex.weight.map(w => parseFloat(w) || 0),
+                  percievedDifficulty: ex.perceivedDifficulty.map(diff => parseInt(diff) || 5),
+                  notes: ex.exerciseNotes
+                }))
+              };
+              
+              // Create JWT token
+              const workoutJWT = encode(workoutData, token);
+              
+              // Prepare payload
+              const payload = {
+                token: workoutJWT
+              };
+              
+              console.log("Sending to backend:", JSON.stringify(payload).substring(0, 100) + "...");
+              setNotes(prev => prev + "\nSending data to server...");
+              
+              // Direct fetch without using complex utility
+              const response = await fetch('http://localhost:8080/api/workout/add_workout', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...headers
+                },
+                body: JSON.stringify(payload)
+              });
+              
+              if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Server error ${response.status}: ${errorText}`);
+              }
+              
+              const result = await response.json();
+              console.log("Backend response:", result);
+              
+              // Success message
+              setNotes(prev => prev + "\nSuccess! Workout submitted.");
+              
+              // Reset form
+              setWorkoutName('');
+              setWorkoutType('Strength');
+              setHeartRate('');
+              setExercises([{
+                exerciseID: Date.now().toString(),
+                exerciseOrder: 1,
+                superset: '-1',
+                exerciseName: '',
+                reps: ['0'],
+                setType: ['Normal'],
+                weight: ['0'],
+                perceivedDifficulty: ['5'],
+                exerciseNotes: ''
+              }]);
+              
+            } catch (error) {
+              console.error("Submission error:", error);
+              setNotes(prev => prev + `\nError: ${error.message}`);
+            } finally {
+              setIsSubmitting(false);
+            }
+          }}
+          disabled={isSubmitting}
         >
-          <Text style={styles.submitButtonText}>Submit Workout</Text>
+          <Text style={styles.submitButtonText}>
+            {isSubmitting ? 'Submitting...' : 'Submit to Backend'}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -458,14 +569,14 @@ export default function WorkoutForm() {
       <Modal
         visible={exerciseModalVisible}
         animationType="slide"
-        onRequestClose={() => setExerciseModalVisible(false)}
+        onRequestClose={handleCloseModal}
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Select an Exercise</Text>
             <TouchableOpacity
               style={styles.closeButton}
-              onPress={() => setExerciseModalVisible(false)}
+              onPress={handleCloseModal}
             >
               <Text style={styles.closeButtonText}>Close</Text>
             </TouchableOpacity>
@@ -745,5 +856,9 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 8,
     marginBottom: 10,
+  },
+  disabledButton: {
+    backgroundColor: '#95a5a6',
+    opacity: 0.7,
   },
 });
