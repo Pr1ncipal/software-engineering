@@ -388,6 +388,22 @@ export default function WorkoutForm() {
                 />
               </View>
 
+              {/* Add Set Type Picker here */}
+              <View style={styles.halfInput}>
+                <Text style={styles.label}>Set Type</Text>
+                <View style={styles.setTypePickerWrapper}>
+                  <Picker
+                    selectedValue={exercise.setType[setIndex]}
+                    onValueChange={(value) => updateSetField(exerciseIndex, 'setType', setIndex, value)}
+                    style={styles.picker}
+                  >
+                    {setTypes.map((type) => (
+                      <Picker.Item key={type} label={type} value={type} />
+                    ))}
+                  </Picker>
+                </View>
+              </View>
+
               <View style={styles.halfInput}>
                 <Text style={styles.label}>Weight (lbs)</Text>
                 <TextInput
@@ -501,6 +517,12 @@ export default function WorkoutForm() {
                   notes: ex.exerciseNotes
                 }))
               };
+
+              // Add required fields for cardio workout type
+              if (workoutType !== 'Strength') {
+                workoutData.distance = 0; // Default values for required fields
+                workoutData.duration = 0;
+              }
               
               // Create JWT token
               const workoutJWT = encode(workoutData, token);
@@ -525,34 +547,55 @@ export default function WorkoutForm() {
               
               if (!response.ok) {
                 const errorText = await response.text();
-                throw new Error(`Server error ${response.status}: ${errorText}`);
+                console.error(`Server error ${response.status}: ${errorText}`);
+                
+                // Don't add server errors to the notes field
+                // Instead, show an alert with the error details
+                Alert.alert(
+                  `Error (${response.status})`, 
+                  `The server encountered an error. Please try again later.`,
+                  [{ text: 'OK' }]
+                );
+                
+                throw new Error(`Server error ${response.status}`);
               }
               
               const result = await response.json();
               console.log("Backend response:", result);
               
-              // Success message
+              // Only add success messages to notes
               setNotes(prev => prev + "\nSuccess! Workout submitted.");
               
-              // Reset form
-              setWorkoutName('');
-              setWorkoutType('Strength');
-              setHeartRate('');
-              setExercises([{
-                exerciseID: Date.now().toString(),
-                exerciseOrder: 1,
-                superset: '-1',
-                exerciseName: '',
-                reps: ['0'],
-                setType: ['Normal'],
-                weight: ['0'],
-                perceivedDifficulty: ['5'],
-                exerciseNotes: ''
-              }]);
+              // Reset form after success
+              setTimeout(() => {
+                setWorkoutName('');
+                setWorkoutType('Strength');
+                setHeartRate('');
+                setNotes(''); // Clear notes on successful submission
+                setExercises([{
+                  exerciseID: Date.now().toString(),
+                  exerciseOrder: 1,
+                  superset: '-1',
+                  exerciseName: '',
+                  reps: ['0'],
+                  setType: ['Normal'],
+                  weight: ['0'],
+                  perceivedDifficulty: ['5'],
+                  exerciseNotes: ''
+                }]);
+              }, 1500); // Small delay so user can see success message
               
             } catch (error) {
               console.error("Submission error:", error);
-              setNotes(prev => prev + `\nError: ${error.message}`);
+              
+              // Don't modify notes for errors, show alert instead
+              Alert.alert(
+                "Submission Failed", 
+                error.message.includes('Server error') 
+                  ? "The server couldn't process your workout. Please try again later." 
+                  : `Error: ${error.message}`,
+                [{ text: 'OK' }]
+              );
             } finally {
               setIsSubmitting(false);
             }
