@@ -4,7 +4,9 @@ import { Base64 } from 'js-base64';
 import './chooseExercise.css';
 
 const ChooseExercise = ({ onExerciseSelect }) => {
-    const [exercises, setExercises] = useState([]);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [allExercises, setAllExercises] = useState([]);  // Store all fetched exercises
+    const [filteredExercises, setFilteredExercises] = useState([]); // Displayed exercises
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [currentPage, setCurrentPage] = useState(1);
@@ -14,7 +16,6 @@ const ChooseExercise = ({ onExerciseSelect }) => {
     const [selectedMuscleGroup, setSelectedMuscleGroup] = useState('');
     const [loadingMuscleGroups, setLoadingMuscleGroups] = useState(false);
     
-    // Get auth token from secureStorage on component mount
     useEffect(() => {
         const getAuthToken = async () => {
             try {
@@ -33,7 +34,6 @@ const ChooseExercise = ({ onExerciseSelect }) => {
         getAuthToken();
     }, []);
     
-    // Fetch muscle groups
     useEffect(() => {
         if (!authToken) return;
         
@@ -41,7 +41,6 @@ const ChooseExercise = ({ onExerciseSelect }) => {
             try {
                 setLoadingMuscleGroups(true);
                 
-                // Get auth headers
                 const headers = await secureStorage.getAuthHeader();
                 if (!headers) {
                     throw new Error('No authentication token available');
@@ -63,7 +62,6 @@ const ChooseExercise = ({ onExerciseSelect }) => {
                 console.log("Muscle Groups API Response:", data);
                 
                 if (data.muscles && Array.isArray(data.muscles)) {
-                    // Format muscle names
                     const formattedMuscles = data.muscles.map(muscle => {
                         const muscleStr = String(muscle);
                         let formatted = muscleStr;
@@ -74,8 +72,8 @@ const ChooseExercise = ({ onExerciseSelect }) => {
                         
                         formatted = formatted.replace(/['"]/g, '');
                         return {
-                            value: muscle, // Keep original value for API
-                            label: formatted.charAt(0).toUpperCase() + formatted.slice(1) // Formatted for display
+                            value: muscle,
+                            label: formatted.charAt(0).toUpperCase() + formatted.slice(1)
                         };
                     });
                     
@@ -110,28 +108,25 @@ const ChooseExercise = ({ onExerciseSelect }) => {
         if (node) observer.current.observe(node);
     }, [loading, hasMore]);
 
-    // Reset page when muscle group changes
     useEffect(() => {
-        setExercises([]);
+        setAllExercises([]);
+        setFilteredExercises([]);
         setCurrentPage(1);
         setHasMore(true);
     }, [selectedMuscleGroup]);
     
     useEffect(() => {
-        // Only fetch exercises if we have the auth token
         if (!authToken) return;
         
         const fetchExercises = async () => {
             try {
                 setLoading(true);
                 
-                // Get auth headers
                 const headers = await secureStorage.getAuthHeader();
                 if (!headers) {
                     throw new Error('No authentication token available');
                 }
                 
-                // Build URL with optional muscle group filter
                 let url = `http://localhost:8080/api/workout/get_exercises?page=${currentPage}`;
                 if (selectedMuscleGroup) {
                     url += `&muscle_group=${encodeURIComponent(selectedMuscleGroup)}`;
@@ -164,24 +159,21 @@ const ChooseExercise = ({ onExerciseSelect }) => {
                     setHasMore(false);
                 }
                 
-                // Transform the exercises
                 const transformedExercises = data.exercises.map(exercise => ({
                     id: exercise.id,
                     name: exercise.name,
                     description: exercise.description,
                     primary_muscle: exercise.primary_muscle || [],
-                    secondarry_muscle: exercise.secondary_muscle || [] // Fix the field name here
+                    secondarry_muscle: exercise.secondary_muscle || []
                 }));
                 
-                // Add new exercises to existing ones
-                const newExercises = currentPage === 1 
+                const newAllExercises = currentPage === 1 
                     ? transformedExercises 
-                    : [...exercises, ...transformedExercises];
+                    : [...allExercises, ...transformedExercises];
                 
-                // Sort all exercises alphabetically by name
-                newExercises.sort((a, b) => a.name.localeCompare(b.name));
+                newAllExercises.sort((a, b) => a.name.localeCompare(b.name));
+                setAllExercises(newAllExercises);
                 
-                setExercises(newExercises);
                 setLoading(false);
             } catch (err) {
                 console.error('Error fetching exercises:', err);
@@ -196,6 +188,43 @@ const ChooseExercise = ({ onExerciseSelect }) => {
 
         fetchExercises();
     }, [currentPage, authToken, selectedMuscleGroup]);
+    
+    useEffect(() => {
+        if (searchQuery.trim() === '') {
+            setFilteredExercises(allExercises);
+            return;
+        }
+        
+        const query = searchQuery.toLowerCase().trim();
+        
+        const filtered = allExercises.filter(exercise => {
+            const nameMatches = exercise.name && 
+                exercise.name.toLowerCase().includes(query);
+            
+            const descriptionMatches = exercise.description && 
+                exercise.description.toLowerCase().includes(query);
+            
+            const primaryMuscleMatches = exercise.primary_muscle && 
+                formatMuscleName(exercise.primary_muscle).toLowerCase().includes(query);
+            
+            let secondaryMuscleMatches = false;
+            if (exercise.secondarry_muscle) {
+                if (Array.isArray(exercise.secondarry_muscle)) {
+                    secondaryMuscleMatches = exercise.secondarry_muscle.some(muscle => 
+                        formatMuscleName(muscle).toLowerCase().includes(query)
+                    );
+                } else {
+                    secondaryMuscleMatches = formatMuscleName(exercise.secondarry_muscle)
+                        .toLowerCase().includes(query);
+                }
+            }
+            
+            return nameMatches || descriptionMatches || 
+                   primaryMuscleMatches || secondaryMuscleMatches;
+        });
+        
+        setFilteredExercises(filtered);
+    }, [searchQuery, allExercises]);
 
     const handleExerciseClick = (exercise) => {
         onExerciseSelect(exercise);
@@ -205,28 +234,43 @@ const ChooseExercise = ({ onExerciseSelect }) => {
         setSelectedMuscleGroup(event.target.value);
     };
 
-    // Helper function to format muscle name (remove brackets and handle objects)
+    const handleSearchChange = (event) => {
+        setSearchQuery(event.target.value);
+    };
+
     const formatMuscleName = (muscle) => {
         if (!muscle) return "Stretch";
         
-        // If it's an object with toString() that produces brackets, convert it to string and remove brackets
         let muscleStr = String(muscle);
         if (muscleStr.startsWith('{') && muscleStr.endsWith('}')) {
             muscleStr = muscleStr.substring(1, muscleStr.length - 1);
         }
-        // Remove any quotes
         muscleStr = muscleStr.replace(/['"]/g, '');
         
-        // Capitalize first letter
         return muscleStr.charAt(0).toUpperCase() + muscleStr.slice(1);
     };
 
-    if ((loading && currentPage === 1 && !exercises.length) || !authToken) return <p>Loading exercises...</p>;
+    if ((loading && currentPage === 1 && !allExercises.length) || !authToken) {
+        return <p>Loading exercises...</p>;
+    }
+    
     if (error) return <p>Error: {error}</p>;
+
+    const exercisesToDisplay = filteredExercises.length > 0 ? filteredExercises : allExercises;
 
     return (
         <div className="exercise-selector">
             <h1>Choose an Exercise</h1>
+            
+            <div className="search-container" style={{ maxWidth: '600px' }}>
+                <input
+                    type="text"
+                    placeholder="Search exercises..."
+                    value={searchQuery}
+                    onChange={handleSearchChange}
+                    className="search-input"
+                />
+            </div>
             
             <div className="filter-container">
                 <label htmlFor="muscle-group-filter">Filter by muscle group:</label>
@@ -250,17 +294,19 @@ const ChooseExercise = ({ onExerciseSelect }) => {
                 )}
             </div>
             
-            {exercises.length === 0 && !loading ? (
-                <p className="no-exercises">No exercises found for the selected muscle group.</p>
+            {exercisesToDisplay.length === 0 && !loading ? (
+                <p className="no-exercises">
+                    {searchQuery ? 
+                        `No exercises found matching "${searchQuery}"` : 
+                        "No exercises found for the selected muscle group."}
+                </p>
             ) : (
                 <div className="exercise-grid">
-                    {exercises.map((exercise, index) => {
-                        // Get the primary and secondary muscles with proper formatting
+                    {exercisesToDisplay.map((exercise, index) => {
                         const primaryMuscle = exercise.primary_muscle 
                             ? formatMuscleName(exercise.primary_muscle)
                             : "Stretch";
                             
-                        // For secondary muscles, check if it's an array or string
                         let secondaryMuscles = "";
                         if (exercise.secondarry_muscle) {
                             if (Array.isArray(exercise.secondarry_muscle)) {
@@ -270,7 +316,6 @@ const ChooseExercise = ({ onExerciseSelect }) => {
                             }
                         }
                         
-                        // Truncate description to one line
                         const shortDescription = exercise.description 
                             ? exercise.description.length > 60 
                                 ? exercise.description.substring(0, 60) + '...' 
@@ -280,7 +325,7 @@ const ChooseExercise = ({ onExerciseSelect }) => {
                         return (
                             <div 
                                 key={exercise.id || index}
-                                ref={index === exercises.length - 1 ? lastExerciseElementRef : null}
+                                ref={index === exercisesToDisplay.length - 1 ? lastExerciseElementRef : null}
                                 className="exercise-tile"
                             >
                                 <button 
@@ -315,7 +360,7 @@ const ChooseExercise = ({ onExerciseSelect }) => {
                 <div className="loading-indicator">Loading more exercises...</div>
             )}
             
-            {!hasMore && exercises.length > 0 && (
+            {!hasMore && !searchQuery && allExercises.length > 0 && (
                 <p className="end-message">No more exercises to load</p>
             )}
         </div>
