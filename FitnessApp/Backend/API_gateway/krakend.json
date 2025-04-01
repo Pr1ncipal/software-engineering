@@ -107,6 +107,26 @@
       ]
     },
     {
+      "endpoint": "/api/user/get_user_page",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "backend": [
+        {
+          "url_pattern": "/get_user_page",
+          "encoding": "no-op",
+          "sd": "static",
+          "method": "GET",
+          "host": [
+            "http://user:8080"
+          ],
+          "disable_host_sanitize": false
+        }
+      ],
+      "input_headers": [
+        "Authorization"
+      ]
+    },
+    {
       "endpoint": "/api/user/login",
       "method": "POST",
       "output_encoding": "no-op",

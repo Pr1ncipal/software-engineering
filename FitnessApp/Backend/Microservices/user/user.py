@@ -23,13 +23,13 @@ import base64
 import datetime
 
 # Configure logging
-logging.basicConfig(level=logging.INFO,
+logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     handlers=[
                         logging.FileHandler("user_api.log"),
                         logging.StreamHandler()
                     ])
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("User")
 
 app = Flask(__name__)
 
@@ -610,6 +610,7 @@ def get_user_page():
 
         user = userClass.UserStats(key=key)
         
+        logger.debug(f"User height: {user.height}")
         starting_weight = user.getUserStatsSingle(starting=True, height= user.height)
         current_weight = user.getUserStatsSingle()
         goal_weight = user.getGoal("weight", 1)
@@ -621,7 +622,7 @@ def get_user_page():
         if goal_weight is None:
             goal_weight = ''
             
-        activities = user.getUserActivities(verbose=True, days= 30, number= 10)
+        activities = user.getUserActivities(verbose=True, days= -1, number= 10)
         
         if activities is None:
             activities = ''
@@ -652,4 +653,4 @@ def get_user_page():
         
 if __name__ == '__main__':
     logger.info("Starting user microservice on port 8080")
-    app.run(host='0.0.0.0', port=8080)
+    app.run(host='0.0.0.0', port=8080, debug=True)
