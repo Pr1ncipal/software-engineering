@@ -9,6 +9,8 @@ import WorkoutForm from '@/components/WorkoutForm';
 import RegisterForm from '@/components/RegisterForm';
 import App from '@/components/loginApp';
 import Chatbot from '@/components/chatbot';  // Import Chatbot
+import MotivationScreen from '@/components/MotivationScreen';
+
 
 const Tab = createBottomTabNavigator();
 
@@ -57,6 +59,7 @@ export default function AppTabs() {
         <Tab.Screen name="Workout" component={WorkoutForm} />
         <Tab.Screen name="Login" component={App} />
         <Tab.Screen name="Chatbot" component={Chatbot} />
+        <Tab.Screen name="Motivation" component={MotivationScreen} />
       </Tab.Navigator>
     </>
   );
