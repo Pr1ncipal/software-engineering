@@ -743,16 +743,20 @@ class Workout():
             if should_close_conn and 'conn' in locals() and conn:
                 conn.close()
     
-    def get_exercises(self, number = 50, muscle_group = None, page = 0):
+    def get_exercises(self, number = 50, muscle_group = None, page = 0, search_query = None):
         """
         Get exercises from the database.
         
         Parameters:
         -----------
         number : int, optional
-            Number of exercises to return (default: 100)
+            Number of exercises to return (default: 50)
         muscle_group : str, optional
             Muscle group to filter by
+        search_query : str, optional
+            Search query to filter exercises by name or description
+        page : int, optional
+            Page number for pagination
             
         Returns:
         --------
@@ -764,35 +768,69 @@ class Workout():
         ConnectionError : If database connection fails
         QueryError : If database query fails
         """
-        getExercisesQueryAll = sql.SQL("""
-            SELECT id, name, primary_muscle, secondary_muscles, description
-            FROM exercises
-            WHERE is_deleted = FALSE
-            AND (createdby IS NULL OR createdby = %s)
-            AND %s = ANY(primary_muscle)
-            ORDER BY name
-            OFFSET %s
-            LIMIT %s
-        """)
-        
-        getExercisesQueryNoMuscle = sql.SQL("""
-            SELECT id, name, primary_muscle, secondary_muscles, description
-            FROM exercises
-            WHERE is_deleted = FALSE
-            AND (createdby IS NULL OR createdby = %s)
-            ORDER BY name
-            OFFSET %s
-            LIMIT %s""")
-        
         try:
             conn = global_func.getConnection()
             cur = conn.cursor()
             
-            if muscle_group is None:
-                cur.execute(getExercisesQueryNoMuscle, (self.user_id, page*number, number))
-            else:
-                cur.execute(getExercisesQueryAll, (self.user_id, muscle_group, page*number, number))
+            # SQL query modification to include search
+            if muscle_group is None and search_query is None:
+                # Original query with no filters
+                getExercisesQueryNoFilter = sql.SQL("""
+                    SELECT id, name, primary_muscle, secondary_muscles, description
+                    FROM exercises
+                    WHERE is_deleted = FALSE
+                    AND (createdby IS NULL OR createdby = %s)
+                    ORDER BY name
+                    OFFSET %s
+                    LIMIT %s
+                """)
+                cur.execute(getExercisesQueryNoFilter, (self.user_id, page*number, number))
                 
+            elif search_query is None:
+                # Only muscle group filter
+                getExercisesQueryMuscle = sql.SQL("""
+                    SELECT id, name, primary_muscle, secondary_muscles, description
+                    FROM exercises
+                    WHERE is_deleted = FALSE
+                    AND (createdby IS NULL OR createdby = %s)
+                    AND %s = ANY(primary_muscle)
+                    ORDER BY name
+                    OFFSET %s
+                    LIMIT %s
+                """)
+                cur.execute(getExercisesQueryMuscle, (self.user_id, muscle_group, page*number, number))
+                
+            elif muscle_group is None:
+                # Only search filter
+                getExercisesQuerySearch = sql.SQL("""
+                    SELECT id, name, primary_muscle, secondary_muscles, description
+                    FROM exercises
+                    WHERE is_deleted = FALSE
+                    AND (createdby IS NULL OR createdby = %s)
+                    AND name ILIKE %s
+                    ORDER BY name
+                    OFFSET %s
+                    LIMIT %s
+                """)
+                search_pattern = f"%{search_query}%"
+                cur.execute(getExercisesQuerySearch, (self.user_id, search_pattern, page*number, number))
+                
+            else:
+                # Both muscle group and search filters
+                getExercisesQueryBoth = sql.SQL("""
+                    SELECT id, name, primary_muscle, secondary_muscles, description
+                    FROM exercises
+                    WHERE is_deleted = FALSE
+                    AND (createdby IS NULL OR createdby = %s)
+                    AND %s = ANY(primary_muscle)
+                    AND name ILIKE %s
+                    ORDER BY name
+                    OFFSET %s
+                    LIMIT %s
+                """)
+                search_pattern = f"%{search_query}%"
+                cur.execute(getExercisesQueryBoth, (self.user_id, muscle_group, search_pattern, page*number, number))
+            
             exercises = []
             
             for row in cur.fetchall():

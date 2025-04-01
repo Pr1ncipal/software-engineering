@@ -10,6 +10,13 @@
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
+/* Update the search container and input styles */
+.exercise-selector {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
 .exercise-selector h1 {
   font-size: 24px;
   margin-bottom: 20px;
@@ -207,9 +214,12 @@
 
 /* Filter container styles */
 .filter-container {
-  margin-bottom: 20px;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  margin-bottom: 20px;
+  max-width: 500px; /* Match the search container width */
+  margin-left: auto;
+  margin-right: auto;
   background-color: #f8f8f8;
   padding: 15px;
   border-radius: 8px;
@@ -217,18 +227,18 @@
 }
 
 .filter-container label {
-  margin-right: 15px;
-  font-weight: 600;
+  margin-bottom: 8px;
+  font-weight: 500;
   color: #333;
 }
 
 .muscle-group-select {
-  padding: 8px 12px;
-  border-radius: 4px;
+  padding: 12px 15px;
+  border-radius: 8px;
   border: 1px solid #ccc;
-  background-color: white;
   font-size: 16px;
-  min-width: 200px;
+  background-color: white;
+  width: 100%;
   color: #333;
   cursor: pointer;
   transition: border-color 0.2s;
@@ -261,4 +271,40 @@
   margin: 40px 0;
   color: #666;
   font-size: 18px;
+}
+
+/* Search container styles */
+.search-container {
+  margin-bottom: 20px;
+  width: 100%;
+  max-width: 500px; /* Limit the maximum width */
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.search-input {
+  padding: 12px 15px;
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 16px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.search-input:focus {
+  border-color: #3498db;
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+  outline: none;
+}
+
+.search-input::placeholder {
+  color: #aaa;
+}
+
+/* Media queries for responsive design */
+@media (max-width: 768px) {
+  .search-container, .filter-container {
+    max-width: 100%;
+  }
 }
