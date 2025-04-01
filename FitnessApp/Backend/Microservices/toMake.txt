@@ -1,10 +1,27 @@
-- Create Family (done)
-- Get Family (done)
-- Delete Family (done)
-- add user to Family (Should only be admin? - Easier admin can then add whoever they want. Need user verification) (request - harder)
-- Delete User (done)
-- Leaderboard (?) Wednesday
-- Add Person to workout ???
-- Update user fitness or activity Score
-- AI integration? (Likely will use llama)
-- Create final pages for it all? So we are on the same page with things?
+- Adrian data filter and make endpoints (waiting)
+    - Starting weight, current weight, goal weight, name, bio (Users table), profile pic, (Seperate from profile page) activites (last 10)
+    - Cardio (Distance, calories (mets), time)
+    - Lifting (Muscles hit, total weight lifted, sets)
+- change get and all posts to use the Auth header
+- Debug issues from Landon
+- Make tables for sam
+    - 1. Family challenges
+        - Created by AI
+    - 3. Predict stats for lifts or weight
+    - 6. Motivational messages
+        - Table in DB
+    - 7. user engagement
+        - Figure out
+
+
+- Create and finish direct input
+
+- Add AI tables (Need sam to review)
+
+- user stuff first ( need to test, want page, Tomrrow)
+- login page fix (Done working)
+- workout choosing pagen (Done working)
+
+
+- Fix workout input script
+- 

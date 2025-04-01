@@ -1,99 +1,238 @@
-import React, { useState } from 'react';
-import { View, TextInput, Button, StyleSheet, Text, Alert, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, TextInput, StyleSheet, Text, Alert, ScrollView, TouchableOpacity, Modal, Button } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
+import { secureStorage, AUTH_TOKEN_KEY } from '../utils/secureStorage';
+import ChooseExercise from './chooseExercise';
+import encode from 'jwt-encode';
+import * as NetworkUtils from '../utils/networkUtils'; // Add a new utility file for network operations
 
 export default function WorkoutForm() {
-  // User and workout metadata
-  const [userName, setUserName] = useState('');
+  // Workout metadata state
+  const [workoutName, setWorkoutName] = useState('');
   const [workoutType, setWorkoutType] = useState('Strength');
   const [notes, setNotes] = useState('');
   const [heartRate, setHeartRate] = useState('');
-  const [totalWeight, setTotalWeight] = useState('');
   
-  // Exercises array
-  const [exercises, setExercises] = useState([{
-    exerciseID: Date.now(), // Using timestamp as temporary ID
+  // Modal state for exercise picker
+  const [exerciseModalVisible, setExerciseModalVisible] = useState(false);
+  const [currentExerciseIndex, setCurrentExerciseIndex] = useState(null);
+  
+  // Auth state
+  const [authToken, setAuthToken] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  
+  // Loading state
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Initial exercise template
+  const createEmptyExercise = useCallback(() => ({
+    exerciseID: Date.now().toString(),
     exerciseOrder: 1,
-    superset: '-1', // Changed to string to work better with TextInput
+    superset: '-1',
     exerciseName: '',
     reps: ['0'],
     setType: ['Normal'],
     weight: ['0'],
     perceivedDifficulty: ['5'],
     exerciseNotes: ''
-  }]);
+  }), []);
+  
+  // Exercises array
+  const [exercises, setExercises] = useState(() => [createEmptyExercise()]);
 
-  // Set types for dropdown
+  // Constants for dropdowns
   const setTypes = ['Warmup', 'Normal', 'Drop', 'Failure'];
-
-  // Difficulty options for the Picker
   const difficultyOptions = [1, 2, 3, 4, 5];
 
+  // Load auth token on component mount
+  useEffect(() => {
+    const getAuthToken = async () => {
+      try {
+        // Check for network connection first
+        const isConnected = await NetworkUtils.isNetworkAvailable();
+        if (!isConnected) {
+          Alert.alert('No Connection', 'You are offline. Please connect to the internet and try again.');
+          setIsAuthenticated(false);
+          return;
+        }
+        
+        const token = await secureStorage.getItem(AUTH_TOKEN_KEY);
+        if (token) {
+          // Validate token with a quick API call
+          const isValid = await NetworkUtils.validateToken(token);
+          
+          if (isValid) {
+            setAuthToken(token);
+            setIsAuthenticated(true);
+          } else {
+            // Token exists but is invalid - user needs to log in again
+            Alert.alert('Session Expired', 'Your session has expired. Please log in again.');
+            secureStorage.removeItem(AUTH_TOKEN_KEY);
+            setIsAuthenticated(false);
+          }
+        } else {
+          Alert.alert('Authentication Required', 'Please log in to continue.');
+          setIsAuthenticated(false);
+        }
+      } catch (err) {
+        console.error('Error retrieving or validating auth token:', err);
+        Alert.alert('Authentication Error', 'Failed to authenticate. Please try logging in again.');
+        setIsAuthenticated(false);
+      }
+    };
+    
+    getAuthToken();
+  }, []);
+
+  // Open exercise selection modal for a specific exercise
+  const openExerciseModal = useCallback((exerciseIndex) => {
+    setCurrentExerciseIndex(exerciseIndex);
+    setExerciseModalVisible(true);
+  }, []);
+
+  // Handle exercise selection from the modal
+  const handleExerciseSelect = useCallback((selectedExercise) => {
+    if (currentExerciseIndex !== null) {
+      setExercises(prevExercises => {
+        const updatedExercises = [...prevExercises];
+        updatedExercises[currentExerciseIndex] = {
+          ...updatedExercises[currentExerciseIndex],
+          exerciseName: selectedExercise.name,
+          databaseExerciseId: selectedExercise.id || null
+        };
+        return updatedExercises;
+      });
+    }
+    setExerciseModalVisible(false);
+    setCurrentExerciseIndex(null);
+  }, [currentExerciseIndex]);
+
   // Add a new exercise to the list
-  const addExercise = () => {
-    setExercises([...exercises, {
-      exerciseID: Date.now(),
-      exerciseOrder: exercises.length + 1,
-      superset: '-1',
-      exerciseName: '',
-      reps: ['0'],
-      setType: ['Normal'],
-      weight: ['0'],
-      perceivedDifficulty: ['5'],
-      exerciseNotes: ''
-    }]);
-  };
+  const addExercise = useCallback(() => {
+    setExercises(prevExercises => [
+      ...prevExercises, 
+      {
+        ...createEmptyExercise(),
+        exerciseID: Date.now().toString(),
+        exerciseOrder: prevExercises.length + 1
+      }
+    ]);
+  }, [createEmptyExercise]);
 
   // Add a new set to an exercise
-  const addSet = (exerciseIndex) => {
-    const updatedExercises = [...exercises];
-    updatedExercises[exerciseIndex].reps.push('0');
-    updatedExercises[exerciseIndex].setType.push('Normal');
-    updatedExercises[exerciseIndex].weight.push('0');
-    updatedExercises[exerciseIndex].perceivedDifficulty.push('5');
-    setExercises(updatedExercises);
-  };
+  const addSet = useCallback((exerciseIndex) => {
+    setExercises(prevExercises => {
+      const updatedExercises = [...prevExercises];
+      const exercise = {...updatedExercises[exerciseIndex]};
+      exercise.reps = [...exercise.reps, '0'];
+      exercise.setType = [...exercise.setType, 'Normal'];
+      exercise.weight = [...exercise.weight, '0'];
+      exercise.perceivedDifficulty = [...exercise.perceivedDifficulty, '5'];
+      updatedExercises[exerciseIndex] = exercise;
+      return updatedExercises;
+    });
+  }, []);
 
   // Update exercise values
-  const updateExerciseField = (exerciseIndex, field, value) => {
-    const updatedExercises = [...exercises];
-    updatedExercises[exerciseIndex][field] = value;
-    setExercises(updatedExercises);
-  };
+  const updateExerciseField = useCallback((exerciseIndex, field, value) => {
+    setExercises(prevExercises => {
+      const updatedExercises = [...prevExercises];
+      updatedExercises[exerciseIndex] = {
+        ...updatedExercises[exerciseIndex],
+        [field]: value
+      };
+      return updatedExercises;
+    });
+  }, []);
 
   // Update set values
-  const updateSetField = (exerciseIndex, field, setIndex, value) => {
-    const updatedExercises = [...exercises];
-    updatedExercises[exerciseIndex][field][setIndex] = value;
-    setExercises(updatedExercises);
-  };
+  const updateSetField = useCallback((exerciseIndex, field, setIndex, value) => {
+    setExercises(prevExercises => {
+      const updatedExercises = [...prevExercises];
+      const updatedSets = [...updatedExercises[exerciseIndex][field]];
+      updatedSets[setIndex] = value;
+      updatedExercises[exerciseIndex] = {
+        ...updatedExercises[exerciseIndex],
+        [field]: updatedSets
+      };
+      return updatedExercises;
+    });
+  }, []);
+
+  // Handle superset selection
+  const handleSupersetChange = useCallback((exerciseIndex, value) => {
+    setExercises(prevExercises => {
+      const updatedExercises = [...prevExercises];
+      
+      // Update this exercise's superset
+      updatedExercises[exerciseIndex] = {
+        ...updatedExercises[exerciseIndex],
+        superset: value
+      };
+      
+      // If a superset is selected (not -1), also update the other exercise
+      if (value !== '-1') {
+        const otherExerciseIndex = prevExercises.findIndex(ex => ex.exerciseID.toString() === value);
+        if (otherExerciseIndex !== -1) {
+          updatedExercises[otherExerciseIndex] = {
+            ...updatedExercises[otherExerciseIndex],
+            superset: updatedExercises[exerciseIndex].exerciseID.toString()
+          };
+        }
+      }
+      
+      return updatedExercises;
+    });
+  }, []);
 
   // Remove an exercise
-  const removeExercise = (exerciseIndex) => {
-    const updatedExercises = exercises.filter((_, index) => index !== exerciseIndex);
-    // Update order numbers
-    updatedExercises.forEach((exercise, index) => {
-      exercise.exerciseOrder = index + 1;
+  const removeExercise = useCallback((exerciseIndex) => {
+    setExercises(prevExercises => {
+      const updatedExercises = prevExercises.filter((_, index) => index !== exerciseIndex);
+      
+      // Update order numbers
+      return updatedExercises.map((ex, idx) => ({
+        ...ex,
+        exerciseOrder: idx + 1
+      }));
     });
-    setExercises(updatedExercises);
-  };
+  }, []);
 
   // Remove a set
-  const removeSet = (exerciseIndex, setIndex) => {
-    if (exercises[exerciseIndex].reps.length > 1) {
-      const updatedExercises = [...exercises];
-      updatedExercises[exerciseIndex].reps.splice(setIndex, 1);
-      updatedExercises[exerciseIndex].setType.splice(setIndex, 1);
-      updatedExercises[exerciseIndex].weight.splice(setIndex, 1);
-      updatedExercises[exerciseIndex].perceivedDifficulty.splice(setIndex, 1);
-      setExercises(updatedExercises);
-    } else {
-      Alert.alert('Cannot Remove', 'Each exercise must have at least one set');
-    }
-  };
+  const removeSet = useCallback((exerciseIndex, setIndex) => {
+    setExercises(prevExercises => {
+      const updatedExercises = [...prevExercises];
+      const exercise = updatedExercises[exerciseIndex];
+      
+      if (exercise.reps.length <= 1) {
+        Alert.alert('Cannot Remove', 'Each exercise must have at least one set');
+        return prevExercises;
+      }
+      
+      const updatedReps = [...exercise.reps];
+      const updatedSetTypes = [...exercise.setType];
+      const updatedWeights = [...exercise.weight];
+      const updatedDifficulties = [...exercise.perceivedDifficulty];
+      
+      updatedReps.splice(setIndex, 1);
+      updatedSetTypes.splice(setIndex, 1);
+      updatedWeights.splice(setIndex, 1);
+      updatedDifficulties.splice(setIndex, 1);
+      
+      updatedExercises[exerciseIndex] = {
+        ...exercise,
+        reps: updatedReps,
+        setType: updatedSetTypes,
+        weight: updatedWeights,
+        perceivedDifficulty: updatedDifficulties
+      };
+      
+      return updatedExercises;
+    });
+  }, []);
 
   // Parse numeric values before submission
-  const parseNumericValues = (data) => {
+  const parseNumericValues = useCallback((data) => {
     return {
       ...data,
       superset: parseInt(data.superset) || -1,
@@ -101,92 +240,38 @@ export default function WorkoutForm() {
       weight: data.weight.map(w => parseFloat(w) || 0),
       perceivedDifficulty: data.perceivedDifficulty.map(diff => parseInt(diff) || 5)
     };
-  };
-
-  const handleSubmit = async () => {
-    if (!userName) {
-      Alert.alert('Error', 'Please enter a user name');
-      return;
-    }
-  
-    if (exercises.some(ex => !ex.exerciseName)) {
-      Alert.alert('Error', 'Please name all exercises');
-      return;
-    }
-  
-    // Prepare the workout data
-    const workoutData = {
-      user: userName,
-      workoutType: workoutType,
-      notes: notes,
-      averageHeartRate: heartRate ? Number(heartRate) : 0,
-      totalWeightLifted: totalWeight ? Number(totalWeight) : 0,
-      exercises: exercises.map(ex => parseNumericValues({
-        exerciseID: ex.exerciseID,
-        exerciseOrder: ex.exerciseOrder,
-        superset: ex.superset,
-        exerciseName: ex.exerciseName,
-        reps: ex.reps,
-        setType: ex.setType,
-        weight: ex.weight,
-        perceivedDifficulty: ex.perceivedDifficulty,
-        exerciseNotes: ex.exerciseNotes
-      }))
-    };
-  
-    try {
-      // Send workout data to the server
-      const response = await fetch('http://localhost:8080/api/create_workout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(workoutData)
-      });
-  
-      const result = await response.json();
-  
-      if (response.ok) {
-        Alert.alert('Success', 'Workout data submitted successfully!');
-      } else {
-        Alert.alert('Error', result.error || 'Failed to submit workout data.');
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Could not connect to the server.');
-    }
-  };
+  }, []);
 
   // Reset the form
-  const resetForm = () => {
-    setUserName('');
+  const resetForm = useCallback(() => {
+    console.log('Resetting form');
+    setWorkoutName('');
     setWorkoutType('Strength');
     setNotes('');
     setHeartRate('');
-    setTotalWeight('');
-    setExercises([{
-      exerciseID: Date.now(),
-      exerciseOrder: 1,
-      superset: '-1',
-      exerciseName: '',
-      reps: ['0'],
-      setType: ['Normal'],
-      weight: ['0'],
-      perceivedDifficulty: [''],
-      exerciseNotes: ''
-    }]);
-  };
+    setExercises([createEmptyExercise()]);
+  }, [createEmptyExercise]);
 
+  // Close the exercise modal
+  const handleCloseModal = useCallback(() => {
+    setExerciseModalVisible(false);
+    setCurrentExerciseIndex(null);
+  }, []);
+
+  // Update the Submit button to show loading state
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.title}>Log Your Workout</Text>
 
-      {/* User and Workout Info */}
+      {/* Workout Info */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Workout Info</Text>
         
         <TextInput
           style={styles.input}
-          placeholder="User Name"
-          value={userName}
-          onChangeText={setUserName}
+          placeholder="Workout Name"
+          value={workoutName}
+          onChangeText={setWorkoutName}
         />
         
         <View style={styles.pickerContainer}>
@@ -214,14 +299,6 @@ export default function WorkoutForm() {
         />
         
         <TextInput
-          style={styles.input}
-          placeholder="Total Weight Lifted (kg)"
-          keyboardType="numeric"
-          value={totalWeight}
-          onChangeText={setTotalWeight}
-        />
-        
-        <TextInput
           style={styles.textArea}
           placeholder="Workout Notes"
           multiline
@@ -244,26 +321,50 @@ export default function WorkoutForm() {
             </TouchableOpacity>
           </View>
 
-          <TextInput
-            style={styles.input}
-            placeholder="Exercise Name (e.g., Bench Press)"
-            value={exercise.exerciseName}
-            onChangeText={(value) => updateExerciseField(exerciseIndex, 'exerciseName', value)}
-          />
+          {/* Exercise selector button */}
+          <View style={styles.exerciseNameContainer}>
+            <TouchableOpacity
+              style={styles.selectExerciseFullButton}
+              onPress={() => openExerciseModal(exerciseIndex)}
+            >
+              <Text style={styles.selectExerciseButtonLabel}>Exercise:</Text>
+              <Text 
+                style={[
+                  styles.selectedExerciseName, 
+                  { fontWeight: exercise.exerciseName ? '500' : '400' }
+                ]}
+              >
+                {exercise.exerciseName || "Select an exercise"}
+              </Text>
+            </TouchableOpacity>
+          </View>
 
+          {/* Superset selector */}
           <View style={styles.row}>
-            <View style={styles.halfInput}>
-              <Text style={styles.label}>Superset Group (-1 for none)</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Superset"
-                keyboardType="numeric"
-                value={exercise.superset}
-                onChangeText={(value) => updateExerciseField(exerciseIndex, 'superset', value)}
-              />
+            <View style={styles.fullInput}>
+              <Text style={styles.label}>Superset With</Text>
+              <View style={styles.pickerWrapper}>
+                <Picker
+                  selectedValue={exercise.superset}
+                  onValueChange={(value) => handleSupersetChange(exerciseIndex, value)}
+                  style={styles.picker}
+                >
+                  <Picker.Item label="No Superset" value="-1" />
+                  {exercises
+                    .filter((ex, idx) => idx !== exerciseIndex)
+                    .map((ex) => (
+                      <Picker.Item 
+                        key={ex.exerciseID}
+                        label={ex.exerciseName || `Unnamed Exercise ${ex.exerciseOrder}`}
+                        value={ex.exerciseID.toString()}
+                      />
+                    ))}
+                </Picker>
+              </View>
             </View>
           </View>
 
+          {/* Exercise notes */}
           <TextInput
             style={styles.textArea}
             placeholder="Exercise Notes"
@@ -287,8 +388,24 @@ export default function WorkoutForm() {
                 />
               </View>
 
+              {/* Add Set Type Picker here */}
               <View style={styles.halfInput}>
-                <Text style={styles.label}>Weight (kg)</Text>
+                <Text style={styles.label}>Set Type</Text>
+                <View style={styles.setTypePickerWrapper}>
+                  <Picker
+                    selectedValue={exercise.setType[setIndex]}
+                    onValueChange={(value) => updateSetField(exerciseIndex, 'setType', setIndex, value)}
+                    style={styles.picker}
+                  >
+                    {setTypes.map((type) => (
+                      <Picker.Item key={type} label={type} value={type} />
+                    ))}
+                  </Picker>
+                </View>
+              </View>
+
+              <View style={styles.halfInput}>
+                <Text style={styles.label}>Weight (lbs)</Text>
                 <TextInput
                   style={styles.input}
                   placeholder="Weight"
@@ -320,6 +437,7 @@ export default function WorkoutForm() {
             </View>
           ))}
 
+          {/* Add Set button */}
           <TouchableOpacity
             style={styles.addButton}
             onPress={() => addSet(exerciseIndex)}
@@ -329,6 +447,7 @@ export default function WorkoutForm() {
         </View>
       ))}
 
+      {/* Add Exercise button */}
       <TouchableOpacity 
         style={styles.addButton}
         onPress={addExercise}
@@ -338,9 +457,179 @@ export default function WorkoutForm() {
 
       {/* Submit and Reset Buttons */}
       <View style={styles.buttonsContainer}>
-        <Button title="Submit Workout" onPress={handleSubmit} />
-        <Button title="Reset Form" onPress={resetForm} />
+        <TouchableOpacity 
+          style={styles.resetButton}
+          onPress={resetForm}
+          disabled={isSubmitting}
+        >
+          <Text style={styles.resetButtonText}>Reset Form</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={styles.submitButton}
+          onPress={async () => {
+            console.log('Submit button clicked');
+            
+            // Basic validation
+            if (!workoutName) {
+              setNotes(prev => prev + "\nError: Please enter a workout name");
+              console.log("Missing workout name");
+              return;
+            }
+
+            if (exercises.some(ex => !ex.exerciseName)) {
+              setNotes(prev => prev + "\nError: Please name all exercises");
+              console.log("Missing exercise name(s)");
+              return;
+            }
+            
+            try {
+              setIsSubmitting(true);
+              setNotes(prev => prev + "\nSubmitting workout...");
+              
+              // Get auth token
+              const token = await secureStorage.getItem(AUTH_TOKEN_KEY);
+              
+              if (!token) {
+                setNotes(prev => prev + "\nError: Not authenticated");
+                console.log("No auth token found");
+                setIsSubmitting(false);
+                return;
+              }
+              
+              // Prepare auth headers
+              const headers = NetworkUtils.getAuthHeaders(token);
+              
+              // Format workout data
+              const workoutData = {
+                name: workoutName,
+                workoutType: workoutType.toLowerCase(),
+                notes: notes,
+                averageHeartRate: heartRate ? Number(heartRate) : 0,
+                exercises: exercises.map((ex, index) => ({
+                  exerciseID: ex.databaseExerciseId || null,
+                  superset: ex.superset === '-1' ? -1 : parseInt(ex.superset) || -1,
+                  order_exercise: index + 1,
+                  reps: ex.reps.map(rep => parseInt(rep) || 0),
+                  setType: ex.setType.map(type => type.toLowerCase()),
+                  weight: ex.weight.map(w => parseFloat(w) || 0),
+                  percievedDifficulty: ex.perceivedDifficulty.map(diff => parseInt(diff) || 5),
+                  notes: ex.exerciseNotes
+                }))
+              };
+
+              // Add required fields for cardio workout type
+              if (workoutType !== 'Strength') {
+                workoutData.distance = 0; // Default values for required fields
+                workoutData.duration = 0;
+              }
+              
+              // Create JWT token
+              const workoutJWT = encode(workoutData, token);
+              
+              // Prepare payload
+              const payload = {
+                token: workoutJWT
+              };
+              
+              console.log("Sending to backend:", JSON.stringify(payload).substring(0, 100) + "...");
+              setNotes(prev => prev + "\nSending data to server...");
+              
+              // Direct fetch without using complex utility
+              const response = await fetch('http://localhost:8080/api/workout/add_workout', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...headers
+                },
+                body: JSON.stringify(payload)
+              });
+              
+              if (!response.ok) {
+                const errorText = await response.text();
+                console.error(`Server error ${response.status}: ${errorText}`);
+                
+                // Don't add server errors to the notes field
+                // Instead, show an alert with the error details
+                Alert.alert(
+                  `Error (${response.status})`, 
+                  `The server encountered an error. Please try again later.`,
+                  [{ text: 'OK' }]
+                );
+                
+                throw new Error(`Server error ${response.status}`);
+              }
+              
+              const result = await response.json();
+              console.log("Backend response:", result);
+              
+              // Only add success messages to notes
+              setNotes(prev => prev + "\nSuccess! Workout submitted.");
+              
+              // Reset form after success
+              setTimeout(() => {
+                setWorkoutName('');
+                setWorkoutType('Strength');
+                setHeartRate('');
+                setNotes(''); // Clear notes on successful submission
+                setExercises([{
+                  exerciseID: Date.now().toString(),
+                  exerciseOrder: 1,
+                  superset: '-1',
+                  exerciseName: '',
+                  reps: ['0'],
+                  setType: ['Normal'],
+                  weight: ['0'],
+                  perceivedDifficulty: ['5'],
+                  exerciseNotes: ''
+                }]);
+              }, 1500); // Small delay so user can see success message
+              
+            } catch (error) {
+              console.error("Submission error:", error);
+              
+              // Don't modify notes for errors, show alert instead
+              Alert.alert(
+                "Submission Failed", 
+                error.message.includes('Server error') 
+                  ? "The server couldn't process your workout. Please try again later." 
+                  : `Error: ${error.message}`,
+                [{ text: 'OK' }]
+              );
+            } finally {
+              setIsSubmitting(false);
+            }
+          }}
+          disabled={isSubmitting}
+        >
+          <Text style={styles.submitButtonText}>
+            {isSubmitting ? 'Submitting...' : 'Submit to Backend'}
+          </Text>
+        </TouchableOpacity>
       </View>
+
+      {/* Exercise Selection Modal */}
+      <Modal
+        visible={exerciseModalVisible}
+        animationType="slide"
+        onRequestClose={handleCloseModal}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Select an Exercise</Text>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={handleCloseModal}
+            >
+              <Text style={styles.closeButtonText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.modalContent}>
+            <ChooseExercise onExerciseSelect={handleExerciseSelect} />
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -349,21 +638,21 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: '#f4f4f9', // Soft background color
+    backgroundColor: '#f4f4f9',
   },
   title: {
     fontSize: 26,
     marginBottom: 20,
     textAlign: 'center',
     fontWeight: '600',
-    color: '#2c3e50', // Darker text color
+    color: '#2c3e50',
   },
   section: {
     marginBottom: 20,
-    backgroundColor: '#ffffff', // White background for sections
+    backgroundColor: '#ffffff',
     padding: 20,
     borderRadius: 15,
-    shadowColor: '#000', // Subtle shadow for depth
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 10,
@@ -372,16 +661,16 @@ const styles = StyleSheet.create({
     fontSize: 20,
     marginBottom: 10,
     fontWeight: '500',
-    color: '#34495e', // Muted color for titles
+    color: '#34495e',
   },
   input: {
     height: 45,
-    borderColor: '#ced6e0', // Lighter border color
+    borderColor: '#ced6e0',
     borderWidth: 1,
     marginBottom: 15,
     paddingLeft: 12,
     borderRadius: 10,
-    backgroundColor: '#ecf0f1', // Light gray input background
+    backgroundColor: '#ecf0f1',
     fontSize: 16,
   },
   textArea: {
@@ -422,7 +711,7 @@ const styles = StyleSheet.create({
   label: {
     marginBottom: 8,
     fontWeight: '500',
-    color: '#7f8c8d', // Subtle color for labels
+    color: '#7f8c8d',
   },
   row: {
     flexDirection: 'row',
@@ -455,7 +744,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   removeButton: {
-    backgroundColor: '#e74c3c', // Red button for remove
+    backgroundColor: '#e74c3c',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 10,
@@ -485,7 +774,7 @@ const styles = StyleSheet.create({
   setTitle: {
     fontWeight: 'bold',
     fontSize: 16,
-    color: '#2c3e50', // Darker color for set title
+    color: '#2c3e50',
   },
   removeSetButton: {
     backgroundColor: '#e74c3c',
@@ -496,14 +785,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   addButton: {
-    backgroundColor: '#1abc9c', // Soft teal for add button
+    backgroundColor: '#1abc9c',
     padding: 15,
     borderRadius: 10,
     alignItems: 'center',
     marginTop: 15,
   },
   addExerciseButton: {
-    backgroundColor: '#3498db', // Blue for add exercise button
+    backgroundColor: '#3498db',
     padding: 15,
     borderRadius: 10,
     alignItems: 'center',
@@ -518,14 +807,101 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   submitButton: {
-    backgroundColor: '#27ae60', // Green submit button
+    backgroundColor: '#27ae60',
     padding: 15,
     borderRadius: 10,
     alignItems: 'center',
+    flex: 1,
+    marginLeft: 10,
   },
   submitButtonText: {
     color: 'white',
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  resetButton: {
+    backgroundColor: '#95a5a6',
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 10,
+  },
+  resetButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  exerciseNameContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  selectExerciseFullButton: {
+    backgroundColor: '#ecf0f1',
+    borderColor: '#ced6e0',
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 15,
+  },
+  selectExerciseButtonLabel: {
+    fontWeight: '500',
+    color: '#7f8c8d',
+    marginRight: 8,
+  },
+  selectedExerciseName: {
+    fontSize: 16,
+    color: '#2c3e50',
+    flex: 1,
+    fontWeight: '500',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#f4f4f9',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    backgroundColor: '#3498db',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  closeButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  closeButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  modalContent: {
+    flex: 1,
+  },
+  buttonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginVertical: 20,
+  },
+  setRow: {
+    backgroundColor: '#f9f9f9',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  disabledButton: {
+    backgroundColor: '#95a5a6',
+    opacity: 0.7,
   },
 });

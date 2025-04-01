@@ -1,0 +1,30 @@
+- Adrian:
+    - Weight history (4) {user class getUserActivities(verbose)}
+    - Look at Adrian Branch for ideas
+        - Summary for Adrian Stats (2) (Waiting)
+    - Most recent Activities (3)
+    - Joe cool migration (1) {psql: error: connection to server on socket "/var/run/postgresql/.s.PGSQL.5432" failed: FATAL:  role "capke" does not exist}
+        - Dummy Data (Mockaroo)
+- Sam:
+    - Activities (3) {Verbose and non-verbose methods}
+    - Most recent workout (3) {with and without stats}
+    - Stats that go along with it (3) {See above}
+    - Name/username (6) {Done}
+    - Whatever format (json)
+
+- Landon:
+    - Workouts completed Number (By week or timeframe) (3) {Need to create Api call}
+    - Steps (5) {Table to be implemented}
+    - Mileage (Take from running) {Table to be implemented}
+
+- Troy:
+    Login page
+
+- Amir:
+    - Figure out drop down workout
+
+
+
+
+Ask About:
+    Deal with order of exercises

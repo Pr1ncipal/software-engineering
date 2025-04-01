@@ -10,7 +10,7 @@ COPY requirements.txt ./
 RUN pip install -r requirements.txt
 
 # Bundle app source
-COPY workout.py /app
+COPY workout2.py /app/workout.py
 COPY heuristic.py /app
 COPY global_func.py /app
 COPY workoutClass.py /app
