@@ -1,0 +1,100 @@
+{
+    "user": "John Doe",
+    "additionalUser": "Jane Doe",
+    "workoutType": "Strength",
+    "notes": "This is a workout example",
+    "averageHeartRate": 120,
+    "exercies":[
+        {
+            "exerciseID": 1,
+            "exerciseOrder": 1,
+            "superset": 2,
+            "reps": [
+                10,
+                9,
+                8,
+                7
+            ],
+            "setType": [
+                "Warmup",
+                "Normal",
+                "Drop",
+                "Failiure"
+            ],
+            "weight": [
+                100,
+                110,
+                120,
+                130
+            ],
+            "percievedDifficulty": [
+                5,
+                6,
+                7,
+                8
+            ],
+
+            "exercieNotes": "This is a note for the exercise"
+        },
+        {
+            "exerciseID": 5,
+            "exerciseOrder": 2,
+            "superset": 1,
+            "reps": [
+                10,
+                9,
+                8,
+                7
+            ],
+            "setType": [
+                "Warmup",
+                "Normal",
+                "Drop",
+                "Failiure"
+            ],
+            "weight": [
+                100,
+                110,
+                120,
+                130
+            ],
+            "percievedDifficulty": [
+                5,
+                6,
+                7,
+                8
+            ],
+            "exercieNotes": "This is a note for the exercise"
+        },
+        {
+            "exerciseID": 65,
+            "exerciseOrder": 3,
+            "superset": -1,
+            "reps": [
+                10,
+                9,
+                8,
+                7
+            ],
+            "setType": [
+                "Warmup",
+                "Normal",
+                "Drop",
+                "Failiure"
+            ],
+            "weight": [
+                100,
+                110,
+                120,
+                130
+            ],
+            "percievedDifficulty": [
+                5,
+                6,
+                7,
+                8
+            ],
+            "exercieNotes": "This is a note for the exercise"
+        }
+    ]
+}

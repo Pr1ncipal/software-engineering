@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import WorkoutForm from '@/components/WorkoutForm';
 import RegisterForm from '@/components/RegisterForm';
 import OnboardingScreen from '@/components/OnboardingScreen';
+import Login from '@/components/Login';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -50,8 +51,8 @@ function MainTabs({ onLogin, isLoggedIn }: MainTabsProps) {
       })}
     >
       {!isLoggedIn && (
-        <Tab.Screen name="Register">
-          {() => <RegisterForm onLogin={onLogin} />}
+        <Tab.Screen name="Login">
+          {() => <Login onLogin={onLogin} />}
         </Tab.Screen>
       )}
       {isLoggedIn && <Tab.Screen name="Workout" component={WorkoutForm} />}
