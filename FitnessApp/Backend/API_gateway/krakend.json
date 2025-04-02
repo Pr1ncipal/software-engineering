@@ -23,7 +23,8 @@
         }
       ],
       "input_headers": [
-        "Authorization"
+        "Authorization",
+        "Content-Type"
       ]
     },
     {
@@ -48,7 +49,8 @@
         "muscle_group"
       ],
       "input_headers": [
-        "Authorization"
+        "Authorization",
+        "Content-Type"
       ]
     },
 
@@ -69,7 +71,8 @@
         }
       ],
       "input_headers": [
-        "Authorization"
+        "Authorization",
+        "Content-Type"
       ]
     },
     {
@@ -78,7 +81,8 @@
       "output_encoding": "no-op",
       "input_query_strings": [],
       "input_headers": [
-        "Authorization"
+        "Authorization",
+        "Content-Type"
       ],
       "backend": [
         {
@@ -123,7 +127,8 @@
         }
       ],
       "input_headers": [
-        "Authorization"
+        "Authorization",
+        "Content-Type"
       ]
     },
     {
@@ -141,6 +146,9 @@
           ],
           "disable_host_sanitize": false
         }
+      ],
+      "input_headers": [
+        "Content-Type"
       ]
     },
     {
@@ -148,7 +156,8 @@
       "method": "PUT",
       "output_encoding": "no-op",
       "input_headers": [
-        "Authorization"
+        "Authorization",
+        "Content-Type"
       ],
       "backend": [
         {
@@ -213,7 +222,8 @@
       ],
       "input_query_strings": [],
       "input_headers": [
-        "Authorization"
+        "Authorization",
+        "Content-Type"
       ]
     },
     {
@@ -240,28 +250,29 @@
         "number"
       ],
       "input_headers": [
-        "Authorization"
+        "Authorization",
+        "Content-Type"
       ]
     },
     {
       "endpoint": "/api/family/create_family",
       "method": "POST",
-      "output_encoding": "json",
+      "output_encoding": "no-op",
       "backend": [
         {
           "url_pattern": "/create_family",
-          "encoding": "json",
+          "encoding": "no-op",
           "sd": "static",
           "method": "POST",
           "host": [
-            "http://family",
             "http://family:8080"
           ],
           "disable_host_sanitize": false
         }
       ],
       "input_headers": [
-        "Authorization"
+        "Authorization",
+        "Content-Type"
       ]
     },
     {
@@ -275,14 +286,14 @@
           "sd": "static",
           "method": "GET",
           "host": [
-            "http://family",
             "http://family:8080"
           ],
           "disable_host_sanitize": false
         }
       ],
       "input_headers": [
-        "Authorization"
+        "Authorization",
+        "Content-Type"
       ]
     },
     {
@@ -296,14 +307,14 @@
           "sd": "static",
           "method": "PUT",
           "host": [
-            "http://family",
             "http://family:8080"
           ],
           "disable_host_sanitize": false
         }
       ],
       "input_headers": [
-        "Authorization"
+        "Authorization",
+        "Content-Type"
       ]
     },
     {
@@ -317,7 +328,6 @@
           "sd": "static",
           "method": "DELETE",
           "host": [
-            "http://family",
             "http://family:8080"
           ],
           "disable_host_sanitize": false
@@ -338,7 +348,6 @@
           "sd": "static",
           "method": "GET",
           "host": [
-            "http://family",
             "http://family:8080"
           ],
           "disable_host_sanitize": false
@@ -363,7 +372,6 @@
           "sd": "static",
           "method": "DELETE",
           "host": [
-            "http://family",
             "http://family:8080"
           ],
           "disable_host_sanitize": false
@@ -389,14 +397,14 @@
           "sd": "static",
           "method": "PUT",
           "host": [
-            "http://family",
             "http://family:8080"
           ],
           "disable_host_sanitize": false
         }
       ],
       "input_headers": [
-        "Authorization"
+        "Authorization",
+        "Content-Type"
       ]
     }
   ],

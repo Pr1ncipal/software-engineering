@@ -88,6 +88,84 @@ def get_data_json(request):
     else:
         logger.warning(f"Request {request_id}: Request does not contain valid JSON data")
         raise InvalidFamilyDataError("Request must contain JSON data")
+    
+def get_data_jwt(request):
+    """
+    Extract and validate JWT token from the request.
+    
+    Args:
+        request (flask.Request): The Flask request object
+        
+    Returns:
+        tuple: (decoded data, user_id)
+        
+    Raises:
+        MissingTokenError: If token is missing
+        InvalidTokenError: If token is invalid
+        ExpiredTokenError: If token is expired
+        FamilyServiceError: For unexpected errors
+    """
+    request_id = getattr(request, 'request_id', 'unknown')
+    try:
+        logger.debug(f"Request {request_id}: Extracting JWT token")
+        data = get_data_json(request)
+        token = data.get('token')
+        
+        if not token:
+            logger.warning(f"Request {request_id}: Missing JWT token")
+            raise MissingTokenError("JWT token is required")
+        
+        try:
+            # Get API key from authorization header
+            auth_header = request.headers.get('Authorization')
+            if not auth_header or not auth_header.startswith('ApiKey '):
+                logger.warning(f"Request {request_id}: Missing or invalid Authorization header")
+                raise MissingTokenError("Authorization header is required and must start with 'ApiKey '")
+                
+            encoded_key = auth_header.split(' ')[1]
+            
+            try:
+                # Decode the base64 API key
+                api_key = base64.b64decode(encoded_key).decode('utf-8')
+            except Exception as e:
+                logger.error(f"Request {request_id}: Failed to decode API key: {str(e)}")
+                raise InvalidTokenError(f"Invalid API key format: {str(e)}")
+            
+            # Verify API key and get user ID
+            logger.debug(f"Request {request_id}: Verifying API key in database")
+            user_id = global_func.verify_key(api_key)
+            
+            if not user_id:
+                logger.warning(f"Request {request_id}: Invalid API key")
+                raise InvalidTokenError("The provided API key is invalid or does not exist")
+            
+            # Decode and verify the JWT token
+            logger.debug(f"Request {request_id}: Decoding JWT token with verification")
+            decoded = jwt.decode(token, api_key, algorithms=['HS256'])
+            
+            # Check if the token has an expiration
+            if 'exp' in decoded and decoded['exp'] < time.time():
+                logger.warning(f"Request {request_id}: JWT token has expired")
+                raise ExpiredTokenError()
+            
+            logger.info(f"Request {request_id}: Successfully decoded JWT for user ID: {user_id}")
+            return decoded, user_id
+        
+        except jwt.ExpiredSignatureError:
+            logger.warning(f"Request {request_id}: JWT token has expired")
+            raise ExpiredTokenError()
+        
+        except jwt.InvalidTokenError as e:
+            logger.warning(f"Request {request_id}: Invalid JWT token: {str(e)}")
+            raise InvalidTokenError(f"Invalid JWT token: {str(e)}")
+        
+    except (MissingTokenError, InvalidTokenError, ExpiredTokenError):
+        # Re-raise these authentication exceptions
+        raise
+    except Exception as e:
+        logger.error(f"Request {request_id}: Unexpected error processing JWT: {str(e)}")
+        logger.error(f"Request {request_id}: {traceback.format_exc()}")
+        raise FamilyServiceError(f"Error processing JWT: {str(e)}")
 
 def get_auth_key(request):
     """
@@ -149,7 +227,7 @@ def create_family():
     request_id = getattr(request, 'request_id', 'unknown')
     try:
         logger.info(f"Request {request_id}: Processing create_family request")
-        data = get_data_json(request)
+        data = get_data_jwt(request)
         user_id = get_auth_key(request)
         
         # Validate required fields
@@ -492,4 +570,4 @@ def edit_family_admin():
 
 if __name__ == '__main__':
     logger.info("Starting family microservice on port 5000")
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=8080, debug=True)

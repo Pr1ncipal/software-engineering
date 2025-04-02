@@ -246,10 +246,10 @@ CREATE TABLE family_requests ( --Implement Table
 
 
 CREATE TABLE family_members(
-    family_id INT REFERENCES family(id) ON DELETE CASCADE PRIMARY KEY,
-    user_id INT REFERENCES users(id) ON DELETE CASCADE PRIMARY KEY,
-    --Add roles? Admin, User, etc.
-    joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    family_id INT REFERENCES family(id) ON DELETE CASCADE,
+    user_id INT REFERENCES users(id) ON DELETE CASCADE,
+    joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (family_id, user_id)
 );
 
 CREATE TABLE fitness_score_entry (
