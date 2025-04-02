@@ -1233,7 +1233,7 @@ class UserStats(User):
                             final.append(result[1])
                     elif isinstance(result[1], list):
                         # If it's already a Python list
-                        for muscle in result[0]:
+                        for muscle in result[1]:
                             if muscle and muscle not in final:
                                 final.append(muscle)
                 
