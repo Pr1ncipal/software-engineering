@@ -34,29 +34,31 @@ class AuthenticationError(FamilyServiceError):
     status_code = 401
     error_code = "AUTHENTICATION_ERROR"
     
-    def __init__(self, message="Authentication failed"):
-        super().__init__(message, self.status_code, self.error_code)
+    def __init__(self, message="Authentication failed", error_code=None):
+        # Always pass status_code and error_code to parent
+        super().__init__(message, self.status_code, error_code or self.error_code)
 
 class InvalidTokenError(AuthenticationError):
     """Exception raised when an invalid authentication token is provided"""
     error_code = "INVALID_TOKEN"
     
     def __init__(self, message="Invalid authentication token"):
-        super().__init__(message, self.status_code, self.error_code)
+        # Only pass message to parent, which will handle status_code and error_code
+        super().__init__(message, self.error_code)
 
 class ExpiredTokenError(AuthenticationError):
     """Exception raised when an expired authentication token is provided"""
     error_code = "EXPIRED_TOKEN"
     
     def __init__(self, message="Authentication token has expired"):
-        super().__init__(message, self.status_code, self.error_code)
+        super().__init__(message, self.error_code)
 
 class MissingTokenError(AuthenticationError):
     """Exception raised when no authentication token is provided"""
     error_code = "MISSING_TOKEN"
     
     def __init__(self, message="No authentication token provided"):
-        super().__init__(message, self.status_code, self.error_code)
+        super().__init__(message, self.error_code)
 
 # Database Errors
 class DatabaseError(FamilyServiceError):
@@ -64,8 +66,8 @@ class DatabaseError(FamilyServiceError):
     status_code = 500
     error_code = "DATABASE_ERROR"
     
-    def __init__(self, message="A database error occurred"):
-        super().__init__(message, self.status_code, self.error_code)
+    def __init__(self, message="A database error occurred", error_code=None):
+        super().__init__(message, self.status_code, error_code or self.error_code)
 
 class ConnectionError(DatabaseError):
     """Exception raised when a database connection error occurs"""

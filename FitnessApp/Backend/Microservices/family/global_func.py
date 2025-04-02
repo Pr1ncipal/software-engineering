@@ -24,11 +24,11 @@ logging.basicConfig(level=logging.DEBUG,
 
 # Database configuration
 DB_CONFIG = {
-    "host": os.getenv("DB_HOST", "localhost"),
-    "database": os.getenv("DB_NAME", "fitness_app"),
-    "user": os.getenv("DB_USER", "postgres"),
-    "password": os.getenv("DB_PASSWORD", "postgres"),
-    "port": os.getenv("DB_PORT", "5432")
+    "host": "postgres",
+    "database": "gitfitbro",
+    "user": 'postgres',
+    "password": 'password',
+    "port": '5432'
 }
 
 # JWT configuration
