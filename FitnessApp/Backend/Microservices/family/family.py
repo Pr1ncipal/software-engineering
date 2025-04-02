@@ -1,353 +1,495 @@
-#Need to fix for JWT and add data validation
+# Family microservice
+# This microservice manages family connections, requests, and memberships in the fitness app
+# The service allows creating families, sending join requests, accepting requests, and managing family members
+# The microservice is running on port 5000.
+
 from flask import Flask, request, jsonify
 import psycopg2
 from psycopg2 import sql
 from psycopg2.extras import RealDictCursor
+import jwt
+import traceback
+import logging
+import time
+import uuid
+import base64
+import datetime
+import sys
+import os
+# importing custom modules
+import global_func
+from familyErrors import *
+from familyClass import Family
+
+# Configure logging
+logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    handlers=[
+                        logging.FileHandler("family_api.log"),
+                        logging.StreamHandler()
+                    ])
+logger = logging.getLogger("Family")
 
 app = Flask(__name__)
 
-# Database connection
-def getConnection():
-    conn = psycopg2.connect(
-        dbname="your_db_name",
-        user="your_db_user",
-        password="your_db_password",
-        host="your_db_host",
-        port="your_db_port"
-    )
-    return conn
+# Request logger middleware
+@app.before_request
+def before_request():
+    # Generate unique request ID and store it in request
+    request.request_id = str(uuid.uuid4())
+    request.start_time = time.time()
+    logger.info(f"Request {request.request_id}: {request.method} {request.path} - Started")
+    logger.debug(f"Request {request.request_id}: Headers: {dict(request.headers)}")
+    
+    if request.is_json:
+        # Log JSON payloads
+        safe_data = request.get_json(silent=True)
+        if isinstance(safe_data, dict):
+            # Redact sensitive fields if needed
+            safe_copy = safe_data.copy()
+            logger.debug(f"Request {request.request_id}: JSON payload: {safe_copy}")
+    elif request.args:
+        # Log query parameters
+        logger.debug(f"Request {request.request_id}: Query parameters: {request.args}")
 
-def verify_key(key, conn = None):
-    if not conn:
-        conn = getConnection()
-    cur = conn.cursor()
-    cur.execute("SELECT id FROM user WHERE key = %s", (key,))
-    result = cur.fetchone()
-    
-    if result:
-        return result[0]
-    else:
-        return None
+@app.after_request
+def after_request(response):
+    # Log request completion with timing and status
+    duration = time.time() - request.start_time
+    logger.info(f"Request {getattr(request, 'request_id', 'unknown')}: {request.method} {request.path} - Completed with status {response.status_code} in {duration:.3f}s")
+    return response
 
-def findUserId(key = None, username = None):
-    conn = getConnection()
-    cur = conn.cursor()
-    if key:
-        cur.execute("SELECT id FROM user WHERE key = %s", (key,))
-    elif username:
-        cur.execute("SELECT id FROM user WHERE username = %s", (username,))
-    result = cur.fetchone()
-    
-    if result:
-        return result[0]
-    else:
-        return None
+# Error handler for custom exceptions
+@app.errorhandler(FamilyServiceError)
+def handle_family_service_error(error):
+    request_id = getattr(request, 'request_id', 'unknown')
+    logger.error(f"Request {request_id}: Handled exception: {error.error_code} - {error.message}")
+    response = jsonify(error.to_dict())
+    response.status_code = error.status_code
+    return response
 
-def findFamilyId(family_name):
-    conn = getConnection()
-    cur = conn.cursor()
-    if family_name:
-        cur.execute("SELECT id FROM family WHERE family_name = %s", (family_name,))
-    else:
-        return None
+def get_data_json(request):
+    """
+    Extract JSON data from the request.
     
-    result = cur.fetchone()
-    
-    if result:
-        return result[0]
+    Args:
+        request (flask.Request): The Flask request object
+        
+    Returns:
+        dict: The JSON data
+        
+    Raises:
+        InvalidFamilyDataError: If request doesn't contain valid JSON
+    """
+    request_id = getattr(request, 'request_id', 'unknown')
+    if request.is_json:
+        logger.debug(f"Request {request_id}: Extracting JSON data")
+        return request.get_json()
     else:
-        return None
+        logger.warning(f"Request {request_id}: Request does not contain valid JSON data")
+        raise InvalidFamilyDataError("Request must contain JSON data")
 
-def verify_family_admin(user, family_id, conn = None):
-    if not conn:
-        conn = getConnection()
-    cur = conn.cursor()
-    cur.execute("SELECT family_admin FROM family WHERE id = %s", (family_id,))
-    result = cur.fetchone()
+def get_auth_key(request):
+    """
+    Extract and validate authentication key from request headers.
     
-    cur.close()
-    conn.close()
-    
-    if result:
-        return result[0] == user
-    else:
-        return False
-    
-def add_user_to_family(family_id, user_id, conn = None): #Fix
-    if not conn:
-        conn = getConnection()
-    cursor = conn.cursor()
-    
+    Args:
+        request (flask.Request): The Flask request object
+        
+    Returns:
+        str: The user key
+        
+    Raises:
+        AuthenticationError: If authentication fails
+    """
+    request_id = getattr(request, 'request_id', 'unknown')
     try:
-        addMember_query = sql.SQL("""INSERT INTO family_members (family_id, user_id) VALUES (%d, %d)""")
-        cursor.execute(addMember_query, (family_id, user_id))
-        conn.commit()
+        logger.debug(f"Request {request_id}: Extracting authentication key")
+        auth_header = request.headers.get('Authorization')
+        
+        if not auth_header or not auth_header.startswith('ApiKey '):
+            logger.warning(f"Request {request_id}: Missing or invalid Authorization header")
+            raise MissingTokenError("Authorization header is required and must start with 'ApiKey '")
+            
+        encoded_key = auth_header.split(' ')[1]
+        
+        try:
+            key = base64.b64decode(encoded_key).decode('utf-8')
+        except Exception as e:
+            logger.error(f"Request {request_id}: Failed to decode API key: {str(e)}")
+            raise InvalidTokenError(f"Invalid API key format: {str(e)}")
+            
+        # Verify key exists in database
+        logger.debug(f"Request {request_id}: Verifying key in database")
+        user_id = global_func.verify_key(key)
+        
+        if not user_id:
+            logger.warning(f"Request {request_id}: Invalid authentication key")
+            raise InvalidTokenError("The provided key is invalid or does not exist")
+            
+        logger.info(f"Request {request_id}: Successfully authenticated user ID: {user_id}")
+        return user_id
+        
+    except (MissingTokenError, InvalidTokenError):
+        # Re-raise these authentication exceptions
+        raise
     except Exception as e:
-        conn.rollback()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        cursor.close()
-        conn.close()
-
+        logger.error(f"Request {request_id}: Unexpected error in authentication: {str(e)}")
+        logger.error(f"Request {request_id}: {traceback.format_exc()}")
+        raise AuthenticationError(f"Authentication error: {str(e)}")
 
 @app.route('/create_family', methods=['POST'])
-def create_family(): #Check if family exists
-    data = request.get_json()
+def create_family():
+    """
+    Create a new family with the authenticated user as admin.
     
-    key = verify_key(data["key"])
-    if not key:
-        return jsonify({"message": "Invalid User"}), 400
-    
-    family_name = data.get('family_name')
-    
-
-    if not family_name:
-        return jsonify({"error": "Family name is required"}), 400
-
-    conn = getConnection()
-    cursor = conn.cursor(cursor_factory=RealDictCursor)
-
+    Returns:
+        flask.Response: JSON response with family creation status
+    """
+    request_id = getattr(request, 'request_id', 'unknown')
     try:
-        cursor.execute("INSERT INTO family (family_name, family_admin) VALUES (%s, %d) RETURNING id", (family_name,))
-        family_id = cursor.fetchone()['id']
-        conn.commit()
+        logger.info(f"Request {request_id}: Processing create_family request")
+        data = get_data_json(request)
+        user_id = get_auth_key(request)
+        
+        # Validate required fields
+        if 'family_name' not in data:
+            logger.warning(f"Request {request_id}: Missing required field: family_name")
+            raise MissingRequiredFieldError("family_name")
+            
+        family_name = data['family_name']
+        logger.debug(f"Request {request_id}: Creating family '{family_name}' with admin user ID: {user_id}")
+        
+        # Create family object
+        family = Family(name=family_name, admin_id=user_id)
+        
+        # Create the family in database
+        family_id = family.create_family()
+        
+        logger.info(f"Request {request_id}: Successfully created family with ID: {family_id}")
+        return jsonify({
+            "message": "Family created successfully",
+            "family_id": family_id,
+            "family_name": family_name
+        }), 201
+        
+    except FamilyAlreadyExistsError:
+        logger.warning(f"Request {request_id}: Family '{data.get('family_name')}' already exists")
+        raise
+    except (MissingRequiredFieldError, AuthenticationError, DatabaseError):
+        # Re-raise these specific exceptions
+        raise
     except Exception as e:
-        conn.rollback()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        cursor.close()
-        conn.close()
-
-    return jsonify({"family_id": family_id, "family_name": family_name}), 201
+        logger.error(f"Request {request_id}: Unexpected error: {str(e)}")
+        logger.error(f"Request {request_id}: {traceback.format_exc()}")
+        raise FamilyServiceError(f"An unexpected error occurred: {str(e)}")
 
 @app.route('/create_family_request', methods=['POST'])
 def create_family_request():
-    data = request.get_json()
-    admin_user_id = verify_key(data["key"]) #Should be family admin user ID
-    if not admin_user_id:
-        return jsonify({"message": "Invalid User"}), 400
+    """
+    Create a request to add a user to a family.
     
-    
-    family_name = data.get('family_name')
-    existing_query = sql.SQL("""SELECT COUNT(*) FROM family_requests WHERE family_id IN (SELECT id FROM family WHERE family_name = %s) AND receiver_id=%s AND status=NULL""")
-    conn = getConnection()
-    
-    if not verify_family_admin(admin_user_id, findFamilyId(family_name), conn):
-        return jsonify({"error": "You are not the admin of this family"}), 401
-    
-    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    Returns:
+        flask.Response: JSON response with request creation status
+    """
+    request_id = getattr(request, 'request_id', 'unknown')
     try:
-        cursor.execute(existing_query, (family_name, admin_user_id,))
-        count = cursor.fetchone()[0]
-        if count > 0:
-            return jsonify({"error": "Request already exists"}), 400
-        else:
-            request_query = sql.SQL("""INSERT INTO family_requests (family_id, receiver_id, sender_id) VALUES ((SELECT id FROM family WHERE family_name = %s), %d, %d)""")
-            cursor.execute(request_query, (family_name, admin_user_id,))
-            conn.commit()
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        cursor.close()
-        conn.close()
+        logger.info(f"Request {request_id}: Processing create_family_request")
+        data = get_data_json(request)
+        sender_id = get_auth_key(request)
         
-    return jsonify({"message": "Request sent successfully"}), 201
+        # Validate required fields
+        required_fields = ['family_name', 'receiver_username']
+        missing_fields = [field for field in required_fields if field not in data]
+        
+        if missing_fields:
+            logger.warning(f"Request {request_id}: Missing required fields: {missing_fields}")
+            raise MissingRequiredFieldError(", ".join(missing_fields))
+            
+        family_name = data['family_name']
+        receiver_username = data['receiver_username']
+        
+        logger.debug(f"Request {request_id}: Creating family request to add {receiver_username} to family '{family_name}'")
+        
+        # Create family object
+        family = Family(name=family_name)
+        
+        # Check if sender is admin
+        if not family.is_admin(sender_id):
+            logger.warning(f"Request {request_id}: User {sender_id} is not admin of family '{family_name}'")
+            raise NotFamilyAdminError()
+        
+        # Send the request
+        request_id = family.send_request(receiver_username=receiver_username, sender_id=sender_id)
+        
+        logger.info(f"Request {request_id}: Successfully created family request ID: {request_id}")
+        return jsonify({
+            "message": "Family join request sent successfully", 
+            "request_id": request_id
+        }), 201
+        
+    except (FamilyNotFoundError, UserNotFoundError, RequestAlreadyExistsError):
+        # These will be logged by their exception handlers
+        raise
+    except (MissingRequiredFieldError, AuthenticationError, NotFamilyAdminError):
+        # Re-raise these specific exceptions
+        raise
+    except Exception as e:
+        logger.error(f"Request {request_id}: Unexpected error: {str(e)}")
+        logger.error(f"Request {request_id}: {traceback.format_exc()}")
+        raise FamilyServiceError(f"An unexpected error occurred: {str(e)}")
 
 @app.route('/accept_family_request', methods=['PUT'])
 def accept_family_request():
-    data = request.get_json()
-    user_id = verify_key(data["key"])
-    if not user_id:
-        return jsonify({"message": "Invalid User"}), 400
+    """
+    Accept or reject a family join request.
     
-    request_id = data.get('request_id')
-    if not request_id:
-        return jsonify({"error": "Request ID is required"}), 400
-    
-    conn = getConnection()
-    cursor = conn.cursor(cursor_factory=RealDictCursor)
-    
+    Returns:
+        flask.Response: JSON response with request acceptance status
+    """
+    request_id = getattr(request, 'request_id', 'unknown')
     try:
-        cursor.execute("SELECT * FROM family_requests WHERE id = %d", (request_id,))
-        family_id = cursor.fetchone()['family_id']
+        logger.info(f"Request {request_id}: Processing accept_family_request")
+        data = get_data_json(request)
+        user_id = get_auth_key(request)
         
-        if not family_id:
-            return jsonify({"error": "Request does not exist"}), 400
+        # Validate required fields
+        required_fields = ['request_id', 'accept']
+        missing_fields = [field for field in required_fields if field not in data]
         
-        add_user_to_family(family_id, user_id, conn)
-        
-        if data["accept"]:
-            change_request_accept = sql.SQL("""UPDATE family_requests SET status=True WHERE id = %d""")
-            cursor.execute(change_request_accept, (request_id,))
-            conn.commit()
-        else:
-            change_request_deny = sql.SQL("""UPDATE family_requests SET status=False WHERE id = %d""")
-            cursor.execute(change_request_deny, (request_id,))
-            conn.commit()
+        if missing_fields:
+            logger.warning(f"Request {request_id}: Missing required fields: {missing_fields}")
+            raise MissingRequiredFieldError(", ".join(missing_fields))
             
-        cursor.execute()
+        family_request_id = data['request_id']
+        accept = data['accept']
+        
+        logger.debug(f"Request {request_id}: User {user_id} {'accepting' if accept else 'rejecting'} family request {family_request_id}")
+        
+        # Process the request
+        family = Family()
+        family.process_request(request_id=family_request_id, user_id=user_id, accept=accept)
+        
+        logger.info(f"Request {request_id}: Successfully {'accepted' if accept else 'rejected'} family request {family_request_id}")
+        return jsonify({
+            "message": f"Family request {'accepted' if accept else 'rejected'} successfully"
+        }), 200
+        
+    except (RequestNotFoundError, NotRequestRecipientError):
+        # These will be logged by their exception handlers
+        raise
+    except (MissingRequiredFieldError, AuthenticationError):
+        # Re-raise these specific exceptions
+        raise
     except Exception as e:
-        cursor.rollback()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        cursor.close()
-        conn.close()
-        
-        
+        logger.error(f"Request {request_id}: Unexpected error: {str(e)}")
+        logger.error(f"Request {request_id}: {traceback.format_exc()}")
+        raise FamilyServiceError(f"An unexpected error occurred: {str(e)}")
 
 @app.route('/delete_family', methods=['DELETE'])
 def delete_family():
-    data = request.get_json()
-        
-    key = verify_key(data["key"])
-    if not key:
-        return jsonify({"message": "Invalid User"}), 400
-        
-    family_id = data.get('family_id')
-        
-    if not family_id:
-        return jsonify({"error": "Family ID is required"}), 400
-
-    conn = getConnection()
-    cursor = conn.cursor()
-
+    """
+    Delete a family and all its members.
+    
+    Returns:
+        flask.Response: JSON response with family deletion status
+    """
+    request_id = getattr(request, 'request_id', 'unknown')
     try:
-        cursor.execute("DELETE FROM family WHERE id = %d", (family_id,))
-        cursor.execute("DELETE FROM family_members WHERE family_id = %d", (family_id,))
-        conn.commit()
+        logger.info(f"Request {request_id}: Processing delete_family request")
+        data = get_data_json(request)
+        user_id = get_auth_key(request)
+        
+        # Validate required fields
+        if 'family_id' not in data and 'family_name' not in data:
+            logger.warning(f"Request {request_id}: Missing required field: family_id or family_name")
+            raise MissingRequiredFieldError("family_id or family_name")
+            
+        family_id = data.get('family_id')
+        family_name = data.get('family_name')
+        
+        # Create family object
+        family = Family(id=family_id, name=family_name)
+        
+        # Check if user is admin
+        if not family.is_admin(user_id):
+            logger.warning(f"Request {request_id}: User {user_id} is not admin of family {family_id or family_name}")
+            raise NotFamilyAdminError()
+            
+        # Delete the family
+        logger.debug(f"Request {request_id}: Deleting family {family_id or family_name}")
+        family.delete()
+        
+        logger.info(f"Request {request_id}: Successfully deleted family {family_id or family_name}")
+        return jsonify({"message": "Family deleted successfully"}), 200
+        
+    except FamilyNotFoundError:
+        # This will be logged by its exception handler
+        raise
+    except (MissingRequiredFieldError, AuthenticationError, NotFamilyAdminError):
+        # Re-raise these specific exceptions
+        raise
     except Exception as e:
-        conn.rollback()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        cursor.close()
-        conn.close()
-
-    return jsonify({"message": "Family deleted successfully"}), 200
+        logger.error(f"Request {request_id}: Unexpected error: {str(e)}")
+        logger.error(f"Request {request_id}: {traceback.format_exc()}")
+        raise FamilyServiceError(f"An unexpected error occurred: {str(e)}")
 
 @app.route('/get_family_members', methods=['GET'])
 def get_family_members():
-    family_id = request.args.get('family_id')
+    """
+    Get the members of a family.
     
-    conn = getConnection()
-    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    Returns:
+        flask.Response: JSON response with family members
+    """
+    request_id = getattr(request, 'request_id', 'unknown')
+    try:
+        logger.info(f"Request {request_id}: Processing get_family_members request")
+        user_id = get_auth_key(request)
         
-    if not family_id:
+        # Get family identifier from query parameters
+        family_id = request.args.get('family_id')
         family_name = request.args.get('family_name')
-        if not family_name:
-            return jsonify({"error": "Family ID or Family Name is required"}), 400
-        else:
-        #may want to add privacy control here
-
-            try:
-                cursor.execute("SELECT id FROM family WHERE family_name = %s", (family_name,))
-                family_id = cursor.fetchone()['id']
-            except Exception as e:
-                return jsonify({"error": str(e)}), 500
-
-    try:
-        cursor.execute("SELECT user_id FROM family_members WHERE family_id = %s", (family_id,))
-        members = cursor.fetchall()
+        
+        if not family_id and not family_name:
+            logger.warning(f"Request {request_id}: Missing required parameter: family_id or family_name")
+            raise MissingRequiredFieldError("family_id or family_name in query parameters")
+            
+        # Create family object
+        family = Family(id=family_id, name=family_name)
+        
+        # Get members
+        logger.debug(f"Request {request_id}: Getting members of family {family_id or family_name}")
+        members = family.get_members()
+        
+        logger.info(f"Request {request_id}: Successfully retrieved {len(members)} members of family {family_id or family_name}")
+        return jsonify({
+            "family_id": family.id,
+            "family_name": family.name,
+            "members": members
+        }), 200
+        
+    except FamilyNotFoundError:
+        # This will be logged by its exception handler
+        raise
+    except AuthenticationError:
+        # Re-raise these specific exceptions
+        raise
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
-    finally:
-        cursor.close()
-        conn.close()
+        logger.error(f"Request {request_id}: Unexpected error: {str(e)}")
+        logger.error(f"Request {request_id}: {traceback.format_exc()}")
+        raise FamilyServiceError(f"An unexpected error occurred: {str(e)}")
 
-    return jsonify({"family_id": family_id, "members": members}), 200
-
-@app.route('/remove_family_member', methods=['DELETE']) #Fix HTTP method. Similar to Get
+@app.route('/remove_family_member', methods=['DELETE'])
 def remove_family_member():
-    data = request.get_json()
-        
-    key = verify_key(data["key"])
-    if not key:
-        return jsonify({"message": "Invalid User"}), 400
-        
-    family_id = data.get('family_id')
-    if not family_id:
-        family_name = data.get('family_name')
-        if not family_name:
-            return jsonify({"error": "Family ID or Family Name is required"}), 400
-        else:
-            conn = getConnection()
-            cursor = conn.cursor(cursor_factory=RealDictCursor)
-
-            try:
-                cursor.execute("SELECT id, family_admin FROM family WHERE family_name = %s", (family_name,))
-                family_id = cursor.fetchone()['id']
-                admin = cursor.fetchone()['family_admin']
-            except Exception as e:
-                return jsonify({"error": str(e)}), 500
-            finally:
-                cursor.close()
-                conn.close()
-                
-    if admin != key:
-        return jsonify({"error": "You are not the admin of this family"}), 401
-                
-    user_id = data.get('user_id')
+    """
+    Remove a member from a family.
     
-    if not user_id:
-        return jsonify({"error": "User ID is required"}), 400
-    
-    if user_id == admin:
-        return jsonify({"error": "You cannot remove the admin from the family"}), 400
-    
-
-    if not family_id or not user_id:
-        return jsonify({"error": "Family ID and User ID are required"}), 400
-
-    conn = getConnection()
-    cursor = conn.cursor()
-
+    Returns:
+        flask.Response: JSON response with member removal status
+    """
+    request_id = getattr(request, 'request_id', 'unknown')
     try:
-        cursor.execute("DELETE FROM family_members WHERE family_id = %s AND user_id = %s", (family_id, user_id))
-        conn.commit()
+        logger.info(f"Request {request_id}: Processing remove_family_member request")
+        data = get_data_json(request)
+        admin_id = get_auth_key(request)
+        
+        # Validate required fields
+        if ('family_id' not in data and 'family_name' not in data) or 'user_id' not in data:
+            missing = []
+            if 'family_id' not in data and 'family_name' not in data:
+                missing.append('family_id or family_name')
+            if 'user_id' not in data:
+                missing.append('user_id')
+            logger.warning(f"Request {request_id}: Missing required fields: {', '.join(missing)}")
+            raise MissingRequiredFieldError(", ".join(missing))
+            
+        family_id = data.get('family_id')
+        family_name = data.get('family_name')
+        user_id = data.get('user_id')
+        
+        # Create family object
+        family = Family(id=family_id, name=family_name)
+        
+        # Check if user is admin
+        if not family.is_admin(admin_id):
+            logger.warning(f"Request {request_id}: User {admin_id} is not admin of family {family_id or family_name}")
+            raise NotFamilyAdminError()
+            
+        # Check if trying to remove admin
+        if int(user_id) == int(family.admin_id):
+            logger.warning(f"Request {request_id}: Cannot remove admin from family")
+            raise CannotRemoveAdminError()
+            
+        # Remove member
+        logger.debug(f"Request {request_id}: Removing user {user_id} from family {family_id or family_name}")
+        family.remove_member(user_id)
+        
+        logger.info(f"Request {request_id}: Successfully removed user {user_id} from family {family_id or family_name}")
+        return jsonify({"message": "User removed from family successfully"}), 200
+        
+    except (FamilyNotFoundError, UserNotInFamilyError):
+        # These will be logged by their exception handlers
+        raise
+    except (MissingRequiredFieldError, AuthenticationError, NotFamilyAdminError, CannotRemoveAdminError):
+        # Re-raise these specific exceptions
+        raise
     except Exception as e:
-        conn.rollback()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        cursor.close()
-        conn.close()
-
-    return jsonify({"message": "User removed from family successfully"}), 200
+        logger.error(f"Request {request_id}: Unexpected error: {str(e)}")
+        logger.error(f"Request {request_id}: {traceback.format_exc()}")
+        raise FamilyServiceError(f"An unexpected error occurred: {str(e)}")
 
 @app.route('/edit_family_admin', methods=['PUT'])
 def edit_family_admin():
-    data = request.get_json()
-        
-    key = verify_key(data["key"])
-    if not key:
-        return jsonify({"message": "Invalid User"}), 400
-        
-    family_id = findFamilyId(data.get('family_name'))
-    new_admin_id = findUserId(username = data.get('new_admin_username'))
-
-    if not family_id or not new_admin_id:
-        return jsonify({"error": "Family Name and New Admin username are required"}), 400
-
-    conn = getConnection()
-    cursor = conn.cursor()
-
+    """
+    Change the admin of a family.
+    
+    Returns:
+        flask.Response: JSON response with admin change status
+    """
+    request_id = getattr(request, 'request_id', 'unknown')
     try:
-        cursor.execute("SELECT family_admin FROM family WHERE id = %d", (family_id,))
-        current_admin_id = cursor.fetchone()['family_admin']
+        logger.info(f"Request {request_id}: Processing edit_family_admin request")
+        data = get_data_json(request)
+        current_admin_id = get_auth_key(request)
+        
+        # Validate required fields
+        required_fields = ['family_name', 'new_admin_username']
+        missing_fields = [field for field in required_fields if field not in data]
+        
+        if missing_fields:
+            logger.warning(f"Request {request_id}: Missing required fields: {missing_fields}")
+            raise MissingRequiredFieldError(", ".join(missing_fields))
             
-        if current_admin_id != key:
-            return jsonify({"error": "You are not the admin of this family"}), 401
+        family_name = data['family_name']
+        new_admin_username = data['new_admin_username']
+        
+        # Create family object
+        family = Family(name=family_name)
+        
+        # Check if user is admin
+        if not family.is_admin(current_admin_id):
+            logger.warning(f"Request {request_id}: User {current_admin_id} is not admin of family '{family_name}'")
+            raise NotFamilyAdminError()
             
-        cursor.execute("UPDATE family SET family_admin = %s WHERE id = %s", (new_admin_id, family_id))
-        conn.commit()
+        # Change admin
+        logger.debug(f"Request {request_id}: Changing admin of family '{family_name}' to user '{new_admin_username}'")
+        family.change_admin(new_admin_username)
+        
+        logger.info(f"Request {request_id}: Successfully changed admin of family '{family_name}' to '{new_admin_username}'")
+        return jsonify({"message": "Family admin updated successfully"}), 200
+        
+    except (FamilyNotFoundError, UserNotFoundError, UserNotInFamilyError):
+        # These will be logged by their exception handlers
+        raise
+    except (MissingRequiredFieldError, AuthenticationError, NotFamilyAdminError):
+        # Re-raise these specific exceptions
+        raise
     except Exception as e:
-        conn.rollback()
-        return jsonify({"error": str(e)}), 500
-    finally:
-        cursor.close()
-        conn.close()
-
-    return jsonify({"message": "Family admin updated successfully"}), 200
-
-
+        logger.error(f"Request {request_id}: Unexpected error: {str(e)}")
+        logger.error(f"Request {request_id}: {traceback.format_exc()}")
+        raise FamilyServiceError(f"An unexpected error occurred: {str(e)}")
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    logger.info("Starting family microservice on port 5000")
+    app.run(host='0.0.0.0', port=5000, debug=True)

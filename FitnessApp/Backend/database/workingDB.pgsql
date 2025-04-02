@@ -232,7 +232,7 @@ CREATE TABLE family(
     id SERIAL PRIMARY KEY,
     family_name VARCHAR(50) UNIQUE NOT NULL,
     family_admin INT REFERENCES users(id) ON DELETE CASCADE
-    created_at
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE family_requests ( --Implement Table
