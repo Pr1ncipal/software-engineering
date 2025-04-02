@@ -1,0 +1,11 @@
+{
+    "first_name": "John",
+    "last_name": "Doe",
+    "email": "example@example.com",
+    "username": "example",
+    "pass_hash": "using sha-256",
+    "dob": "YYYY-MM-DD",
+    "sex": "M",
+    "height":"",
+    "weight":"145"
+}
