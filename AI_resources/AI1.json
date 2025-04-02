@@ -1,0 +1,13 @@
+{
+    "user":{
+        "first_name": "John",
+        "last_name": "Doe",
+        "age": 30,
+        "sex": "Male"
+    },
+    "stats":{
+        "height": 180,
+        "weight": 80,
+        "goal": 65
+    }
+}
