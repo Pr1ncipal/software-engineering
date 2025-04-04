@@ -45,8 +45,13 @@ class Family:
         self.admin_id = admin_id
         
         # Load family data if id or name is provided
-        if id or name:
-            self.load()
+        try:
+            if id or name:
+                self.load()
+        except FamilyNotFoundError:
+            logger.warning(f"Family with ID {id} or name {name} not found during initialization")
+        except Exception as e:
+            raise
     
     def load(self, conn=None):
         """
@@ -61,8 +66,8 @@ class Family:
             QueryError: If database query fails
         """
         logger.debug(f"Loading family data for ID: {self.id}, Name: {self.name}")
+        should_close_conn = False
         try:
-            should_close_conn = False
             if not conn:
                 conn = global_func.getConnection()
                 should_close_conn = True
@@ -71,10 +76,10 @@ class Family:
             
             # Build query based on available parameters
             if self.id:
-                query = sql.SQL("SELECT * FROM families WHERE id = %s")
+                query = sql.SQL("SELECT id, family_name, family_admin FROM family WHERE id = %s")
                 params = (self.id,)
             elif self.name:
-                query = sql.SQL("SELECT * FROM families WHERE name = %s")
+                query = sql.SQL("SELECT id, family_name, family_admin FROM family WHERE family_name = %s")
                 params = (self.name,)
             else:
                 logger.warning("Cannot load family - both ID and name are None")
@@ -89,8 +94,8 @@ class Family:
             
             # Update attributes with loaded data
             self.id = result['id']
-            self.name = result['name']
-            self.admin_id = result['admin_id']
+            self.name = result['family_name']
+            self.admin_id = result['family_admin']
             
             logger.debug(f"Successfully loaded family: {self.name} (ID: {self.id})")
             
@@ -144,7 +149,7 @@ class Family:
             cur = conn.cursor()
             
             # Check if family with same name already exists
-            cur.execute("SELECT id FROM families WHERE name = %s", (self.name,))
+            cur.execute("SELECT id FROM family WHERE family_name = %s", (self.name,))
             if cur.fetchone():
                 logger.warning(f"Family with name '{self.name}' already exists")
                 raise FamilyAlreadyExistsError()
@@ -157,15 +162,15 @@ class Family:
             
             # Create family
             cur.execute(
-                "INSERT INTO families (name, admin_id) VALUES (%s, %s) RETURNING id",
+                "INSERT INTO family (family_name, family_admin) VALUES (%s, %s) RETURNING id",
                 (self.name, self.admin_id)
             )
             self.id = cur.fetchone()[0]
             
             # Add admin as first member
             cur.execute(
-                "INSERT INTO family_members (family_id, user_id, join_date) VALUES (%s, %s, %s)",
-                (self.id, self.admin_id, datetime.datetime.now())
+                "INSERT INTO family_members (family_id, user_id) VALUES (%s, %s)",
+                (self.id, self.admin_id)
             )
             
             conn.commit()
@@ -227,12 +232,7 @@ class Family:
             cur.execute("DELETE FROM family_members WHERE family_id = %s", (self.id,))
             
             # Delete family
-            cur.execute("DELETE FROM families WHERE id = %s", (self.id,))
-            deleted_rows = cur.rowcount
-            
-            if deleted_rows == 0:
-                logger.warning(f"Family with ID {self.id} not found")
-                raise FamilyNotFoundError()
+            cur.execute("DELETE FROM family WHERE id = %s", (self.id,))
                 
             conn.commit()
             logger.info(f"Successfully deleted family with ID: {self.id}")
@@ -277,6 +277,8 @@ class Family:
         """
         logger.debug(f"Checking if user {user_id} is admin of family ID: {self.id}, Name: {self.name}")
         
+        should_close_conn = False
+
         try:
             # Load family data if not already loaded
             if not self.id and not self.admin_id:
@@ -286,7 +288,6 @@ class Family:
             if self.admin_id:
                 return int(user_id) == int(self.admin_id)
                 
-            should_close_conn = False
             if not conn:
                 conn = global_func.getConnection()
                 should_close_conn = True
@@ -295,9 +296,9 @@ class Family:
             
             # Query admin_id from database
             if self.id:
-                cur.execute("SELECT admin_id FROM families WHERE id = %s", (self.id,))
+                cur.execute("SELECT admin_id FROM family WHERE id = %s", (self.id,))
             elif self.name:
-                cur.execute("SELECT admin_id FROM families WHERE name = %s", (self.name,))
+                cur.execute("SELECT admin_id FROM family WHERE name = %s", (self.name,))
             else:
                 logger.warning("Cannot check admin - both ID and name are None")
                 raise FamilyNotFoundError("Family ID or name must be provided")
@@ -331,7 +332,7 @@ class Family:
             if should_close_conn and conn:
                 conn.close()
     
-    def get_members(self, conn=None):
+    def get_members(self, user_id, conn=None): 
         """
         Get all members of a family.
         
@@ -360,13 +361,39 @@ class Family:
             
             cur = conn.cursor(cursor_factory=RealDictCursor)
             
+            #Check if user is in the family
+            if not user_id:
+                logger.warning("User ID is required to check family membership")
+                raise MissingRequiredFieldError("user_id")
+            if not isinstance(user_id, int):
+                logger.warning("User ID must be an integer")
+                raise InvalidFamilyDataError("user_id must be an integer")
+            if not self.id:
+                logger.warning("Family ID is required to check family membership")
+                raise MissingRequiredFieldError("family_id")
+            if not isinstance(self.id, int):
+                logger.warning("Family ID must be an integer")
+                raise InvalidFamilyDataError("family_id must be an integer")
+            
+            # Check if user is in the family
+            # Use parameterized query to prevent SQL injection
+            # Use psycopg2.sql to safely construct the query
+            checkInFamilyQuery = sql.SQL(
+                "SELECT 1 FROM family_members WHERE family_id = %s AND user_id = %s")
+            
+            cur.execute(checkInFamilyQuery, (self.id, user_id))
+            \
+            if not cur.fetchone():
+                logger.warning(f"User {user_id} is not in family {self.id}")
+                raise UserNotInFamilyError()
+            
             # Query family members with user details
             query = """
-                SELECT u.id, u.username, u.first_name, u.last_name, fm.join_date,
-                       CASE WHEN f.admin_id = u.id THEN TRUE ELSE FALSE END as is_admin
+                SELECT u.username as username, u.fname as fname, u.lname as lname,
+                       CASE WHEN f.family_admin = u.id THEN TRUE ELSE FALSE END as is_admin
                 FROM family_members fm
                 JOIN users u ON fm.user_id = u.id
-                JOIN families f ON fm.family_id = f.id
+                JOIN family f ON fm.family_id = f.id
                 WHERE fm.family_id = %s
                 ORDER BY is_admin DESC, u.username
             """
@@ -393,7 +420,7 @@ class Family:
             if should_close_conn and conn:
                 conn.close()
     
-    def remove_member(self, user_id, conn=None):
+    def remove_member(self, username, conn=None):
         """
         Remove a member from the family.
         
@@ -408,18 +435,13 @@ class Family:
             ConnectionError: If database connection fails
             QueryError: If database query fails
         """
-        logger.info(f"Removing user {user_id} from family ID: {self.id}, Name: {self.name}")
+        logger.info(f"Removing user {username} from family ID: {self.id}, Name: {self.name}")
         
         try:
             # Load family data if not already loaded
             if not self.id:
                 self.load()
             
-            # Check if user is admin
-            if self.admin_id and int(user_id) == int(self.admin_id):
-                logger.warning(f"Cannot remove admin user {user_id} from family {self.id}")
-                raise CannotRemoveAdminError()
-                
             should_close_conn = False
             if not conn:
                 conn = global_func.getConnection()
@@ -427,14 +449,14 @@ class Family:
             
             cur = conn.cursor()
             
-            # Check if user is in the family
-            cur.execute(
-                "SELECT 1 FROM family_members WHERE family_id = %s AND user_id = %s",
-                (self.id, user_id)
-            )
-            if not cur.fetchone():
-                logger.warning(f"User {user_id} is not in family {self.id}")
-                raise UserNotInFamilyError()
+            # Get user ID from username
+            cur.execute("SELECT id FROM users WHERE username = %s", (username,))
+            user_result = cur.fetchone()
+            if not user_result:
+                logger.warning(f"User with username {username} not found")
+                raise UserNotFoundError(f"User with username {username} not found")
+            user_id = user_result[0]
+            logger.debug(f"User ID for {username} is {user_id}")
             
             # Remove user from family
             cur.execute(
@@ -526,7 +548,7 @@ class Family:
             
             # Check if request already exists
             cur.execute(
-                "SELECT id FROM family_requests WHERE family_id = %s AND receiver_id = %s AND status = 'pending'",
+                "SELECT id FROM family_requests WHERE family_id = %s AND receiver_id = %s AND status = NULL",
                 (self.id, receiver_id)
             )
             if cur.fetchone():
@@ -536,10 +558,10 @@ class Family:
             # Create request
             cur.execute(
                 """INSERT INTO family_requests 
-                   (family_id, sender_id, receiver_id, request_date, status)
-                   VALUES (%s, %s, %s, %s, 'pending')
+                   (family_id, sender_id, receiver_id)
+                   VALUES (%s, %s, %s)
                    RETURNING id""",
-                (self.id, sender_id, receiver_id, datetime.datetime.now())
+                (self.id, sender_id, receiver_id)
             )
             request_id = cur.fetchone()[0]
             
@@ -599,9 +621,9 @@ class Family:
             
             # Get request data
             cur.execute(
-                """SELECT fr.*, f.name as family_name 
+                """SELECT fr.*, f.family_name as family_name 
                    FROM family_requests fr
-                   JOIN families f ON fr.family_id = f.id
+                   JOIN family f ON fr.family_id = f.id
                    WHERE fr.id = %s""",
                 (request_id,)
             )
@@ -617,23 +639,23 @@ class Family:
                 raise NotRequestRecipientError()
                 
             # Check if request is still pending
-            if request['status'] != 'pending':
+            if request['status'] != None:
                 logger.warning(f"Request {request_id} has already been processed")
                 raise RequestAlreadyProcessedError()
                 
             # Update request status
-            status = 'accepted' if accept else 'rejected'
+            status = True if accept else False
             cur.execute(
-                "UPDATE family_requests SET status = %s, response_date = %s WHERE id = %s",
-                (status, datetime.datetime.now(), request_id)
+                "UPDATE family_requests SET status = %s WHERE id = %s",
+                (status, request_id)
             )
             
             # If accepted, add user to family
             if accept:
                 logger.debug(f"Adding user {user_id} to family {request['family_id']}")
                 cur.execute(
-                    "INSERT INTO family_members (family_id, user_id, join_date) VALUES (%s, %s, %s)",
-                    (request['family_id'], user_id, datetime.datetime.now())
+                    "INSERT INTO family_members (family_id, user_id) VALUES (%s, %s)",
+                    (request['family_id'], user_id)
                 )
                 
                 # Update self data if it's the same family
@@ -822,3 +844,54 @@ class Family:
                 cur.close()
             if should_close_conn and conn:
                 conn.close()
+    
+    def getUserInFamily(self, username):
+        """
+        Check if a user is in a family.
+        
+        Args:
+            username (str): Username to check
+            familyName (str): Family name to check
+            
+        Returns:
+            bool: True if user is in the family, False otherwise
+            
+        Raises:
+            ConnectionError: If database connection fails
+            QueryError: If database query fails
+        """
+        logger.debug(f"Checking if user {username} is in family {self.name}")
+        
+        should_close_conn = False
+        try:
+            conn = global_func.getConnection()
+            should_close_conn = True
+            
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+            
+            # Query to check if user is in the family
+            query = """
+                SELECT 1 FROM family_members fm
+                JOIN users u ON fm.user_id = u.id
+                JOIN family f ON fm.family_id = f.id
+                WHERE u.username = %s AND f.family_name = %s
+            """
+            
+            cur.execute(query, (username, self.name))
+            result = cur.fetchone()
+            
+            return bool(result)
+            
+        except psycopg2.Error as e:
+            logger.error(f"Database error checking user in family: {str(e)}")
+            raise QueryError(f"Failed to check if user is in family: {str(e)}")
+        except Exception as e:
+            logger.error(f"Unexpected error checking user in family: {str(e)}")
+            logger.debug(traceback.format_exc())
+            raise FamilyServiceError(f"Error checking if user is in family: {str(e)}")
+        finally:
+            if cur:
+                cur.close()
+            if should_close_conn and conn:
+                conn.close()
+        

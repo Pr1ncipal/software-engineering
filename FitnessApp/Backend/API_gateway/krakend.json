@@ -278,13 +278,13 @@
     {
       "endpoint": "/api/family/create_family_request",
       "method": "POST",
-      "output_encoding": "json",
+      "output_encoding": "no-op",
       "backend": [
         {
           "url_pattern": "/create_family_request",
-          "encoding": "json",
+          "encoding": "no-op",
           "sd": "static",
-          "method": "GET",
+          "method": "POST",
           "host": [
             "http://family:8080"
           ],
@@ -299,11 +299,11 @@
     {
       "endpoint": "/api/family/accept_family_request",
       "method": "PUT",
-      "output_encoding": "json",
+      "output_encoding": "no-op",
       "backend": [
         {
           "url_pattern": "/accept_family_request",
-          "encoding": "json",
+          "encoding": "no-op",
           "sd": "static",
           "method": "PUT",
           "host": [
@@ -320,11 +320,11 @@
     {
       "endpoint": "/api/family/delete_family",
       "method": "DELETE",
-      "output_encoding": "json",
+      "output_encoding": "no-op",
       "backend": [
         {
           "url_pattern": "/delete_family",
-          "encoding": "json",
+          "encoding": "no-op",
           "sd": "static",
           "method": "DELETE",
           "host": [
@@ -333,6 +333,10 @@
           "disable_host_sanitize": false
         }
       ],
+      "input_query_strings": [
+        "username",
+        "family_name"
+      ],
       "input_headers": [
         "Authorization"
       ]
@@ -340,11 +344,11 @@
     {
       "endpoint": "/api/family/get_family_members",
       "method": "GET",
-      "output_encoding": "json",
+      "output_encoding": "no-op",
       "backend": [
         {
           "url_pattern": "/get_family_members",
-          "encoding": "json",
+          "encoding": "no-op",
           "sd": "static",
           "method": "GET",
           "host": [
@@ -364,11 +368,11 @@
     {
       "endpoint": "/api/family/remove_family_member",
       "method": "DELETE",
-      "output_encoding": "json",
+      "output_encoding": "no-op",
       "backend": [
         {
           "url_pattern": "/remove_family_member",
-          "encoding": "json",
+          "encoding": "no-op",
           "sd": "static",
           "method": "DELETE",
           "host": [
@@ -378,8 +382,7 @@
         }
       ],
       "input_query_strings": [
-        "key",
-        "user_id",
+        "username",
         "family_name"
       ],
       "input_headers": [
@@ -389,11 +392,11 @@
     {
       "endpoint": "/api/family/edit_admin",
       "method": "PUT",
-      "output_encoding": "json",
+      "output_encoding": "no-op",
       "backend": [
         {
           "url_pattern": "/edit_family_admin",
-          "encoding": "json",
+          "encoding": "no-op",
           "sd": "static",
           "method": "PUT",
           "host": [

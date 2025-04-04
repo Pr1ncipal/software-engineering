@@ -66,22 +66,25 @@ class DatabaseError(FamilyServiceError):
     status_code = 500
     error_code = "DATABASE_ERROR"
     
-    def __init__(self, message="A database error occurred", error_code=None):
-        super().__init__(message, self.status_code, error_code or self.error_code)
+    def __init__(self, message="A database error occurred", status_code=None, error_code=None):
+        # Call parent with all parameters
+        super().__init__(message, status_code or self.status_code, error_code or self.error_code)
 
 class ConnectionError(DatabaseError):
     """Exception raised when a database connection error occurs"""
     error_code = "CONNECTION_ERROR"
     
     def __init__(self, message="Failed to connect to database"):
-        super().__init__(message, self.status_code, self.error_code)
+        # Call parent with just the message - parent will handle status_code and error_code
+        super().__init__(message)
 
 class QueryError(DatabaseError):
     """Exception raised when a database query error occurs"""
     error_code = "QUERY_ERROR"
     
     def __init__(self, message="Error executing database query"):
-        super().__init__(message, self.status_code, self.error_code)
+        # Call parent with just the message - parent will handle status_code and error_code
+        super().__init__(message)
 
 # Input Validation Errors
 class ValidationError(FamilyServiceError):
@@ -89,8 +92,9 @@ class ValidationError(FamilyServiceError):
     status_code = 400
     error_code = "VALIDATION_ERROR"
     
-    def __init__(self, message="Invalid input data"):
-        super().__init__(message, self.status_code, self.error_code)
+    def __init__(self, message="Invalid input data", status_code=None, error_code=None):
+        # Match the parent's __init__ signature
+        super().__init__(message, status_code or self.status_code, error_code or self.error_code)
 
 class MissingRequiredFieldError(ValidationError):
     """Exception raised when a required field is missing from the request"""
@@ -98,14 +102,15 @@ class MissingRequiredFieldError(ValidationError):
     
     def __init__(self, field_name):
         message = f"Missing required field: {field_name}"
-        super().__init__(message, self.status_code, self.error_code)
+        # Only pass message to parent
+        super().__init__(message)
 
 class InvalidFamilyDataError(ValidationError):
     """Exception raised when invalid family data is provided"""
     error_code = "INVALID_FAMILY_DATA"
     
     def __init__(self, message="Invalid family data"):
-        super().__init__(message, self.status_code, self.error_code)
+        super().__init__(message)
 
 # Family-specific Errors
 class FamilyError(FamilyServiceError):

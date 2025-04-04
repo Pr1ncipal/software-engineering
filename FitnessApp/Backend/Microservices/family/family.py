@@ -216,7 +216,7 @@ def get_auth_key(request):
         logger.error(f"Request {request_id}: {traceback.format_exc()}")
         raise AuthenticationError(f"Authentication error: {str(e)}")
 
-@app.route('/create_family', methods=['POST'])
+@app.route('/create_family', methods=['POST']) #working
 def create_family():
     """
     Create a new family with the authenticated user as admin.
@@ -227,8 +227,7 @@ def create_family():
     request_id = getattr(request, 'request_id', 'unknown')
     try:
         logger.info(f"Request {request_id}: Processing create_family request")
-        data = get_data_jwt(request)
-        user_id = get_auth_key(request)
+        data, user_id = get_data_jwt(request)
         
         # Validate required fields
         if 'family_name' not in data:
@@ -262,7 +261,7 @@ def create_family():
         logger.error(f"Request {request_id}: {traceback.format_exc()}")
         raise FamilyServiceError(f"An unexpected error occurred: {str(e)}")
 
-@app.route('/create_family_request', methods=['POST'])
+@app.route('/create_family_request', methods=['POST']) #working
 def create_family_request():
     """
     Create a request to add a user to a family.
@@ -273,8 +272,7 @@ def create_family_request():
     request_id = getattr(request, 'request_id', 'unknown')
     try:
         logger.info(f"Request {request_id}: Processing create_family_request")
-        data = get_data_json(request)
-        sender_id = get_auth_key(request)
+        data, sender_id = get_data_jwt(request)
         
         # Validate required fields
         required_fields = ['family_name', 'receiver_username']
@@ -317,7 +315,7 @@ def create_family_request():
         logger.error(f"Request {request_id}: {traceback.format_exc()}")
         raise FamilyServiceError(f"An unexpected error occurred: {str(e)}")
 
-@app.route('/accept_family_request', methods=['PUT'])
+@app.route('/accept_family_request', methods=['PUT']) #working
 def accept_family_request():
     """
     Accept or reject a family join request.
@@ -328,12 +326,11 @@ def accept_family_request():
     request_id = getattr(request, 'request_id', 'unknown')
     try:
         logger.info(f"Request {request_id}: Processing accept_family_request")
-        data = get_data_json(request)
-        user_id = get_auth_key(request)
+        data, user_id = get_data_jwt(request)
         
         # Validate required fields
         required_fields = ['request_id', 'accept']
-        missing_fields = [field for field in required_fields if field not in data]
+        missing_fields = [field for field in required_fields if field not in data.keys()]
         
         if missing_fields:
             logger.warning(f"Request {request_id}: Missing required fields: {missing_fields}")
@@ -364,7 +361,7 @@ def accept_family_request():
         logger.error(f"Request {request_id}: {traceback.format_exc()}")
         raise FamilyServiceError(f"An unexpected error occurred: {str(e)}")
 
-@app.route('/delete_family', methods=['DELETE'])
+@app.route('/delete_family', methods=['DELETE']) #working
 def delete_family():
     """
     Delete a family and all its members.
@@ -375,30 +372,28 @@ def delete_family():
     request_id = getattr(request, 'request_id', 'unknown')
     try:
         logger.info(f"Request {request_id}: Processing delete_family request")
-        data = get_data_json(request)
         user_id = get_auth_key(request)
         
         # Validate required fields
-        if 'family_id' not in data and 'family_name' not in data:
-            logger.warning(f"Request {request_id}: Missing required field: family_id or family_name")
+        if 'family_name' not in request.args:
+            logger.warning(f"Request {request_id}: Missing required field: family_name")
             raise MissingRequiredFieldError("family_id or family_name")
-            
-        family_id = data.get('family_id')
-        family_name = data.get('family_name')
+
+        family_name = request.args.get('family_name')
         
         # Create family object
-        family = Family(id=family_id, name=family_name)
+        family = Family(name=family_name)
         
         # Check if user is admin
         if not family.is_admin(user_id):
-            logger.warning(f"Request {request_id}: User {user_id} is not admin of family {family_id or family_name}")
+            logger.warning(f"Request {request_id}: User {user_id} is not admin of family {family_name}")
             raise NotFamilyAdminError()
             
         # Delete the family
-        logger.debug(f"Request {request_id}: Deleting family {family_id or family_name}")
+        logger.debug(f"Request {request_id}: Deleting family {family_name}")
         family.delete()
         
-        logger.info(f"Request {request_id}: Successfully deleted family {family_id or family_name}")
+        logger.info(f"Request {request_id}: Successfully deleted family {family_name}")
         return jsonify({"message": "Family deleted successfully"}), 200
         
     except FamilyNotFoundError:
@@ -412,7 +407,7 @@ def delete_family():
         logger.error(f"Request {request_id}: {traceback.format_exc()}")
         raise FamilyServiceError(f"An unexpected error occurred: {str(e)}")
 
-@app.route('/get_family_members', methods=['GET'])
+@app.route('/get_family_members', methods=['GET']) #working
 def get_family_members():
     """
     Get the members of a family.
@@ -426,23 +421,21 @@ def get_family_members():
         user_id = get_auth_key(request)
         
         # Get family identifier from query parameters
-        family_id = request.args.get('family_id')
         family_name = request.args.get('family_name')
         
-        if not family_id and not family_name:
-            logger.warning(f"Request {request_id}: Missing required parameter: family_id or family_name")
+        if not family_name:
+            logger.warning(f"Request {request_id}: Missing required parameter: family_name")
             raise MissingRequiredFieldError("family_id or family_name in query parameters")
             
         # Create family object
-        family = Family(id=family_id, name=family_name)
+        family = Family(name=family_name)
         
         # Get members
-        logger.debug(f"Request {request_id}: Getting members of family {family_id or family_name}")
-        members = family.get_members()
+        logger.debug(f"Request {request_id}: Getting members of family {family_name}")
+        members = family.get_members(user_id=user_id)
         
-        logger.info(f"Request {request_id}: Successfully retrieved {len(members)} members of family {family_id or family_name}")
+        logger.info(f"Request {request_id}: Successfully retrieved {len(members)} members of family {family_name}")
         return jsonify({
-            "family_id": family.id,
             "family_name": family.name,
             "members": members
         }), 200
@@ -458,7 +451,7 @@ def get_family_members():
         logger.error(f"Request {request_id}: {traceback.format_exc()}")
         raise FamilyServiceError(f"An unexpected error occurred: {str(e)}")
 
-@app.route('/remove_family_member', methods=['DELETE'])
+@app.route('/remove_family_member', methods=['DELETE']) #working
 def remove_family_member():
     """
     Remove a member from a family.
@@ -469,47 +462,44 @@ def remove_family_member():
     request_id = getattr(request, 'request_id', 'unknown')
     try:
         logger.info(f"Request {request_id}: Processing remove_family_member request")
-        data = get_data_json(request)
-        admin_id = get_auth_key(request)
+        user_id = get_auth_key(request)
+        
+        logger.debug(f'Request {request_id}: request args: {request.args}')
         
         # Validate required fields
-        if ('family_id' not in data and 'family_name' not in data) or 'user_id' not in data:
-            missing = []
-            if 'family_id' not in data and 'family_name' not in data:
-                missing.append('family_id or family_name')
-            if 'user_id' not in data:
-                missing.append('user_id')
-            logger.warning(f"Request {request_id}: Missing required fields: {', '.join(missing)}")
-            raise MissingRequiredFieldError(", ".join(missing))
-            
-        family_id = data.get('family_id')
-        family_name = data.get('family_name')
-        user_id = data.get('user_id')
+        required_fields = ['family_name', 'username']
+        missing_fields = [field for field in required_fields if field not in request.args]
+        if missing_fields:
+            logger.warning(f"Request {request_id}: Missing required fields: {missing_fields}")
+            raise MissingRequiredFieldError(", ".join(missing_fields))
+        family_name = request.args['family_name']
+        username = request.args['username']
         
-        # Create family object
-        family = Family(id=family_id, name=family_name)
+        #Assure user is admin
+        family = Family(name=family_name)
+        
+        if not family.getUserInFamily(username):
+            logger.warning(f"Request {request_id}: User {username} is not in family {family_name}")
+            raise UserNotInFamilyError()
         
         # Check if user is admin
-        if not family.is_admin(admin_id):
-            logger.warning(f"Request {request_id}: User {admin_id} is not admin of family {family_id or family_name}")
+        if not family.is_admin(user_id):
+            logger.warning(f"Request {request_id}: User {user_id} is not admin of family {family_name}")
             raise NotFamilyAdminError()
             
-        # Check if trying to remove admin
-        if int(user_id) == int(family.admin_id):
-            logger.warning(f"Request {request_id}: Cannot remove admin from family")
-            raise CannotRemoveAdminError()
-            
         # Remove member
-        logger.debug(f"Request {request_id}: Removing user {user_id} from family {family_id or family_name}")
-        family.remove_member(user_id)
+        logger.debug(f"Request {request_id}: Removing user {user_id} from family {family_name}")
+        family.remove_member(username)
         
-        logger.info(f"Request {request_id}: Successfully removed user {user_id} from family {family_id or family_name}")
-        return jsonify({"message": "User removed from family successfully"}), 200
+        # Format response message including username if available
+        message = f"User {username if username else user_id} removed from family successfully"
+        logger.info(f"Request {request_id}: Successfully removed user {user_id} from family {family_name}")
+        return jsonify({"message": message}), 200
         
-    except (FamilyNotFoundError, UserNotInFamilyError):
+    except (FamilyNotFoundError, UserNotFoundError, UserNotInFamilyError):
         # These will be logged by their exception handlers
         raise
-    except (MissingRequiredFieldError, AuthenticationError, NotFamilyAdminError, CannotRemoveAdminError):
+    except (MissingRequiredFieldError, AuthenticationError, NotFamilyAdminError, CannotRemoveAdminError, QueryError):
         # Re-raise these specific exceptions
         raise
     except Exception as e:

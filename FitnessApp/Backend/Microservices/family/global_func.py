@@ -78,7 +78,7 @@ def verify_key(api_key):
         
         # Query to check if the API key exists and get associated user ID
         cur.execute(
-            "SELECT user_id FROM api_keys WHERE key = %s AND expires_at > NOW()",
+            "SELECT id FROM users WHERE key = %s",
             (api_key,)
         )
         
