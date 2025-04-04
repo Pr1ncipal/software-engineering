@@ -6,17 +6,27 @@ import ast  # Safe parser for string tuples
 def build_motivation_prompt(user_id):
     try:
         conn = psycopg2.connect(
-            dbname="sam_DB", user="postgres", password="password", host="localhost", port="5432"
+            dbname="gitfitbro",
+            user="postgres",
+            password="password",
+            host="localhost",
+            port="5432"
         )
         cur = conn.cursor()
 
-        # Get streak + last workout
-        cur.execute("SELECT day_streak, last_workout FROM user_engagement WHERE user_id = %s", (user_id,))
+        # Get day_streak and last_workout from user_engagement
+        cur.execute("""
+            SELECT day_streak, last_workout
+            FROM user_engagement
+            WHERE user_id = %s
+            ORDER BY last_login DESC
+            LIMIT 1
+        """, (user_id,))
         engagement = cur.fetchone()
-        streak = engagement[0] if engagement else 0
-        last_workout = engagement[1] if engagement else None
+        streak = engagement[0] if engagement and engagement[0] is not None else 0
+        last_workout = engagement[1] if engagement and engagement[1] else None
 
-        # Get current weight
+        # Get latest current weight
         cur.execute("""
             SELECT weight
             FROM user_stats
@@ -38,14 +48,15 @@ def build_motivation_prompt(user_id):
         goal_result = cur.fetchone()
         goal_weight = goal_result[0] if goal_result else None
 
-        # Get user's name
+        # Get user's first name
         cur.execute("SELECT fname FROM users WHERE id = %s", (user_id,))
-        fname = cur.fetchone()[0]
+        name_result = cur.fetchone()
+        fname = name_result[0] if name_result else "Athlete"
 
         cur.close()
         conn.close()
 
-        # Build the motivational prompt
+        # ✨ Build the motivational prompt
         prompt = f"""
 You are a positive, motivational AI fitness coach.
 
@@ -63,6 +74,55 @@ Write a short motivational message (under 200 characters). Make it personalized 
     except Exception as e:
         print("❌ Error building motivation prompt:", e)
         return None
+
+
+def get_user_streak(user_id):
+    try:
+        conn = psycopg2.connect(
+            dbname="gitfitbro",
+            user="postgres",
+            password="password",
+            host="localhost",
+            port="5432"
+        )
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT day_streak, last_login, last_workout
+            FROM user_engagement
+            WHERE user_id = %s
+            ORDER BY last_login DESC
+            LIMIT 1
+        """, (user_id,))
+
+        result = cur.fetchone()
+        print(result)
+        cur.close()
+        conn.close()
+
+        if result:
+            day_streak, last_login, last_workout = result
+            return {
+                "day_streak": day_streak,
+                "last_login": str(last_login),
+                "last_workout": str(last_workout) if last_workout else None
+            }
+        else:
+            return {
+                "day_streak": 0,
+                "last_login": None,
+                "last_workout": None
+            }
+
+    except Exception as e:
+        print("❌ Error fetching user streak from engagement table:", e)
+        return {
+            "day_streak": 0,
+            "last_login": None,
+            "last_workout": None
+        }
+
+
 
 
 def format_sets(set_data):
@@ -96,7 +156,7 @@ def format_sets(set_data):
 def get_data(user_id):
     try:
         conn = psycopg2.connect(
-            dbname="sam_DB",
+            dbname="gitfitbro",
             user="postgres",
             password="password",
             host="localhost",
@@ -209,7 +269,7 @@ def get_data(user_id):
 def get_userName(user_id):
     try:
         conn = psycopg2.connect(
-            dbname="sam_DB",
+            dbname="gitfitbro",
             user="postgres",
             password="password",
             host="localhost",
@@ -237,6 +297,30 @@ def get_userName(user_id):
         return None
 
 
+def get_user_id_by_username(username):
+    try:
+        conn = psycopg2.connect(
+            dbname="gitfitbro", user="postgres", password="password", host="localhost", port="5432"
+        )
+        cur = conn.cursor()
+
+        cur.execute("SELECT id FROM users WHERE username = %s", (username,))
+        result = cur.fetchone()
+
+        cur.close()
+        conn.close()
+
+        if result:
+            return result[0]
+        else:
+            return None
+
+    except Exception as e:
+        print("❌ Error fetching user ID by username:", e)
+        return None
+
+
+
 if __name__ == '__main__':
     user_id = 1
     data = get_data(user_id)
@@ -246,6 +330,8 @@ if __name__ == '__main__':
         print("✅ Data written to data.json")
     else:
         print("❌ No data written due to errors.")
+        
+        
 
 
 

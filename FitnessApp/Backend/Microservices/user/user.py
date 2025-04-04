@@ -75,6 +75,7 @@ def handle_user_service_error(error):
     response.status_code = error.status_code
     return response
 
+
 def get_data_jwt(request):
     """
     Extract and validate JWT token from the request.

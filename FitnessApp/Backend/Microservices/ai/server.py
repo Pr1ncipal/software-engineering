@@ -8,7 +8,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../.
 
 from flask import Flask, request, jsonify, session
 import requests
-from AI_resources.getData import get_data, get_userName, build_motivation_prompt
+from AI_resources.getData import get_data, get_userName, build_motivation_prompt, get_user_id_by_username
 
 app = Flask(__name__)
 app.config["SESSION_TYPE"] = "filesystem"
@@ -30,6 +30,21 @@ def generate():
     return jsonify(response_json)
 
 # user_data = 72
+
+@app.route('/api/get_user_id')
+def get_user_id():
+    username = request.args.get('username')
+    print("Username:", username)
+    if not username:
+        return jsonify({"error": "Missing username parameter"}), 400
+
+    user_id = get_user_id_by_username(username)
+    if user_id is not None:
+        return jsonify({"id": user_id})
+    else:
+        return jsonify({"error": "User not found"}), 404
+
+
 
 @app.route('/user_name', methods=['POST'])
 def get_username():
@@ -72,36 +87,18 @@ def get_dynamic_motivation():
         print("❌ Error generating motivation:", e)
         return jsonify({"error": str(e)}), 500
 
-  
+
+from AI_resources.getData import get_user_streak
+
 @app.route("/api/streak-graph", methods=["GET"])
 def streak_graph():
-    user_id = request.args.get("user_id", type=int, default=1)
-    conn = psycopg2.connect(
-        dbname="sam_DB", user="postgres", password="password", host="localhost", port="5432"
-    )
-    cur = conn.cursor()
+    user_id = request.args.get("user_id", type=int)
+    if not user_id:
+        return jsonify({"error": "Missing user_id"}), 400
 
-    # Get last 7 days of activity
-    cur.execute("""
-        SELECT date_performed::date, COUNT(*) 
-        FROM workouts 
-        WHERE user_id = %s AND date_performed >= CURRENT_DATE - interval '6 days'
-        GROUP BY date_performed
-    """, (user_id,))
+    data = get_user_streak(user_id)
+    return jsonify(data)
 
-    results = dict(cur.fetchall())
-    cur.close()
-    conn.close()
-
-    from datetime import date, timedelta
-    today = date.today()
-    streaks = []
-
-    for i in range(6, -1, -1):
-        d = today - timedelta(days=i)
-        streaks.append(results.get(d, 0))  # 0 if no workouts
-
-    return jsonify({"streaks": streaks})
 
  
 
@@ -110,7 +107,7 @@ def chat():
     print("Chat endpoint called")
     data = request.json
     user_message = data.get("message", "")
-    user_id = data.get("user_id", 1)  # fallback to 72, once login is working that gets user_id 
+    user_id = data.get("user_id", 1) # fallback to 72, once login is working that gets user_id 
     
     user_info = get_data(user_id)    
     
