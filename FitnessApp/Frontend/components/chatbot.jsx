@@ -3,6 +3,8 @@ import "./ChatbotPopup.css";
 import { IoChatbubbleEllipsesOutline, IoClose, IoMic, IoMicOff, IoVolumeHigh } from "react-icons/io5";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { getUserId } from "../utils/getUserId"; // adjust path if needed
+
 
 
 const App = () => {
@@ -20,34 +22,85 @@ const App = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+
+  function getUsernameFromStorage() {
+    const encoded = localStorage.getItem("savedUsername");
+    if (!encoded) return null;
+  
+    try {
+      const decoded = atob(encoded);
+      const parsed = JSON.parse(decoded);
+      return parsed.value;
+    } catch (e) {
+      console.error("Failed to decode user from localStorage", e);
+      return null;
+    }
+  }
+  
+
   // Fetch user's name when chat opens
   // Inside your fetch in useEffect
+// useEffect(() => {
+//   if (isOpen && messages.length === 0) {
+//     fetch("http://localhost:5000/user_name", {
+//       method: "POST",
+//       headers: { "Content-Type": "application/json" },
+//       body: JSON.stringify({ user_id: 1 }) // Replace with dynamic ID later
+//     })
+//       .then(res => res.json())
+//       .then(data => {
+//         const name = data.first_name;
+//         setUserName(name);
+//         setMessages([
+//           {
+//             sender: "bot",
+//             text: `Hi ${name} 👋 How can I help you with your fitness journey today?`
+//           }
+//         ]);
+//       })
+//       .catch(err => {
+//         console.error("Failed to fetch name:", err);
+//         setMessages([
+//           { sender: "bot", text: "Hi 👋 How can I help you with your fitness journey today?" }
+//         ]);
+//       });
+//   }
+// }, [isOpen]);
+
 useEffect(() => {
-  if (isOpen && messages.length === 0) {
+  const loadGreeting = async () => {
+    const username = getUsernameFromStorage();
+    const userId = username ? await getUserId(username) : null;
+
+    if (!userId) {
+      setMessages([{ sender: "bot", text: "Hi 👋 How can I help you with your fitness journey today?" }]);
+      return;
+    }
+
     fetch("http://localhost:5000/user_name", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id: 1 }) // Replace with dynamic ID later
+      body: JSON.stringify({ user_id: userId })
     })
       .then(res => res.json())
       .then(data => {
         const name = data.first_name;
         setUserName(name);
         setMessages([
-          {
-            sender: "bot",
-            text: `Hi ${name} 👋 How can I help you with your fitness journey today?`
-          }
+          { sender: "bot", text: `Hi ${name} 👋 How can I help you with your fitness journey today?` }
         ]);
       })
       .catch(err => {
-        console.error("Failed to fetch name:", err);
-        setMessages([
-          { sender: "bot", text: "Hi 👋 How can I help you with your fitness journey today?" }
-        ]);
+        console.error("Name fetch error:", err);
+        setMessages([{ sender: "bot", text: "Hi 👋 How can I help you with your fitness journey today?" }]);
       });
+  };
+
+  if (isOpen && messages.length === 0) {
+    loadGreeting();
   }
 }, [isOpen]);
+
 
 
   // Initialize speech recognition
@@ -128,13 +181,24 @@ useEffect(() => {
   
     const userMessage = { sender: "user", text: input };
     setMessages((prev) => [...prev, userMessage]);
+
+    // 🔐 Get username and user ID
+    const username = getUsernameFromStorage();
+    const userId = username ? await getUserId(username) : null;
+
+    if (!userId) {
+      setMessages(prev => [...prev, { sender: "bot", text: "❌ User ID not found." }]);
+      return;
+    }
+
   
     try {
       const response = await fetch("http://localhost:5000/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: input
+          message: input,
+          user_id: userId
         }),
       });
   
