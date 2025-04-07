@@ -11,11 +11,12 @@ import {
   Dimensions
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { secureStorage } from '../utils/secureStorage'; // Import secureStorage
 
 const { width } = Dimensions.get('window');
 
-const API_URL = 'http://127.0.0.1:8080/api/leaderboard/get_leaderboard';
-const apiKey = 'aFAvLklqd1NnT3U3QT9fO21RQmpFezdDUyhfNV5EcFU1cSEwRks5aDVpbHk9e31ET1IvWSZJbCpZLFk3c2BIMw==';
+const API_URL = 'http://localhost:8080/api/leaderboard/get_leaderboard';
+const AUTH_TOKEN_KEY = 'authToken'; // Key for secure storage
 
 // Workout ID mapping
 const WORKOUT_IDS = {
@@ -34,26 +35,33 @@ const LeaderboardPage = () => {
   const fetchLeaderboard = async (category, workout = '') => {
     setLoading(true);
     setError(null);
+
     try {
+      // Retrieve the API key from secureStorage
+      const storedApiKey = await secureStorage.getItem(AUTH_TOKEN_KEY);
+      if (!storedApiKey) {
+        throw new Error('API key is missing. Please log in again.');
+      }
+
       const queryParams = new URLSearchParams({
-        category, 
+        category,
         days: '7',
         scope: 'global',
         workout: category === '1rm' ? workout : '',
-        number: '10'
+        number: '10',
       }).toString();
-  
+
       const response = await fetch(`${API_URL}?${queryParams}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `ApiKey ${apiKey}`
-        }
+          'Authorization': `ApiKey ${storedApiKey}`,
+        },
       });
-  
+
       const responseText = await response.text();
       console.log('Raw API Response:', response.status, responseText);
-  
+
       if (!response.ok) {
         const errorData = JSON.parse(responseText);
         if (errorData.error === 'no_leaderboard_data') {
@@ -65,7 +73,7 @@ const LeaderboardPage = () => {
         setLoading(false);
         return;
       }
-  
+
       const result = JSON.parse(responseText);
       setData(result.leaderboard);
     } catch (error) {

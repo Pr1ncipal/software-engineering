@@ -506,8 +506,9 @@ def remove_family_member():
         logger.error(f"Request {request_id}: Unexpected error: {str(e)}")
         logger.error(f"Request {request_id}: {traceback.format_exc()}")
         raise FamilyServiceError(f"An unexpected error occurred: {str(e)}")
+    
 
-@app.route('/edit_family_admin', methods=['PUT'])
+@app.route('/change_admin', methods=['PUT'])
 def edit_family_admin():
     """
     Change the admin of a family.
@@ -518,11 +519,10 @@ def edit_family_admin():
     request_id = getattr(request, 'request_id', 'unknown')
     try:
         logger.info(f"Request {request_id}: Processing edit_family_admin request")
-        data = get_data_json(request)
-        current_admin_id = get_auth_key(request)
+        data, current_admin_id = get_data_jwt(request)
         
         # Validate required fields
-        required_fields = ['family_name', 'new_admin_username']
+        required_fields = ['family_name', 'username']
         missing_fields = [field for field in required_fields if field not in data]
         
         if missing_fields:
@@ -530,7 +530,7 @@ def edit_family_admin():
             raise MissingRequiredFieldError(", ".join(missing_fields))
             
         family_name = data['family_name']
-        new_admin_username = data['new_admin_username']
+        new_admin_username = data['username']
         
         # Create family object
         family = Family(name=family_name)
@@ -557,7 +557,122 @@ def edit_family_admin():
         logger.error(f"Request {request_id}: Unexpected error: {str(e)}")
         logger.error(f"Request {request_id}: {traceback.format_exc()}")
         raise FamilyServiceError(f"An unexpected error occurred: {str(e)}")
+    
+@app.route('/get_family_requests', methods=['GET'])
+def get_family_requests():
+    """
+    Get all family requests for the authenticated user.
+    
+    Returns:
+        flask.Response: JSON response with family requests
+    """
+    request_id = getattr(request, 'request_id', 'unknown')
+    try:
+        logger.info(f"Request {request_id}: Processing get_family_requests")
+        user_id = get_auth_key(request)
+        
+        # Create family object
+        family = Family()
+        
+        # Get requests
+        logger.debug(f"Request {request_id}: Getting family requests for user ID: {user_id}")
+        requests = family.get_requests(user_id=user_id)
+        
+        logger.info(f"Request {request_id}: Successfully retrieved {len(requests)} family requests for user ID: {user_id}")
+        return jsonify({"requests": requests}), 200
+        
+    except (FamilyNotFoundError, UserNotFoundError):
+        # These will be logged by their exception handlers
+        raise
+    except AuthenticationError:
+        # Re-raise these specific exceptions
+        raise
+    except Exception as e:
+        logger.error(f"Request {request_id}: Unexpected error: {str(e)}")
+        logger.error(f"Request {request_id}: {traceback.format_exc()}")
+        raise FamilyServiceError(f"An unexpected error occurred: {str(e)}")
+    
+@app.route('/leave_family', methods=['DELETE'])
+def leave_family():
+    """
+    Leave a family.
+    
+    Returns:
+        flask.Response: JSON response with family leaving status
+    """
+    request_id = getattr(request, 'request_id', 'unknown')
+    try:
+        logger.info(f"Request {request_id}: Processing leave_family request")
+        user_id = get_auth_key(request)
+        
+        # Validate required fields
+        if 'family_name' not in request.args:
+            logger.warning(f"Request {request_id}: Missing required field: family_name")
+            raise MissingRequiredFieldError("family_name")
+            
+        family_name = request.args.get('family_name')
+        
+        # Create family object
+        family = Family(name=family_name)
+        
+        # Check if user is in the family
+        if not family.isMember(user_id):
+            logger.warning(f"Request {request_id}: User {user_id} is not a member of family '{family_name}'")
+            raise UserNotInFamilyError()
+            
+        # Leave the family
+        logger.debug(f"Request {request_id}: User {user_id} leaving family '{family_name}'")
+        family.leave(user_id=user_id)
+        
+        logger.info(f"Request {request_id}: Successfully left family '{family_name}'")
+        return jsonify({"message": "Successfully left the family"}), 200
+        
+    except (FamilyNotFoundError, UserNotFoundError, CannotLeaveFamilyError):
+        # These will be logged by their exception handlers
+        raise
+    except (MissingRequiredFieldError, AuthenticationError, NotFamilyAdminError):
+        # Re-raise these specific exceptions
+        raise
+    except Exception as e:
+        logger.error(f"Request {request_id}: Unexpected error: {str(e)}")
+        logger.error(f"Request {request_id}: {traceback.format_exc()}")
+        raise FamilyServiceError(f"An unexpected error occurred: {str(e)}")
+    
+@app.route('/get_families', methods=['GET'])
+def getFamilies():
+    """
+    Get all families in the system.
+    
+    Returns:
+        flask.Response: JSON response with family list
+    """
+    request_id = getattr(request, 'request_id', 'unknown')
+    try:
+        logger.info(f"Request {request_id}: Processing get_families request")
+        
+        user_id = get_auth_key(request)
+        
+        # Create family object
+        family = Family()
+        
+        # Get families
+        logger.debug(f"Request {request_id}: Getting all families")
+        families = family.getFamilies(user_id)
+        
+        logger.info(f"Request {request_id}: Successfully retrieved {len(families)} families")
+        return jsonify(families), 200
+        
+    except (FamilyNotFoundError, UserNotFoundError):
+        # These will be logged by their exception handlers
+        raise
+    except AuthenticationError:
+        # Re-raise these specific exceptions
+        raise
+    except Exception as e:
+        logger.error(f"Request {request_id}: Unexpected error: {str(e)}")
+        logger.error(f"Request {request_id}: {traceback.format_exc()}")
+        raise FamilyServiceError(f"An unexpected error occurred: {str(e)}")
 
 if __name__ == '__main__':
-    logger.info("Starting family microservice on port 5000")
+    logger.info("Starting family microservice on port 8080")
     app.run(host='0.0.0.0', port=8080, debug=True)

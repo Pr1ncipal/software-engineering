@@ -48,10 +48,67 @@ class Family:
         try:
             if id or name:
                 self.load()
+            else:
+                logger.warning("Family initialized without ID or name")
         except FamilyNotFoundError:
             logger.warning(f"Family with ID {id} or name {name} not found during initialization")
         except Exception as e:
             raise
+        
+    def isMember(self, user_id, conn=None):
+        """
+        Check if a user is a member of the family.
+        
+        Args:
+            user_id (int): User ID to check
+            conn (psycopg2.connection, optional): Database connection
+            
+        Returns:
+            bool: True if user is a member, False otherwise
+            
+        Raises:
+            FamilyNotFoundError: If family doesn't exist
+            ConnectionError: If database connection fails
+            QueryError: If database query fails
+        """
+        logger.debug(f"Checking if user {user_id} is a member of family ID: {self.id}, Name: {self.name}")
+        
+        try:
+            # Load family data if not already loaded
+            if not self.id:
+                self.load()
+                
+            should_close_conn = False
+            if not conn:
+                conn = global_func.getConnection()
+                should_close_conn = True
+            
+            cur = conn.cursor()
+            
+            # Check if user is in the family
+            cur.execute(
+                "SELECT 1 FROM family_members WHERE family_id = %s AND user_id = %s",
+                (self.id, user_id)
+            )
+            result = cur.fetchone()
+            
+            return bool(result)
+            
+        except FamilyNotFoundError:
+            # Re-raise this exception
+            raise
+        except psycopg2.Error as e:
+            logger.error(f"Database error checking membership: {str(e)}")
+            raise QueryError(f"Failed to check membership: {str(e)}")
+        except Exception as e:
+            logger.error(f"Unexpected error checking membership: {str(e)}")
+            logger.debug(traceback.format_exc())
+            raise FamilyServiceError(f"Error checking membership: {str(e)}")
+        finally:
+            if cur:
+                cur.close()
+            if should_close_conn and conn:
+                conn.close()
     
     def load(self, conn=None):
         """
@@ -253,6 +310,94 @@ class Family:
             if conn:
                 conn.rollback()
             raise FamilyServiceError(f"Error deleting family: {str(e)}")
+        finally:
+            if cur:
+                cur.close()
+            if should_close_conn and conn:
+                conn.close()
+                
+    def leave(self, user_id, conn = None):
+        """
+        Leave the family.
+        
+        Args:
+            user_id (int): User ID of the member leaving
+            conn (psycopg2.connection, optional): Database connection
+            
+        Raises:
+            FamilyNotFoundError: If family doesn't exist
+            UserNotInFamilyError: If user is not in the family
+            ConnectionError: If database connection fails
+            QueryError: If database query fails
+        """
+        logger.info(f"User leaving family with ID: {self.id}, Name: {self.name}")
+        
+        try:
+            # Load family data if not already loaded
+            if not self.id:
+                self.load()
+                
+            should_close_conn = False
+            if not conn:
+                conn = global_func.getConnection()
+                should_close_conn = True
+            
+            cur = conn.cursor()
+            
+            # Check if user is in the family
+            cur.execute(
+                "SELECT 1 FROM family_members WHERE family_id = %s AND user_id = %s",
+                (self.id, self.admin_id)
+            )
+            if not cur.fetchone():
+                logger.warning(f"User {self.admin_id} is not in family {self.id}")
+                raise UserNotInFamilyError()
+            
+            # Check if user is admin
+            if self.admin_id == user_id:
+                logger.warning(f"Admin {user_id} cannot leave the family")
+                raise CannotRemoveAdminError()
+            
+            # Check if user is the only member
+            cur.execute(
+                "SELECT COUNT(*) FROM family_members WHERE family_id = %s",
+                (self.id,)
+            )
+            count = cur.fetchone()[0]
+            if count <= 1:
+                logger.warning(f"Cannot leave family {self.id} - only one member left")
+                raise CannotLeaveFamilyError("Cannot leave family - only one member left")
+            
+            # Remove user from family
+            cur.execute(
+                "DELETE FROM family_members WHERE family_id = %s AND user_id = %s",
+                (self.id, self.admin_id)
+            )
+            
+            conn.commit()
+            logger.info(f"Successfully removed user {self.admin_id} from family {self.id}")
+            
+        except FamilyNotFoundError:
+            # Re-raise this exception
+            if conn:
+                conn.rollback()
+            raise
+        except CannotRemoveAdminError:
+            # Re-raise this exception
+            if conn:
+                conn.rollback()
+            raise
+        except psycopg2.Error as e:
+            logger.error(f"Database error leaving family: {str(e)}")
+            if conn:
+                conn.rollback()
+            raise QueryError(f"Failed to leave family: {str(e)}")
+        except Exception as e:
+            logger.error(f"Unexpected error leaving family: {str(e)}")
+            logger.debug(traceback.format_exc())
+            if conn:
+                conn.rollback()
+            raise FamilyServiceError(f"Error leaving family: {str(e)}")
         finally:
             if cur:
                 cur.close()
@@ -687,7 +832,7 @@ class Family:
             if should_close_conn and conn:
                 conn.close()
     
-    def change_admin(self, new_admin_username, conn=None):
+    def change_admin(self, new_admin_username, conn=None): #Must test
         """
         Change the admin of a family.
         
@@ -736,7 +881,7 @@ class Family:
             
             # Update admin
             cur.execute(
-                "UPDATE families SET admin_id = %s WHERE id = %s",
+                "UPDATE family SET family_admin = %s WHERE id = %s",
                 (new_admin_id, self.id)
             )
             
@@ -768,7 +913,7 @@ class Family:
             if should_close_conn and conn:
                 conn.close()
     
-    def get_requests(self, user_id=None, status=None, conn=None):
+    def get_requests(self, user_id, conn=None):
         """
         Get family join requests.
         
@@ -785,12 +930,9 @@ class Family:
             ConnectionError: If database connection fails
             QueryError: If database query fails
         """
-        logger.debug(f"Getting requests for family {self.id}, user={user_id}, status={status}")
+        logger.debug(f"Getting requests for family user={user_id}, status= pending")
         
         try:
-            # Load family data if not already loaded
-            if not self.id:
-                self.load()
                 
             should_close_conn = False
             if not conn:
@@ -800,34 +942,31 @@ class Family:
             cur = conn.cursor(cursor_factory=RealDictCursor)
             
             # Build query with optional filters
-            query = """
-                SELECT fr.*, 
-                       f.name as family_name,
-                       s.username as sender_username,
-                       r.username as receiver_username
+            query = sql.SQL("""
+                SELECT fr.id as request_id, fr.family_id as family_id, fr.status as status, fr.created_at as created_at,
+                       f.family_name as family_name,
+                       s.username as sender_username
                 FROM family_requests fr
-                JOIN families f ON fr.family_id = f.id
+                JOIN family f ON fr.family_id = f.id
                 JOIN users s ON fr.sender_id = s.id
                 JOIN users r ON fr.receiver_id = r.id
-                WHERE fr.family_id = %s
-            """
-            params = [self.id]
-            
-            if user_id:
-                query += " AND fr.receiver_id = %s"
-                params.append(user_id)
-                
-            if status:
-                query += " AND fr.status = %s"
-                params.append(status)
-                
-            query += " ORDER BY fr.request_date DESC"
+                WHERE fr.receiver_id = %s AND fr.status IS NULL
+                ORDER BY fr.created_at DESC
+            """)
+            params = (user_id,)
             
             cur.execute(query, params)
             requests = cur.fetchall()
             
-            logger.debug(f"Found {len(requests)} requests for family {self.id}")
-            return requests
+            self.__dict__ = {"request_id": None, "family_id": None, "status": None, "created_at": None, "family_name": None, "sender_username": None}
+            
+            final = self.__jsonify_tuple_list__(requests)
+            
+            for f in final:
+                del f['family_id']
+            
+            logger.debug(f"Found {len(requests)} requests for user {user_id}")
+            return final
             
         except FamilyNotFoundError:
             # Re-raise this exception
@@ -894,4 +1033,88 @@ class Family:
                 cur.close()
             if should_close_conn and conn:
                 conn.close()
+                
+    def getFamilies(self, user_id, conn=None):
+        """
+        Get all families a user belongs to.
+        
+        Args:
+            user_id (int): User ID to check
+            conn (psycopg2.connection, optional): Database connection
+        Returns:
+            list: List of families the user belongs to
+        Raises:
+            ConnectionError: If database connection fails
+            QueryError: If database query fails
+        """
+        logger.debug(f"Getting families for user ID: {user_id}")
+        
+        should_close_conn = False
+        try:
+            if not conn:
+                conn = global_func.getConnection()
+                should_close_conn = True
+            
+            cur = conn.cursor(cursor_factory=RealDictCursor)
+            
+            # Query to get all families the user belongs to
+            query = """
+                SELECT f.id as family_id, f.family_name as family_name, f.family_admin as admin_id
+                FROM family_members fm
+                JOIN family f ON fm.family_id = f.id
+                WHERE fm.user_id = %s
+            """
+            
+            cur.execute(query, (user_id,))
+            families = cur.fetchall()
+            
+            logger.debug(f"Found {len(families)} families for user ID: {user_id}")
+            
+            # Convert tuples to dictionaries
+            #self.__dict__ = {"family_id": None, "family_name": None, "admin_id": None}
+            #final = self.__jsonify_tuple_list__(families)
+            
+            return families
+            
+        except psycopg2.Error as e:
+            logger.error(f"Database error getting families for user: {str(e)}")
+            raise QueryError(f"Failed to retrieve families for user: {str(e)}")
+        except Exception as e:
+            logger.error(f"Unexpected error getting families for user: {str(e)}")
+            logger.debug(traceback.format_exc())
+            raise FamilyServiceError(f"Error retrieving families for user: {str(e)}")
+        finally:
+            if cur:
+                cur.close()
+            if should_close_conn and conn:
+                conn.close()
+                
+    def __jsonify_tuple__(self, tuple_data):
+        """
+        Convert a tuple to a dictionary with keys from the class attributes.
+        
+        Args:
+            tuple_data (tuple): Tuple data to convert
+            
+        Returns:
+            dict: Dictionary representation of the tuple
+        """
+        return {key: value for key, value in zip(self.__dict__.keys(), tuple_data)}
+    
+    def __jsonify_tuple_list__(self, tuple_list):
+        """
+        Convert a list of tuples to a list of dictionaries with keys from the class attributes.
+        
+        Args:
+            tuple_list (list): List of tuples to convert
+            
+        Returns:
+            list: List of dictionary representations of the tuples
+        """
+        # Convert each tuple in the list to a dictionary
+        # using the class attributes as keys
+        # Return the list of dictionaries
+        # return [dict(zip(self.__dict__.keys(), item)) for item in tuple_list]
+        
+        return [self.__jsonify_tuple__(item) for item in tuple_list]
         

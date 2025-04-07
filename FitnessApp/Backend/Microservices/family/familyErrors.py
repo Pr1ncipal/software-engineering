@@ -177,6 +177,14 @@ class CannotRemoveAdminError(FamilyError):
     def __init__(self, message="Cannot remove the family admin"):
         super().__init__(message, self.status_code, self.error_code)
 
+class CannotLeaveFamilyError(FamilyError):
+    """Exception raised when a user cannot leave a family (e.g., last member, only admin)"""
+    status_code = 403
+    error_code = "CANNOT_LEAVE_FAMILY"
+    
+    def __init__(self, message="Cannot leave the family"):
+        super().__init__(message, self.status_code, self.error_code)
+
 # Request-specific Errors
 class RequestError(FamilyServiceError):
     """Base exception class for family request errors"""

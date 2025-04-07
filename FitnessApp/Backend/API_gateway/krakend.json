@@ -297,6 +297,26 @@
       ]
     },
     {
+      "endpoint": "/api/family/get_requests",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "backend": [
+        {
+          "url_pattern": "/get_family_requests",
+          "encoding": "no-op",
+          "sd": "static",
+          "method": "GET",
+          "host": [
+            "http://family:8080"
+          ],
+          "disable_host_sanitize": false
+        }
+      ],
+      "input_headers": [
+        "Authorization"
+      ]
+    },
+    {
       "endpoint": "/api/family/accept_family_request",
       "method": "PUT",
       "output_encoding": "no-op",
@@ -324,6 +344,30 @@
       "backend": [
         {
           "url_pattern": "/delete_family",
+          "encoding": "no-op",
+          "sd": "static",
+          "method": "DELETE",
+          "host": [
+            "http://family:8080"
+          ],
+          "disable_host_sanitize": false
+        }
+      ],
+      "input_query_strings": [
+        "username",
+        "family_name"
+      ],
+      "input_headers": [
+        "Authorization"
+      ]
+    },
+    {
+      "endpoint":"/api/family/leave",
+      "method": "DELETE",
+      "output_encoding": "no-op",
+      "backend": [
+        {
+          "url_pattern": "/leave_family",
           "encoding": "no-op",
           "sd": "static",
           "method": "DELETE",
@@ -390,12 +434,12 @@
       ]
     },
     {
-      "endpoint": "/api/family/edit_admin",
+      "endpoint": "/api/family/change_admin",
       "method": "PUT",
       "output_encoding": "no-op",
       "backend": [
         {
-          "url_pattern": "/edit_family_admin",
+          "url_pattern": "/change_admin",
           "encoding": "no-op",
           "sd": "static",
           "method": "PUT",
@@ -408,6 +452,26 @@
       "input_headers": [
         "Authorization",
         "Content-Type"
+      ]
+    },
+    {
+      "endpoint": "/api/family/get_families",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "backend": [
+        {
+          "url_pattern": "/get_families",
+          "encoding": "no-op",
+          "sd": "static",
+          "method": "GET",
+          "host": [
+            "http://family:8080"
+          ],
+          "disable_host_sanitize": false
+        }
+      ],
+      "input_headers": [
+        "Authorization"
       ]
     }
   ],

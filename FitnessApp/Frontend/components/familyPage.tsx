@@ -37,6 +37,7 @@ import {
   ListItemAvatar,
   ListItemSecondaryAction,
   InputAdornment,
+  CircularProgress,
 } from '@mui/material';
 import PersonIcon from '@mui/icons-material/Person';
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
@@ -53,6 +54,10 @@ import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 
+// Import the family service
+import { familyService } from '../services/familyService';
+import { USERNAME_KEY } from '../utils/secureStorage';
+
 // Define TypeScript interfaces
 interface Family {
   id: number;
@@ -60,7 +65,7 @@ interface Family {
 }
 
 interface FamilyMember {
-  id: number;
+  id?: number;
   username: string;
   firstName: string;
   lastName: string;
@@ -69,73 +74,22 @@ interface FamilyMember {
 }
 
 interface FamilyInvitation {
-  id: number;
-  familyId: number;
+  id: number | string;
   familyName: string;
   fromUsername: string;
   timestamp: string;
+  status: string;
+  read: boolean;
 }
 
-// Use a record type for the family members mapping
-type FamilyMembersMap = Record<number, FamilyMember[]>;
-
-// Sample data - replace with actual API calls
-const sampleFamilies: Family[] = [
-  { id: 1, name: 'Smith Family' },
-  { id: 2, name: 'Johnson Family' },
-  { id: 3, name: 'Fitness Buddies' }
-];
-
-// Add more sample family members to demonstrate scrolling
-const sampleFamilyMembers: FamilyMembersMap = {
-  1: [
-    { id: 101, username: 'john_smith', firstName: 'John', lastName: 'Smith', joinDate: '2023-01-15', isAdmin: true },
-    { id: 102, username: 'sarah_smith', firstName: 'Sarah', lastName: 'Smith', joinDate: '2023-01-15', isAdmin: false },
-    { id: 103, username: 'mike_smith', firstName: 'Mike', lastName: 'Smith', joinDate: '2023-02-20', isAdmin: false },
-    { id: 104, username: 'amy_smith', firstName: 'Amy', lastName: 'Smith', joinDate: '2023-03-05', isAdmin: false },
-    { id: 105, username: 'robert_smith', firstName: 'Robert', lastName: 'Smith', joinDate: '2023-04-10', isAdmin: false },
-    { id: 106, username: 'emma_smith', firstName: 'Emma', lastName: 'Smith', joinDate: '2023-05-12', isAdmin: false },
-    { id: 107, username: 'jason_smith', firstName: 'Jason', lastName: 'Smith', joinDate: '2023-06-15', isAdmin: false },
-    { id: 108, username: 'olivia_smith', firstName: 'Olivia', lastName: 'Smith', joinDate: '2023-07-20', isAdmin: false },
-    { id: 109, username: 'william_smith', firstName: 'William', lastName: 'Smith', joinDate: '2023-08-25', isAdmin: false },
-    { id: 110, username: 'sophia_smith', firstName: 'Sophia', lastName: 'Smith', joinDate: '2023-09-30', isAdmin: false }
-  ],
-  2: [
-    { id: 201, username: 'david_johnson', firstName: 'David', lastName: 'Johnson', joinDate: '2023-03-10', isAdmin: true },
-    { id: 202, username: 'lisa_johnson', firstName: 'Lisa', lastName: 'Johnson', joinDate: '2023-03-10', isAdmin: false }
-  ],
-  3: [
-    { id: 301, username: 'fitness_guru', firstName: 'Alex', lastName: 'Trainer', joinDate: '2022-11-05', isAdmin: true },
-    { id: 302, username: 'runner123', firstName: 'Jessica', lastName: 'Runner', joinDate: '2022-12-15', isAdmin: false },
-    { id: 303, username: 'yoga_master', firstName: 'Sam', lastName: 'Flexible', joinDate: '2023-01-20', isAdmin: false },
-    { id: 304, username: 'gym_rat', firstName: 'Chris', lastName: 'Weights', joinDate: '2023-02-25', isAdmin: false }
-  ]
-};
-
-// Sample invitations data
-const sampleInvitations: FamilyInvitation[] = [
-  {
-    id: 1,
-    familyId: 3,
-    familyName: 'Fitness Buddies',
-    fromUsername: 'fitness_guru',
-    timestamp: '2023-04-01T14:23:45Z'
-  },
-  {
-    id: 2,
-    familyId: 2,
-    familyName: 'Johnson Family',
-    fromUsername: 'david_johnson',
-    timestamp: '2023-04-02T09:12:33Z'
-  }
-];
-
 const FamilyPage: React.FC = () => {
-  const [selectedFamily, setSelectedFamily] = useState<number | ''>('');
+  // State for families and selection
+  const [families, setFamilies] = useState<Family[]>([]);
+  const [selectedFamily, setSelectedFamily] = useState<string>('');
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
   const [filteredMembers, setFilteredMembers] = useState<FamilyMember[]>([]);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
-  const [currentUserId] = useState<number>(101); // For demo purposes, assuming current user is John Smith
+  const [currentUsername, setCurrentUsername] = useState<string>('');
   
   // State for invite dialog
   const [inviteDialogOpen, setInviteDialogOpen] = useState<boolean>(false);
@@ -166,65 +120,190 @@ const FamilyPage: React.FC = () => {
   
   // State for notification menu
   const [notificationAnchorEl, setNotificationAnchorEl] = useState<null | HTMLElement>(null);
-  const [invitations, setInvitations] = useState<FamilyInvitation[]>(sampleInvitations);
+  const [invitations, setInvitations] = useState<FamilyInvitation[]>([]);
 
   // State for member search/filtering
   const [searchQuery, setSearchQuery] = useState<string>('');
 
+  // Loading states
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [loadingFamilies, setLoadingFamilies] = useState<boolean>(false);
+  const [loadingMembers, setLoadingMembers] = useState<boolean>(false);
+  const [loadingInvitations, setLoadingInvitations] = useState<boolean>(false);
+
+  // Get current username when component mounts
   useEffect(() => {
-    // If a family is selected, fetch its members
-    // This would be replaced with an actual API call
+    const username = localStorage.getItem(USERNAME_KEY) || '';
+    setCurrentUsername(username);
+  }, []);
+
+  // Load families and invitations on initial render and set up polling
+  useEffect(() => {
+    // Fetch families when component mounts
+    fetchFamilies();
+    
+    // Other initialization code can stay
+    fetchInvitations();
+    
+    // Set up polling interval
+    const intervalId = setInterval(() => {
+      fetchInvitations();
+    }, 30000); // Check every 30 seconds
+    
+    // Clean up interval on component unmount
+    return () => clearInterval(intervalId);
+  }, []);
+
+  // Log families state whenever it changes
+  useEffect(() => {
+    console.log('Current families state:', families);
+  }, [families]);
+
+  // Load family members when selected family changes
+  useEffect(() => {
     if (selectedFamily !== '') {
-      const members = sampleFamilyMembers[selectedFamily as number] || [];
-      setFamilyMembers(members);
-      
-      // Apply search filter if there's a query
-      if (searchQuery.trim() === '') {
-        setFilteredMembers(members);
-      } else {
-        const query = searchQuery.toLowerCase();
-        setFilteredMembers(
-          members.filter(
-            member => 
-              member.username.toLowerCase().includes(query) ||
-              member.firstName.toLowerCase().includes(query) ||
-              member.lastName.toLowerCase().includes(query)
-          )
-        );
-      }
-      
-      // Check if current user is admin
-      const currentUserIsAdmin = members.some(member => member.isAdmin && member.id === currentUserId);
-      setIsAdmin(currentUserIsAdmin);
+      fetchFamilyMembers(selectedFamily);
     } else {
       setFamilyMembers([]);
       setFilteredMembers([]);
       setIsAdmin(false);
     }
+  }, [selectedFamily]);
 
-    // In a real app, fetch invitations from the backend
-    // For now, we use the sample data
-  }, [selectedFamily, currentUserId, searchQuery]);
+  // Apply search filter when query or members change
+  useEffect(() => {
+    if (searchQuery.trim() === '') {
+      setFilteredMembers(familyMembers);
+    } else {
+      const query = searchQuery.toLowerCase();
+      setFilteredMembers(
+        familyMembers.filter(
+          member => 
+            member.username.toLowerCase().includes(query) ||
+            member.firstName.toLowerCase().includes(query) ||
+            member.lastName.toLowerCase().includes(query)
+        )
+      );
+    }
+  }, [searchQuery, familyMembers]);
 
-  const handleFamilyChange = (event: SelectChangeEvent<number | ''>) => {
-    setSelectedFamily(event.target.value as number | '');
+  const fetchFamilies = async () => {
+    try {
+      setLoadingFamilies(true);
+
+      // Fetch families from the service
+      const response = await familyService.getFamilies();
+      console.log('Raw API response from getFamilies:', response);
+
+      // Ensure the response is an array
+      if (!Array.isArray(response)) {
+        throw new Error('Unexpected response format: Expected an array');
+      }
+
+      // Transform the response to match the Family interface
+      const transformedFamilies = response.map((family: any) => ({
+        id: family.family_id, // Use family_id from the response
+        name: family.family_name, // Use family_name from the response
+      }));
+
+      console.log('Transformed families for dropdown:', transformedFamilies);
+      setFamilies(transformedFamilies);
+    } catch (error) {
+      console.error('Error fetching families:', error);
+      setSnackbarMessage('Failed to load families. Please try again.');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    } finally {
+      setLoadingFamilies(false);
+    }
   };
 
-  // Generate a color based on username for avatar
+  const fetchFamilyMembers = async (familyName: string) => {
+    try {
+      setLoadingMembers(true);
+
+      // Fetch family members from the service
+      const response = await familyService.getFamilyMembers(familyName);
+      console.log(`Fetched members for family ${familyName}:`, response);
+
+      // Ensure the response contains the expected structure
+      if (response && typeof response === 'object' && 'members' in response && Array.isArray(response.members)) {
+        // Transform API response to match our FamilyMember interface
+        const members = response.members.map((member: any, index) => ({
+          id: index + 1, // Generate an ID if the API doesn't provide one
+          username: member.username,
+          firstName: member.fname,
+          lastName: member.lname,
+          joinDate: member.join_date || new Date().toISOString().split('T')[0], // Default to today if not provided
+          isAdmin: member.is_admin,
+        }));
+
+        setFamilyMembers(members);
+
+        // Check if the current user is an admin
+        const currentUserIsAdmin = members.some(
+          (member) => member.isAdmin && member.username === currentUsername
+        );
+        setIsAdmin(currentUserIsAdmin);
+      } else {
+        console.warn('Unexpected response structure:', response);
+        setFamilyMembers([]);
+      }
+    } catch (error) {
+      console.error(`Error fetching members for family:`, error);
+      setSnackbarMessage('Failed to load family members. Please try again.');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    } finally {
+      setLoadingMembers(false);
+    }
+  };
+
+  const fetchInvitations = async () => {
+    try {
+      setLoadingInvitations(true);
+      const response = await familyService.getNotifications();
+
+      console.log('Fetched notifications:', response);
+
+      // Transform the API response to match our component's expected format
+      const familyInvitations = response
+        .filter((request: any) => request.status === 'pending')
+        .map((request: any) => ({
+          id: request.request_id,
+          familyName: request.family_name,
+          fromUsername: request.sender_username,
+          timestamp: request.created_at,
+          status: request.status,
+          read: false, // Assume unread unless specified
+        }));
+
+      setInvitations(familyInvitations);
+    } catch (error) {
+      console.error('Error fetching invitations:', error);
+      // Don't show an error snackbar for invitations, as it's not critical
+    } finally {
+      setLoadingInvitations(false);
+    }
+  };
+
+  const handleFamilyChange = (event: SelectChangeEvent<string>) => {
+    setSelectedFamily(event.target.value);
+  };
+
   const stringToColor = (string: string): string => {
     let hash = 0;
-    for (let i = 0; i < string.length; i++) {
+    for (let i = 0; string.length > i; i++) {
       hash = string.charCodeAt(i) + ((hash << 5) - hash);
     }
     let color = '#';
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; 3 > i; i++) {
       const value = (hash >> (i * 8)) & 0xff;
       color += `00${value.toString(16)}`.slice(-2);
     }
     return color;
   };
 
-  // Format date to be more readable
   const formatDate = (dateString: string): string => {
     const options: Intl.DateTimeFormatOptions = { 
       year: 'numeric', 
@@ -234,16 +313,29 @@ const FamilyPage: React.FC = () => {
     return new Date(dateString).toLocaleDateString(undefined, options);
   };
 
-  // Format time ago for notifications
   const formatTimeAgo = (dateString: string): string => {
-    const date = new Date(dateString);
+    // Try to parse the date in multiple formats (in case the format changes)
+    let date;
+    try {
+      date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        // If invalid, default to current time minus 1 day
+        date = new Date();
+        date.setDate(date.getDate() - 1);
+      }
+    } catch (e) {
+      // If parsing fails, default to current time minus 1 day
+      date = new Date();
+      date.setDate(date.getDate() - 1);
+    }
+    
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffSec = Math.floor(diffMs / 1000);
     const diffMin = Math.floor(diffSec / 60);
     const diffHour = Math.floor(diffMin / 60);
     const diffDay = Math.floor(diffHour / 24);
-
+  
     if (diffDay > 0) {
       return `${diffDay} day${diffDay > 1 ? 's' : ''} ago`;
     } else if (diffHour > 0) {
@@ -255,7 +347,6 @@ const FamilyPage: React.FC = () => {
     }
   };
 
-  // Handler for the invite button
   const handleInviteOpen = () => {
     setInviteDialogOpen(true);
   };
@@ -265,18 +356,27 @@ const FamilyPage: React.FC = () => {
     setInviteUsername('');
   };
 
-  const handleInviteSubmit = () => {
-    // Here you would call your API to invite the user
-    console.log(`Inviting user: ${inviteUsername} to family ${selectedFamily}`);
-    
-    // Mock successful invitation
-    setSnackbarMessage(`Invitation sent to ${inviteUsername}`);
-    setSnackbarSeverity('success');
-    setSnackbarOpen(true);
-    handleInviteClose();
+  const handleInviteSubmit = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Send the invitation using the selected family name
+      await familyService.sendFamilyInvitation(selectedFamily, inviteUsername);
+      
+      setSnackbarMessage(`Invitation sent to ${inviteUsername}`);
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+      handleInviteClose();
+    } catch (error) {
+      console.error('Error inviting user:', error);
+      setSnackbarMessage('Failed to send invitation. Please check the username and try again.');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Handler for remove member button
   const handleRemoveOpen = (member: FamilyMember) => {
     setMemberToRemove(member);
     setRemoveDialogOpen(true);
@@ -287,21 +387,40 @@ const FamilyPage: React.FC = () => {
     setMemberToRemove(null);
   };
 
-  const handleRemoveSubmit = () => {
+  const handleRemoveSubmit = async () => {
     if (!memberToRemove) return;
-    
-    // Here you would call your API to remove the member
-    console.log(`Removing member: ${memberToRemove.username} from family ${selectedFamily}`);
-    
-    // Mock successful removal
-    setFamilyMembers(prevMembers => prevMembers.filter(m => m.id !== memberToRemove.id));
-    setSnackbarMessage(`${memberToRemove.username} has been removed from the family`);
-    setSnackbarSeverity('success');
-    setSnackbarOpen(true);
-    handleRemoveClose();
+    try {
+      setIsLoading(true);
+      
+      // Only allow admin to remove users
+      if (!isAdmin) {
+        setSnackbarMessage('You need admin privileges to remove members');
+        setSnackbarSeverity('error');
+        setSnackbarOpen(true);
+        handleRemoveClose();
+        return;
+      }
+      
+      // Send the request with family name and username
+      await familyService.removeUser(selectedFamily, memberToRemove.username);
+      
+      // Update the UI
+      setFamilyMembers(prevMembers => prevMembers.filter(m => m.username !== memberToRemove.username));
+      
+      setSnackbarMessage(`${memberToRemove.username} has been removed from the family`);
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+      handleRemoveClose();
+    } catch (error) {
+      console.error('Error removing member:', error);
+      setSnackbarMessage('Failed to remove member. Please try again.');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Handler for promoting a member to admin
   const handlePromoteOpen = (member: FamilyMember) => {
     setMemberToPromote(member);
     setPromoteDialogOpen(true);
@@ -312,25 +431,47 @@ const FamilyPage: React.FC = () => {
     setMemberToPromote(null);
   };
 
-  const handlePromoteSubmit = () => {
+  const handlePromoteSubmit = async () => {
     if (!memberToPromote) return;
-    
-    // Here you would call your API to promote the member to admin
-    console.log(`Promoting ${memberToPromote.username} to admin of family ${selectedFamily}`);
-    
-    // Mock successful promotion
-    setFamilyMembers(prevMembers => 
-      prevMembers.map(m => 
-        m.id === memberToPromote.id ? { ...m, isAdmin: true } : m
-      )
-    );
-    setSnackbarMessage(`${memberToPromote.username} has been promoted to admin`);
-    setSnackbarSeverity('success');
-    setSnackbarOpen(true);
-    handlePromoteClose();
+    try {
+      setIsLoading(true);
+      
+      // Only allow admin to promote users
+      if (!isAdmin) {
+        setSnackbarMessage('You need admin privileges to promote members');
+        setSnackbarSeverity('error');
+        setSnackbarOpen(true);
+        handlePromoteClose();
+        return;
+      }
+      
+      // Send the request with family name and username
+      await familyService.promoteToAdmin(selectedFamily, memberToPromote.username);
+      
+      // Update the UI to reflect the change
+      setFamilyMembers(prevMembers => 
+        prevMembers.map(m => 
+          m.username === memberToPromote.username ? { ...m, isAdmin: true } : m
+        )
+      );
+      
+      setSnackbarMessage(`${memberToPromote.username} has been promoted to admin`);
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+      handlePromoteClose();
+      
+      // Refresh family members to get updated admin status
+      await fetchFamilyMembers(selectedFamily);
+    } catch (error) {
+      console.error('Error promoting member:', error);
+      setSnackbarMessage('Failed to promote member. Please try again.');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Handler for leaving a family
   const handleLeaveOpen = () => {
     setLeaveDialogOpen(true);
   };
@@ -339,20 +480,31 @@ const FamilyPage: React.FC = () => {
     setLeaveDialogOpen(false);
   };
 
-  const handleLeaveSubmit = () => {
-    // Here you would call your API to leave the family
-    console.log(`Leaving family ${selectedFamily}`);
-    
-    // Mock successful leaving
-    const familyName = sampleFamilies.find(f => f.id === selectedFamily)?.name;
-    setSnackbarMessage(`You have left ${familyName}`);
-    setSnackbarSeverity('success');
-    setSnackbarOpen(true);
-    setSelectedFamily('');  // Reset selected family
-    handleLeaveClose();
+  const handleLeaveSubmit = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Send leave request with family name
+      await familyService.leaveFamily(selectedFamily);
+      
+      setSnackbarMessage(`You have left ${selectedFamily}`);
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+      setSelectedFamily('');
+      handleLeaveClose();
+      
+      // Refresh the families list to reflect changes
+      fetchFamilies();
+    } catch (error: any) {
+      console.error('Error leaving family:', error);
+      setSnackbarMessage(error.message || 'Failed to leave family. Please try again.');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Handler for delete family button
   const handleDeleteOpen = () => {
     setDeleteDialogOpen(true);
   };
@@ -361,20 +513,40 @@ const FamilyPage: React.FC = () => {
     setDeleteDialogOpen(false);
   };
 
-  const handleDeleteSubmit = () => {
-    // Here you would call your API to delete the family
-    console.log(`Deleting family ${selectedFamily}`);
-    
-    // Mock successful deletion
-    const familyName = sampleFamilies.find(f => f.id === selectedFamily)?.name;
-    setSnackbarMessage(`Family "${familyName}" has been deleted`);
-    setSnackbarSeverity('success');
-    setSnackbarOpen(true);
-    setSelectedFamily('');  // Reset selected family
-    handleDeleteClose();
+  const handleDeleteSubmit = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Only allow admin to delete the family
+      if (!isAdmin) {
+        setSnackbarMessage('You need admin privileges to delete this family');
+        setSnackbarSeverity('error');
+        setSnackbarOpen(true);
+        handleDeleteClose();
+        return;
+      }
+      
+      // Send the delete request with family name
+      await familyService.deleteFamily(selectedFamily);
+      
+      setSnackbarMessage(`Family "${selectedFamily}" has been deleted`);
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+      setSelectedFamily('');
+      handleDeleteClose();
+      
+      // Refresh the families list
+      fetchFamilies();
+    } catch (error) {
+      console.error('Error deleting family:', error);
+      setSnackbarMessage('Failed to delete family. Please try again.');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Handler for creating a new family
   const handleCreateFamilyOpen = () => {
     setCreateFamilyDialogOpen(true);
   };
@@ -384,40 +556,33 @@ const FamilyPage: React.FC = () => {
     setNewFamilyName('');
   };
 
-  const handleCreateFamilySubmit = () => {
-    // Here you would call your API to create a new family
-    console.log(`Creating new family: ${newFamilyName}`);
-    
-    // Mock successful creation (in a real app, you'd get the new ID from the API)
-    const newFamilyId = Math.max(...sampleFamilies.map(f => f.id)) + 1;
-    
-    // Add to sample families
-    const newFamily = { id: newFamilyId, name: newFamilyName };
-    // In a real app you'd refresh from API instead
-    sampleFamilies.push(newFamily);
-    
-    // Create an entry for the new family in sampleFamilyMembers
-    sampleFamilyMembers[newFamilyId] = [
-      { 
-        id: currentUserId, 
-        username: 'john_smith', // This would come from current user data
-        firstName: 'John', 
-        lastName: 'Smith', 
-        joinDate: new Date().toISOString().split('T')[0],
-        isAdmin: true 
-      }
-    ];
-    
-    setSnackbarMessage(`Family "${newFamilyName}" created successfully!`);
-    setSnackbarSeverity('success');
-    setSnackbarOpen(true);
-    
-    // Select the new family
-    setSelectedFamily(newFamilyId);
-    handleCreateFamilyClose();
+  const handleCreateFamilySubmit = async () => {
+    try {
+      setIsLoading(true);
+      const response = await familyService.createFamily(newFamilyName);
+      console.log('Family created:', response);
+      
+      setSnackbarMessage(`Family "${newFamilyName}" created successfully!`);
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+      
+      // Refresh the families list
+      await fetchFamilies();
+      
+      // After refreshing families, select the newly created family
+      setSelectedFamily(newFamilyName);
+      
+      handleCreateFamilyClose();
+    } catch (error) {
+      console.error('Error creating family:', error);
+      setSnackbarMessage('Failed to create family. Please try again.');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Handler for notification icon click
   const handleNotificationClick = (event: React.MouseEvent<HTMLElement>) => {
     setNotificationAnchorEl(event.currentTarget);
   };
@@ -426,42 +591,69 @@ const FamilyPage: React.FC = () => {
     setNotificationAnchorEl(null);
   };
 
-  // Handler for accepting invitation
-  const handleAcceptInvitation = (invitation: FamilyInvitation) => {
-    // Here you would call your API to accept the invitation
-    console.log(`Accepting invitation to join ${invitation.familyName}`);
-
-    // Mock successful acceptance
-    setInvitations(prevInvitations => prevInvitations.filter(inv => inv.id !== invitation.id));
-    setSnackbarMessage(`You have joined ${invitation.familyName}!`);
-    setSnackbarSeverity('success');
-    setSnackbarOpen(true);
-
-    // Optionally, refresh family list or switch to the new family
-    setSelectedFamily(invitation.familyId);
-    handleNotificationClose();
+  const handleAcceptInvitation = async (invitation: FamilyInvitation) => {
+    try {
+      setIsLoading(true);
+      
+      // Accept the invitation with the proper request format
+      // Convert to number if it's a string
+      const invitationId = typeof invitation.id === 'string' ? parseInt(invitation.id, 10) : invitation.id;
+      await familyService.acceptFamilyInvitation(invitationId);
+      
+      // Remove from invitations list
+      setInvitations(prevInvitations => prevInvitations.filter(inv => inv.id !== invitation.id));
+      
+      setSnackbarMessage(`You have joined ${invitation.familyName}!`);
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+      
+      // Refresh families
+      await fetchFamilies();
+      
+      // Select the new family by name
+      setSelectedFamily(invitation.familyName);
+      
+      handleNotificationClose();
+    } catch (error) {
+      console.error('Error accepting invitation:', error);
+      setSnackbarMessage('Failed to accept invitation. Please try again.');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Handler for declining invitation
-  const handleDeclineInvitation = (invitation: FamilyInvitation) => {
-    // Here you would call your API to decline the invitation
-    console.log(`Declining invitation to join ${invitation.familyName}`);
-
-    // Mock successful decline
-    setInvitations(prevInvitations => prevInvitations.filter(inv => inv.id !== invitation.id));
-    setSnackbarMessage(`Invitation to ${invitation.familyName} declined`);
-    setSnackbarSeverity('success');
-    setSnackbarOpen(true);
-    
-    handleNotificationClose();
+  const handleDeclineInvitation = async (invitation: FamilyInvitation) => {
+    try {
+      setIsLoading(true);
+      
+      // Decline the invitation with the proper request format
+      // Convert to number if it's a string
+      const invitationId = typeof invitation.id === 'string' ? parseInt(invitation.id, 10) : invitation.id;
+      await familyService.declineFamilyInvitation(invitationId);
+      
+      // Remove from invitations list
+      setInvitations(prevInvitations => prevInvitations.filter(inv => inv.id !== invitation.id));
+      
+      setSnackbarMessage(`Invitation to ${invitation.familyName} declined`);
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
+      handleNotificationClose();
+    } catch (error) {
+      console.error('Error declining invitation:', error);
+      setSnackbarMessage('Failed to decline invitation. Please try again.');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  // Handler for clearing search
   const handleClearSearch = () => {
     setSearchQuery('');
   };
 
-  // Handler for snackbar close
   const handleSnackbarClose = (event?: React.SyntheticEvent | Event, reason?: string) => {
     if (reason === 'clickaway') {
       return;
@@ -469,10 +661,10 @@ const FamilyPage: React.FC = () => {
     setSnackbarOpen(false);
   };
 
-  // Check if current user is the only admin
   const isOnlyAdmin = 
     isAdmin && 
-    familyMembers.filter(member => member.isAdmin).length === 1;
+    familyMembers.filter(member => member.isAdmin).length === 1 &&
+    familyMembers.some(member => member.username === currentUsername && member.isAdmin);
 
   return (
     <Box 
@@ -484,7 +676,7 @@ const FamilyPage: React.FC = () => {
         position: 'relative'
       }}
     >
-      {/* Notification bell in top right corner */}
+      {/* Notifications bell */}
       <Box sx={{ position: 'absolute', top: 10, right: 20, zIndex: 1000 }}>
         <Tooltip title="Invitations">
           <IconButton 
@@ -492,14 +684,15 @@ const FamilyPage: React.FC = () => {
             onClick={handleNotificationClick}
             size="large"
           >
-            <Badge badgeContent={invitations.length} color="error">
+            <Badge badgeContent={invitations.filter(inv => !inv.read).length} 
+              color="error">
               <NotificationsIcon />
             </Badge>
           </IconButton>
         </Tooltip>
       </Box>
 
-      {/* Notifications dropdown menu */}
+      {/* Notifications menu */}
       <Menu
         anchorEl={notificationAnchorEl}
         open={Boolean(notificationAnchorEl)}
@@ -530,63 +723,70 @@ const FamilyPage: React.FC = () => {
             </Typography>
           </Box>
         ) : (
-          <List sx={{ width: '100%', p: 0 }}>
-            {invitations.map((invitation) => (
-              <React.Fragment key={invitation.id}>
-                <ListItem alignItems="flex-start">
-                  <ListItemAvatar>
-                    <Avatar sx={{ bgcolor: stringToColor(invitation.familyName) }}>
-                      {invitation.familyName.charAt(0)}
-                    </Avatar>
-                  </ListItemAvatar>
-                  <ListItemText
-                    primary={`Join ${invitation.familyName}`}
-                    secondary={
-                      <React.Fragment>
-                        <Typography
-                          component="span"
-                          variant="body2"
-                          color="text.primary"
+            <List sx={{ width: '100%', p: 0 }}>
+              {invitations.map((invitation) => (
+                <React.Fragment key={invitation.id}>
+                  <ListItem
+                    alignItems="flex-start"
+                    sx={{
+                      backgroundColor: invitation.read ? 'transparent' : 'rgba(25, 118, 210, 0.08)'
+                    }}
+                  >
+                    <ListItemAvatar>
+                      <Avatar sx={{ bgcolor: stringToColor(invitation.familyName) }}>
+                        {invitation.familyName.charAt(0)}
+                      </Avatar>
+                    </ListItemAvatar>
+                    <ListItemText
+                      primary={`Join ${invitation.familyName}`}
+                      secondary={
+                        <React.Fragment>
+                          <Typography
+                            component="span"
+                            variant="body2"
+                            color="text.primary"
+                          >
+                            From: {invitation.fromUsername}
+                          </Typography>
+                          <br />
+                          <Typography
+                            component="span"
+                            variant="body2"
+                            color="text.secondary"
+                          >
+                            {formatTimeAgo(invitation.timestamp)}
+                          </Typography>
+                        </React.Fragment>
+                      }
+                    />
+                    <ListItemSecondaryAction>
+                      <Tooltip title="Accept">
+                        <IconButton
+                          edge="end"
+                          color="success"
+                          onClick={() => handleAcceptInvitation(invitation)}
+                          disabled={isLoading}
                         >
-                          From: {invitation.fromUsername}
-                        </Typography>
-                        <br />
-                        <Typography
-                          component="span"
-                          variant="body2"
-                          color="text.secondary"
+                          <CheckCircleIcon />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Decline">
+                        <IconButton
+                          edge="end"
+                          color="error"
+                          onClick={() => handleDeclineInvitation(invitation)}
+                          disabled={isLoading}
+                          sx={{ ml: 1 }}
                         >
-                          {formatTimeAgo(invitation.timestamp)}
-                        </Typography>
-                      </React.Fragment>
-                    }
-                  />
-                  <ListItemSecondaryAction>
-                    <Tooltip title="Accept">
-                      <IconButton 
-                        edge="end" 
-                        color="success" 
-                        onClick={() => handleAcceptInvitation(invitation)}
-                      >
-                        <CheckCircleIcon />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Decline">
-                      <IconButton 
-                        edge="end" 
-                        color="error"
-                        onClick={() => handleDeclineInvitation(invitation)}
-                        sx={{ ml: 1 }}
-                      >
-                        <CancelIcon />
-                      </IconButton>
-                    </Tooltip>
-                  </ListItemSecondaryAction>
-                </ListItem>
-                <Divider variant="inset" component="li" />
-              </React.Fragment>
-            ))}
-          </List>
+                          <CancelIcon />
+                        </IconButton>
+                      </Tooltip>
+                    </ListItemSecondaryAction>
+                  </ListItem>
+                  <Divider variant="inset" component="li" />
+                </React.Fragment>
+              ))}
+            </List>
         )}
       </Menu>
 
@@ -595,6 +795,7 @@ const FamilyPage: React.FC = () => {
           Family
         </Typography>
         
+        {/* Family selector and create button */}
         <Box sx={{ mb: 3 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography variant="subtitle1">
@@ -605,28 +806,66 @@ const FamilyPage: React.FC = () => {
               color="primary"
               startIcon={<AddIcon />}
               onClick={handleCreateFamilyOpen}
+              disabled={isLoading}
             >
-              Create Family
+              {isLoading ? 'Creating...' : 'Create Family'}
             </Button>
           </Box>
-          <FormControl fullWidth>
-            <InputLabel id="family-select-label">Select Family</InputLabel>
-            <Select
-              labelId="family-select-label"
-              id="family-select"
-              value={selectedFamily}
-              label="Select Family"
-              onChange={handleFamilyChange}
-            >
-              <MenuItem value="">
-                <em>Select a family</em>
-              </MenuItem>
-              {sampleFamilies.map((family) => (
-                <MenuItem key={family.id} value={family.id}>
-                  {family.name}
+          {/* Family Selection Dropdown - Updated with better styling */}
+          <FormControl 
+            variant="outlined" 
+            sx={{ 
+              m: 1, 
+              minWidth: { xs: '100%', sm: 300 },  // Wider on all screens, full width on mobile
+              display: 'flex',
+              flexDirection: 'row',
+              alignItems: 'center',
+              flexGrow: 1
+            }}
+            disabled={loadingFamilies}
+          >
+            <Box sx={{ flexGrow: 1 }}>
+              <InputLabel id="family-select-label">Select Family</InputLabel>
+              <Select
+                labelId="family-select-label"
+                id="family-select"
+                value={selectedFamily}
+                onChange={(e) => {
+                  const newFamilyName = e.target.value;
+                  console.log('Selected family:', newFamilyName);
+                  setSelectedFamily(newFamilyName);
+                  // If a family is selected, fetch its members
+                  if (newFamilyName) {
+                    fetchFamilyMembers(newFamilyName);
+                  }
+                }}
+                label="Select Family"
+                sx={{ width: '100%' }} // Make select take full width of its container
+                MenuProps={{
+                  PaperProps: {
+                    style: {
+                      maxHeight: 300,
+                      width: 'auto',
+                      minWidth: '250px' // Ensure menu is wide enough
+                    }
+                  }
+                }}
+              >
+                <MenuItem value="">
+                  <em>None</em>
                 </MenuItem>
-              ))}
-            </Select>
+                {families.map((family) => (
+                  <MenuItem key={family.id} value={family.name}>
+                    {family.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </Box>
+            {loadingFamilies && (
+              <Box sx={{ display: 'flex', alignItems: 'center', ml: 1 }}>
+                <CircularProgress size={24} />
+              </Box>
+            )}
           </FormControl>
         </Box>
 
@@ -634,13 +873,13 @@ const FamilyPage: React.FC = () => {
         
         {selectedFamily !== '' ? (
           <>
+            {/* Family actions */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Typography variant="h5">
-                Members of {sampleFamilies.find(f => f.id === selectedFamily)?.name}
+                Members of {selectedFamily}
               </Typography>
               
               <Box>
-                {/* Admin-only buttons */}
                 {isAdmin && (
                   <>
                     <Button 
@@ -649,6 +888,7 @@ const FamilyPage: React.FC = () => {
                       startIcon={<PersonAddIcon />}
                       onClick={handleInviteOpen}
                       sx={{ mr: 1 }}
+                      disabled={isLoading}
                     >
                       Invite Member
                     </Button>
@@ -658,23 +898,23 @@ const FamilyPage: React.FC = () => {
                       startIcon={<DeleteForeverIcon />}
                       onClick={handleDeleteOpen}
                       sx={{ mr: 1 }}
+                      disabled={isLoading}
                     >
                       Delete Family
                     </Button>
                   </>
                 )}
                 
-                {/* Leave family button - available to all members but disabled for sole admin */}
                 <Tooltip 
                   title={isOnlyAdmin ? "You can't leave as the only admin. Promote another member first." : ""}
                 >
-                  <span> {/* Wrapper needed for disabled button with tooltip */}
+                  <span>
                     <Button 
                       variant="outlined" 
                       color="error" 
                       startIcon={<ExitToAppIcon />}
                       onClick={handleLeaveOpen}
-                      disabled={isOnlyAdmin}
+                      disabled={isOnlyAdmin || isLoading}
                     >
                       Leave Family
                     </Button>
@@ -683,7 +923,7 @@ const FamilyPage: React.FC = () => {
               </Box>
             </Box>
             
-            {/* Add search box */}
+            {/* Search box */}
             <Box sx={{ mb: 2 }}>
               <TextField
                 fullWidth
@@ -709,13 +949,14 @@ const FamilyPage: React.FC = () => {
               />
             </Box>
             
-            {/* Show search results info if filtering */}
+            {/* Search results info */}
             {searchQuery && (
               <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                 Showing {filteredMembers.length} of {familyMembers.length} members
               </Typography>
             )}
             
+            {/* Members table */}
             <TableContainer 
               component={Paper} 
               elevation={3} 
@@ -740,14 +981,20 @@ const FamilyPage: React.FC = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {filteredMembers.length > 0 ? (
+                  {loadingMembers ? (
+                    <TableRow>
+                      <TableCell colSpan={isAdmin ? 6 : 5} align="center" sx={{ py: 3 }}>
+                        <Typography>Loading members...</Typography>
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredMembers.length > 0 ? (
                     filteredMembers.map((member) => (
                       <TableRow 
-                        key={member.id}
+                        key={member.username}
                         hover
                         sx={{ 
                           '&:last-child td, &:last-child th': { border: 0 },
-                          ...(member.id === currentUserId ? { bgcolor: 'rgba(0, 150, 136, 0.08)' } : {})
+                          ...(member.username === currentUsername ? { bgcolor: 'rgba(0, 150, 136, 0.08)' } : {})
                         }}
                       >
                         <TableCell>
@@ -764,7 +1011,7 @@ const FamilyPage: React.FC = () => {
                         </TableCell>
                         <TableCell>
                           {member.username}
-                          {member.id === currentUserId && (
+                          {member.username === currentUsername && (
                             <Chip 
                               label="You" 
                               size="small" 
@@ -799,13 +1046,14 @@ const FamilyPage: React.FC = () => {
                         </TableCell>
                         {isAdmin && (
                           <TableCell>
-                            {!member.isAdmin && member.id !== currentUserId && (
+                            {!member.isAdmin && member.username !== currentUsername && (
                               <>
                                 <Tooltip title="Promote to admin">
                                   <IconButton 
                                     color="primary" 
                                     onClick={() => handlePromoteOpen(member)}
                                     sx={{ mr: 1 }}
+                                    disabled={isLoading}
                                   >
                                     <SupervisorAccountIcon />
                                   </IconButton>
@@ -814,6 +1062,7 @@ const FamilyPage: React.FC = () => {
                                   <IconButton 
                                     color="error" 
                                     onClick={() => handleRemoveOpen(member)}
+                                    disabled={isLoading}
                                   >
                                     <DeleteIcon />
                                   </IconButton>
@@ -861,6 +1110,7 @@ const FamilyPage: React.FC = () => {
         <Box sx={{ height: '80px' }} />
       </Container>
       
+      {/* Invite dialog */}
       <Dialog open={inviteDialogOpen} onClose={handleInviteClose}>
         <DialogTitle>
           Invite Member to Family
@@ -893,20 +1143,21 @@ const FamilyPage: React.FC = () => {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleInviteClose} color="primary">
+          <Button onClick={handleInviteClose} color="primary" disabled={isLoading}>
             Cancel
           </Button>
           <Button 
             onClick={handleInviteSubmit} 
             color="primary" 
             variant="contained" 
-            disabled={!inviteUsername.trim()}
+            disabled={!inviteUsername.trim() || isLoading}
           >
-            Send Invitation
+            {isLoading ? 'Sending...' : 'Send Invitation'}
           </Button>
         </DialogActions>
       </Dialog>
       
+      {/* Remove dialog */}
       <Dialog open={removeDialogOpen} onClose={handleRemoveClose}>
         <DialogTitle>Confirm Removal</DialogTitle>
         <DialogContent>
@@ -916,15 +1167,16 @@ const FamilyPage: React.FC = () => {
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleRemoveClose} color="primary">
+          <Button onClick={handleRemoveClose} color="primary" disabled={isLoading}>
             Cancel
           </Button>
-          <Button onClick={handleRemoveSubmit} color="error" variant="contained">
-            Remove
+          <Button onClick={handleRemoveSubmit} color="error" variant="contained" disabled={isLoading}>
+            {isLoading ? 'Removing...' : 'Remove'}
           </Button>
         </DialogActions>
       </Dialog>
       
+      {/* Promote dialog */}
       <Dialog open={promoteDialogOpen} onClose={handlePromoteClose}>
         <DialogTitle>Promote to Admin</DialogTitle>
         <DialogContent>
@@ -934,15 +1186,16 @@ const FamilyPage: React.FC = () => {
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handlePromoteClose} color="primary">
+          <Button onClick={handlePromoteClose} color="primary" disabled={isLoading}>
             Cancel
           </Button>
-          <Button onClick={handlePromoteSubmit} color="primary" variant="contained">
-            Promote
+          <Button onClick={handlePromoteSubmit} color="primary" variant="contained" disabled={isLoading}>
+            {isLoading ? 'Promoting...' : 'Promote'}
           </Button>
         </DialogActions>
       </Dialog>
       
+      {/* Leave dialog */}
       <Dialog open={leaveDialogOpen} onClose={handleLeaveClose}>
         <DialogTitle>Leave Family</DialogTitle>
         <DialogContent>
@@ -957,20 +1210,21 @@ const FamilyPage: React.FC = () => {
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleLeaveClose} color="primary">
+          <Button onClick={handleLeaveClose} color="primary" disabled={isLoading}>
             Cancel
           </Button>
           <Button 
             onClick={handleLeaveSubmit} 
             color="error" 
             variant="contained" 
-            disabled={isOnlyAdmin}
+            disabled={isOnlyAdmin || isLoading}
           >
-            Leave Family
+            {isLoading ? 'Leaving...' : 'Leave Family'}
           </Button>
         </DialogActions>
       </Dialog>
       
+      {/* Delete dialog */}
       <Dialog open={deleteDialogOpen} onClose={handleDeleteClose}>
         <DialogTitle>Delete Family</DialogTitle>
         <DialogContent>
@@ -983,15 +1237,16 @@ const FamilyPage: React.FC = () => {
           </Typography>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleDeleteClose} color="primary">
+          <Button onClick={handleDeleteClose} color="primary" disabled={isLoading}>
             Cancel
           </Button>
-          <Button onClick={handleDeleteSubmit} color="error" variant="contained">
-            Delete Family
+          <Button onClick={handleDeleteSubmit} color="error" variant="contained" disabled={isLoading}>
+            {isLoading ? 'Deleting...' : 'Delete Family'}
           </Button>
         </DialogActions>
       </Dialog>
       
+      {/* Create family dialog */}
       <Dialog open={createFamilyDialogOpen} onClose={handleCreateFamilyClose}>
         <DialogTitle>
           Create New Family
@@ -1025,30 +1280,43 @@ const FamilyPage: React.FC = () => {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCreateFamilyClose} color="primary">
+          <Button onClick={handleCreateFamilyClose} color="primary" disabled={isLoading}>
             Cancel
           </Button>
           <Button 
             onClick={handleCreateFamilySubmit} 
             color="primary" 
             variant="contained" 
-            disabled={!newFamilyName.trim()}
+            disabled={!newFamilyName.trim() || isLoading}
           >
-            Create Family
+            {isLoading ? 'Creating...' : 'Create Family'}
           </Button>
         </DialogActions>
       </Dialog>
       
+      {/* Snackbar for notifications - moved to top center for better visibility */}
       <Snackbar
         open={snackbarOpen}
         autoHideDuration={6000}
         onClose={handleSnackbarClose}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        sx={{ 
+          mt: 2, // Add margin top
+          width: { xs: '90%', sm: '80%', md: '60%' }, // Make it responsive
+          '& .MuiAlert-root': {
+            width: '100%'
+          }
+        }}
       >
         <Alert 
           onClose={handleSnackbarClose} 
           severity={snackbarSeverity}
-          sx={{ width: '100%' }}
+          variant="filled" // Make alerts more prominent
+          elevation={6} // Add shadow for better visibility
+          sx={{ 
+            width: '100%',
+            fontSize: '1rem' // Slightly larger text
+          }}
         >
           {snackbarMessage}
         </Alert>
