@@ -80,12 +80,12 @@ const MotivationScreen = () => {
       {showMotivation && (
         <View style={styles.motivationToast}>
           <View style={styles.toastHeader}>
-            <Text style={styles.toastTitle}>💪 Motivation</Text>
+            <Text style={styles.toastTitle}>💪 Keep Going!</Text>
             <TouchableOpacity onPress={() => setShowMotivation(false)}>
               <Text style={styles.closeButton}>✕</Text>
             </TouchableOpacity>
           </View>
-          <Text style={styles.toastText}>{motivationMessage}</Text>
+          <Text style={styles.toastText}>{motivationMessage.replace(/^"(.*)"$/, "$1")}</Text>
         </View>
       )}
     </View>
@@ -103,12 +103,12 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 10,
     right: 10,
-    backgroundColor: "#fff0c2",
+    backgroundColor: "#ffeedb",
     paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 10,
+    paddingHorizontal: 14,
+    borderRadius: 20,
     shadowColor: "#000",
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.15,
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 5,
     elevation: 5,
@@ -116,38 +116,45 @@ const styles = StyleSheet.create({
   streakText: {
     fontWeight: "bold",
     fontSize: 16,
+    color: "#d35400",
   },
   motivationToast: {
     position: "absolute",
     top: 80,
     left: 20,
     right: 20,
-    backgroundColor: "#fff7d6",
-    padding: 16,
-    borderRadius: 12,
+    backgroundColor: "#fffbe6",
+    borderRadius: 16,
+    paddingVertical: 20,
+    paddingHorizontal: 18,
+    borderLeftWidth: 5,
+    borderLeftColor: "#f39c12",
     shadowColor: "#000",
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.1,
     shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    elevation: 6,
+    shadowRadius: 8,
+    elevation: 10,
     zIndex: 999,
   },
   toastHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 4,
+    marginBottom: 6,
   },
   toastTitle: {
     fontWeight: "bold",
-    fontSize: 16,
+    fontSize: 18,
+    color: "#f39c12",
   },
   closeButton: {
     fontSize: 18,
-    fontWeight: "bold",
+    color: "#999",
     paddingHorizontal: 8,
   },
   toastText: {
-    fontSize: 14,
+    fontSize: 15,
+    color: "#444",
+    lineHeight: 20,
   },
 });
