@@ -1,46 +1,62 @@
-import React, { useState } from 'react';
-import { createStackNavigator, CardStyleInterpolators } from '@react-navigation/stack';
+import React from 'react';
+import { View, StyleSheet, Platform } from 'react-native';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { Ionicons } from '@expo/vector-icons';
 
-// Import screens
-import RegisterForm from '@/components/RegisterForm';
-import OnboardingScreen from '@/components/OnboardingScreen';
-import Login from '@/components/Login';
-import BottomTabsNavigator from '@/components/BottomTabsNavigator';
+import Home from '@/components/Home';
+import Leaderboard from '@/components/Leaderboard';
+import WorkoutForm from '@/components/WorkoutForm';
 
-const Stack = createStackNavigator();
+const Tab = createBottomTabNavigator();
 
-export default function AppNavigator() {
-  const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-
+export default function BottomTabsNavigator() {
   return (
-    <Stack.Navigator
-      screenOptions={{
-        gestureEnabled: true,
-        headerShown: false,
-        transitionSpec: {
-          open: { animation: 'timing', config: { duration: 700 } },
-          close: { animation: 'timing', config: { duration: 700 } },
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName = '';
+
+          switch (route.name) {
+            case 'Home':
+              iconName = focused ? 'home' : 'home-outline';
+              break;
+            case 'Leaderboard':
+              iconName = focused ? 'trophy' : 'trophy-outline';
+              break;
+            case 'Workout':
+              iconName = focused ? 'barbell' : 'barbell-outline';
+              break;
+          }
+
+          return (
+            <View style={focused ? styles.bubble : null}>
+              <Ionicons name={iconName as any} size={size} color={focused ? '#fff' : color} />
+            </View>
+          );
         },
-        cardStyleInterpolator: CardStyleInterpolators.forFadeFromBottomAndroid,
-      }}
+        tabBarActiveTintColor: '#fff',
+        tabBarInactiveTintColor: '#aaa',
+        tabBarStyle: styles.tabBar,
+        headerShown: false,
+      })}
     >
-      {!isOnboardingComplete ? (
-        <Stack.Screen name="Onboarding">
-          {() => <OnboardingScreen onComplete={() => setIsOnboardingComplete(true)} />}
-        </Stack.Screen>
-      ) : !isLoggedIn ? (
-        <>
-          <Stack.Screen name="Login">
-            {() => <Login onLogin={() => setIsLoggedIn(true)} />}
-          </Stack.Screen>
-          <Stack.Screen name="RegisterForm">
-            {() => <RegisterForm onLogin={() => setIsLoggedIn(true)} />}
-          </Stack.Screen>
-        </>
-      ) : (
-        <Stack.Screen name="MainTabs" component={BottomTabsNavigator} />
-      )}
-    </Stack.Navigator>
+      <Tab.Screen name="Home" component={Home} />
+      <Tab.Screen name="Leaderboard" component={Leaderboard} />
+      <Tab.Screen name="Workout" component={WorkoutForm} />
+    </Tab.Navigator>
   );
 }
+
+const styles = StyleSheet.create({
+  tabBar: {
+    backgroundColor: '#1e1e2f',
+    borderTopWidth: 0,
+    height: 70,
+    paddingBottom: 10,
+  },
+  bubble: {
+    backgroundColor: '#007AFF',
+    padding: 10,
+    borderRadius: 25,
+  },
+});
