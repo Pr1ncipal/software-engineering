@@ -1,5 +1,5 @@
-import React from 'react';
-import { SafeAreaView, FlatList, Text, View, Image, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { SafeAreaView, FlatList, Text, View, Image, StyleSheet, Switch } from 'react-native';
 import WorkoutForm from '@/components/WorkoutForm';  // Import WorkoutForm
 import { Link } from 'expo-router';
 
@@ -11,28 +11,62 @@ const leaderboardData = [
     { id: '5',  photo: 'https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fstatic.vecteezy.com%2Fsystem%2Fresources%2Fpreviews%2F000%2F437%2F945%2Foriginal%2Fvector-settings-icon.jpg&f=1&nofb=1&ipt=2fe91b858742e0ba0b874a20cdf7f0c790da81ac8233be8aa02c1627a8944f61&ipo=images', name: 'Setting 5'},
   ];
 
-export default function family_management() {
+export default function FamilyManagement() {
+    // State to manage switch toggles for each setting
+    const [switchStates, setSwitchStates] = useState(
+        Object.fromEntries(leaderboardData.map(item => [item.id, false])) // Initialize all switches to false
+    );
+
+    // Toggle function
+    const toggleSwitch = (id) => {
+        setSwitchStates((prevState) => {
+            const newValue = !prevState[id];
+    
+            // Example: Log the switch action
+            //console.log(`Setting ${id} changed to ${newValue}`);
+    
+            // Example: Call an API when toggled
+            // fetch(`https://example.com/api/settings/${id}`, {
+            //    method: 'POST',
+            //    headers: { 'Content-Type': 'application/json' },
+            //    body: JSON.stringify({ enabled: newValue }),
+            //})
+            //.then(response => response.json())
+            //.then(data => console.log(`API Response:`, data))
+            //.catch(error => console.error(`API Error:`, error));
+    
+            // Return new state
+            return { ...prevState, [id]: newValue };
+        });
+    };
+    
+
     return (
         <SafeAreaView style={styles.container}>
-        <Text style={styles.title}>Setting Page</Text>
-        <FlatList
-            data={leaderboardData}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item, index }) => (
-            // need to add link to individual setting page here <---------------------------------------------------------------------------
-            <Link href="/tabs" style={styles.rowContainer}> 
-                <View style={styles.row}>
-                    {/* Setting Icon */}
-                    <Image source={{ uri: item.photo }} style={styles.profileImage} />
-                    
-                    {/* Name, and Remove Icon */}
-                    <View style={styles.nameContainer}>
-                        <Text style={styles.name}>{item.name}</Text>
+            <Text style={styles.title}>Setting Page</Text>
+            <FlatList
+                data={leaderboardData}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                    <View style={styles.rowContainer}>
+                        <Link href="/tabs" style={styles.row}>
+                            <Image source={{ uri: item.photo }} style={styles.profileImage} />
+                            <View style={styles.nameContainer}>
+                                <Text style={styles.name}>{item.name}</Text>
+                            </View>
+                        </Link>
+                        <View style={styles.switchContainer}>
+                            <Switch
+                                    value={switchStates[item.id]}
+                                    onValueChange={() => toggleSwitch(item.id)}
+                                    trackColor={{ false: "#ccc", true: "#4cd964" }} // iOS green when enabled
+                                    thumbColor="#ffffff"
+                                    style={styles.switchBox}
+                                />
+                        </View>
                     </View>
-                </View>
-            </Link>
-            )}
-        />
+                )}
+            />
         </SafeAreaView>
     );
 }
@@ -40,8 +74,16 @@ export default function family_management() {
 
 const styles = StyleSheet.create({
 rowContainer: {
-    width: '100%',
+    width: '80%',
     padding: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between'
+},
+switchContainer: {
+    width: '20%',
+    padding: 10,
+    flexDirection: 'row',
+    justifyContent: 'center'
 },
 container: {
     flex: 1,

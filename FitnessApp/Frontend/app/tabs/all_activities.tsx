@@ -141,8 +141,11 @@ minus_sign: {
 profileImage: {
     width: 90,  // Set the width of the profile photo
     height: 90, // Set the height of the profile photo
-    borderRadius: 40, // Makes the image round
+    borderRadius: 0, // Makes the image round
     marginRight: 10,  // Spacing between image and text
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
 },
 buttonContainer: {
     position: 'absolute',
