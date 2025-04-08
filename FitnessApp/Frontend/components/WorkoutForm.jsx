@@ -273,7 +273,7 @@ export default function WorkoutForm() {
 
   return (
     <LinearGradient
-    colors={['#007AFF', '#B3E5FC']}
+    colors={['#007AFF', '#ffffff']}
     style={{ flex: 1 }}
   >
     <ScrollView contentContainerStyle={styles.gradientContent}>
