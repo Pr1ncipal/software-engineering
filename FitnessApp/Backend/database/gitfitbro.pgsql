@@ -489,7 +489,6 @@ CREATE TABLE public.users (
     created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
 );
 
-
 ALTER TABLE public.users OWNER TO postgres;
 
 --

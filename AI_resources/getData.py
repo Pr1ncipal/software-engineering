@@ -3,6 +3,65 @@ from psycopg2 import sql
 import json
 import ast  # Safe parser for string tuples
 
+def predict_progress(user_id):
+    try:
+        conn = psycopg2.connect(
+            dbname="gitfitbro",
+            user="postgres",
+            password="password",
+            host="localhost",
+            port="5432"
+        )
+        cur = conn.cursor()
+
+        # Get recent weights
+        cur.execute("""
+            SELECT weight, created_at
+            FROM user_stats
+            WHERE user_id = %s
+            ORDER BY created_at DESC
+            LIMIT 6
+        """, (user_id,))
+        weights = cur.fetchall()
+
+        # Calculate trend (e.g., weight loss per day)
+        if len(weights) < 2:
+            return "Not enough data to make a prediction."
+
+        weights = sorted(weights, key=lambda x: x[1])
+        start_weight, start_date = weights[0]
+        end_weight, end_date = weights[-1]
+
+        days = (end_date - start_date).days or 1
+        rate = (end_weight - start_weight) / days  # lbs/day
+
+        # Estimate when goal will be hit
+        cur.execute("""
+            SELECT target_weight
+            FROM weight_goals
+            WHERE user_id = %s
+            ORDER BY created_at DESC
+            LIMIT 1
+        """, (user_id,))
+        goal_result = cur.fetchone()
+        target_weight = goal_result[0] if goal_result else None
+
+        if target_weight is not None and rate != 0:
+            days_remaining = (target_weight - end_weight) / rate
+            days_remaining = round(abs(days_remaining))
+            message = f"At your current pace, you'll reach your goal in about {days_remaining} days."
+        else:
+            message = "You're making progress! Keep tracking for more accurate predictions."
+
+        cur.close()
+        conn.close()
+        return message
+
+    except Exception as e:
+        print("❌ Error in predictive progress analysis:", e)
+        return "Unable to generate prediction at this time."
+
+
 def build_motivation_prompt(user_id):
     try:
         conn = psycopg2.connect(

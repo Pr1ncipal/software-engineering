@@ -8,7 +8,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../.
 
 from flask import Flask, request, jsonify, session
 import requests
-from AI_resources.getData import get_data, get_userName, build_motivation_prompt, get_user_id_by_username
+from AI_resources.getData import get_data, get_userName, build_motivation_prompt, get_user_id_by_username, predict_progress
 
 app = Flask(__name__)
 app.config["SESSION_TYPE"] = "filesystem"
@@ -99,6 +99,14 @@ def streak_graph():
     data = get_user_streak(user_id)
     return jsonify(data)
 
+@app.route("/api/progress-prediction", methods=["GET"])
+def progress_prediction():
+    user_id = request.args.get("user_id", type=int)
+    if not user_id:
+        return jsonify({"error": "Missing user_id"}), 400
+
+    message = predict_progress(user_id)
+    return jsonify({"prediction": message})
 
  
 
