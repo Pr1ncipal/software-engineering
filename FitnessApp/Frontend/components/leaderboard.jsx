@@ -15,13 +15,15 @@ import {
   Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { encode as btoa } from 'react-native-base64';
+import { Buffer } from 'buffer';
 import { LineChart, BarChart, PieChart } from 'react-native-chart-kit';
+import { secureStorage } from '@/utils/secureStorage';
 
 const { width } = Dimensions.get('window');
 
 const API_URL = 'http://127.0.0.1:8080/api/leaderboard/get_leaderboard';
-const apiKey = 'TVhFMXpWLSFhVkkreDVxU1BfVCNmMkUqKU1uRThWNFd0TFVGKV49PF98M1wpX0tkfm4zYkBiR1wueG1rfGotLg==';
+//const apiKey = 'TVhFMXpWLSFhVkkreDVxU1BfVCNmMkUqKU1uRThWNFd0TFVGKV49PF98M1wpX0tkfm4zYkBiR1wueG1rfGotLg==';
+const AUTH_TOKEN_KEY = 'authToken';
 
 // Workout ID mapping
 const WORKOUT_IDS = {
@@ -66,6 +68,13 @@ const LeaderboardPage = () => {
     }
     
     try {
+
+      const storedApiKey = await secureStorage.getItem(AUTH_TOKEN_KEY)
+      
+      const encodedKey = Buffer.from(storedApiKey).toString('base64');
+      if (!storedApiKey){
+        throw new Error('API key is missing. Please log in again')
+      }
       const queryParams = new URLSearchParams({
         category, 
         days: '7',
@@ -78,7 +87,7 @@ const LeaderboardPage = () => {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `ApiKey ${apiKey}`
+          'Authorization': `ApiKey ${encodedKey}`
         }
       });
       
