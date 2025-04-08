@@ -6,7 +6,7 @@ import { Link } from 'expo-router';
 export default function AboutPage() {
   return (
     <SafeAreaView style={styles.container}>
-        <Link href="/tabs" style={styles.button}>
+        <Link href="/tabs/profile_page" style={styles.button}>
             Go back home
         </Link>
     </SafeAreaView>

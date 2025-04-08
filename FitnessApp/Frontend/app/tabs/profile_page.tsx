@@ -1,4 +1,5 @@
 import React from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import WorkoutForm from '@/components/WorkoutForm';  // Import WorkoutForm
 import { Link } from 'expo-router';
@@ -19,6 +20,22 @@ const ChartPlaceholder = () => {
 };
 
 const ProfilePage = () => {
+  // State variables to hold user data
+  const [userData, setUserData] = useState(null);
+
+  // Fetch user data when component mounts
+  useEffect(() => {
+    // Replace with your backend API endpoint
+    fetch('http://localhost:8081/app/user_data') // <---------------------- no idea, stuck here
+      .then(response => response.json())  // Parse the JSON data
+      .then(data => {
+        setUserData(data);  // Store fetched data in state
+      })
+      .catch(error => {
+        console.error("Error fetching user data", error);
+      });
+  }, []);
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       {/* Profile Picture */}
