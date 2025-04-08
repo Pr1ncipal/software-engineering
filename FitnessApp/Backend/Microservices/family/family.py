@@ -603,7 +603,8 @@ def leave_family():
     request_id = getattr(request, 'request_id', 'unknown')
     try:
         logger.info(f"Request {request_id}: Processing leave_family request")
-        user_id = get_auth_key(request)
+        user_id = int(get_auth_key(request))
+        
         
         # Validate required fields
         if 'family_name' not in request.args:

@@ -161,19 +161,13 @@ export const familyService = {
   /**
    * Create a new family
    * @param {string} familyName - Name of the family to create
-   * @returns {Promise<object>} - The created family object
+   * @returns {Response} - The created family object
    */
   createFamily: async (familyName) => {
     try {
       // Get authentication headers
       const headers = await prepareAuthHeaders();
-      
-      // Create payload
-      const payload = {
-        family_name: familyName
-      };
-      
-      // Create JWT wrapped payload for POST request
+      const payload = {family_name: familyName};
       const jwtPayload = await wrapWithJwt(payload);
       
       console.log('Sending JWT payload for create family:', jwtPayload);
@@ -187,23 +181,7 @@ export const familyService = {
         }
       );
       
-      // Accept both 200 and 201 as success codes
-      if (response.status !== 200 && response.status !== 201) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to create family');
-      }
-      
-      // For 201 responses, the body might be empty, so return a default success object
-      if (response.status === 201) {
-        try {
-          return await response.json();
-        } catch (e) {
-          // If parsing fails (empty body), return a success object
-          return { success: true, message: "Family created successfully", family_name: familyName };
-        }
-      }
-      
-      return await response.json();
+      return response;
     } catch (error) {
       console.error('Error creating family:', error);
       throw error;
@@ -280,7 +258,7 @@ export const familyService = {
   /**
    * Delete a family (admin only)
    * @param {string} familyName - Name of the family to delete
-   * @returns {Promise<object>} - Response from the server
+   * @returns {Response} - Response from the server
    */
   deleteFamily: async (familyName) => {
     try {
@@ -295,12 +273,7 @@ export const familyService = {
         }
       );
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Failed to delete family ${familyName}`);
-      }
-      
-      return await response.json();
+      return response;
     } catch (error) {
       console.error(`Error deleting family ${familyName}:`, error);
       throw error;
@@ -311,12 +284,14 @@ export const familyService = {
    * Send a notification to invite a user to a family
    * @param {string} familyName - Name of the family
    * @param {string} receiverUsername - Username of the user to invite
-   * @returns {Promise<object>} - The created notification object
+   * @returns {Response} - The created notification object
    */
   sendFamilyInvitation: async (familyName, receiverUsername) => {
     try {
+      console.log(`Sending invitation to ${receiverUsername} for family ${familyName}`);
       const headers = await prepareAuthHeaders();
-      
+
+      // Create payload
       const payload = {
         family_name: familyName,
         receiver_username: receiverUsername
@@ -324,7 +299,8 @@ export const familyService = {
       
       // Create JWT wrapped payload for POST request
       const jwtPayload = await wrapWithJwt(payload);
-      
+
+      // Use fetchWithRetry for consistency with other functions
       const response = await fetchWithRetry(
         `${API_BASE_URL}/family/create_family_request`,
         {
@@ -333,13 +309,10 @@ export const familyService = {
           body: JSON.stringify(jwtPayload)
         }
       );
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to send invitation');
-      }
-      
-      return await response.json();
+
+      // The response is already parsed by fetchWithRetry, so no need to call .json() again
+      console.log('Invitation sent successfully:', jwtPayload);
+      return response;
     } catch (error) {
       console.error('Error sending family invitation:', error);
       throw error;
@@ -350,29 +323,31 @@ export const familyService = {
    * Remove a user from a family
    * @param {string} familyName - Name of the family
    * @param {string} username - Username of the user to remove
-   * @returns {Promise<object>} - Response from the server
+   * @returns {Response} - Response from the server
    */
   removeUser: async (familyName, username) => {
     try {
+      console.log(`Attempting to remove user ${username} from family ${familyName}`);
       const headers = await prepareAuthHeaders();
-      
+
       // DELETE request - use query parameters, no JWT needed
       const response = await fetchWithRetry(
-        `${API_BASE_URL}/family/remove_family_member?family_name=${encodeURIComponent(familyName)}&username=${encodeURIComponent(username)}`,
-        {
-          method: 'DELETE',
-          headers
+`${API_BASE_URL}/family/remove_family_member?family_name=${encodeURIComponent(familyName)}&username=${encodeURIComponent(username)}`,
+{
+        method: 'DELETE',
+        headers
         }
       );
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to remove user from family');
+
+      // Try to parse response as JSON (if applicable)
+      try {
+        return response;
+      } catch (parseError) {
+        console.log('Empty but successful response');
+        return { success: true, message: `User ${username} removed from family ${familyName}` };
       }
-      
-      return await response.json();
     } catch (error) {
-      console.error(`Error removing user from family ${familyName}:`, error);
+      console.error('Error in removeUser:', error);
       throw error;
     }
   },
@@ -380,7 +355,7 @@ export const familyService = {
   /**
    * Leave a family
    * @param {string} familyName - Name of the family to leave
-   * @returns {Promise<object>} - Response from the server
+   * @returns {Response} - Response from the server
    */
   leaveFamily: async (familyName) => {
     try {
@@ -395,18 +370,7 @@ export const familyService = {
         }
       );
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        
-        // Special handling for the case where user is the only admin
-        if (errorData.error_code === "CANNOT_LEAVE_FAMILY") {
-          throw new Error("You cannot leave the family as you are the only admin. Promote another member first.");
-        }
-        
-        throw new Error(errorData.message || 'Failed to leave family');
-      }
-      
-      return await response.json();
+      return response;
     } catch (error) {
       console.error(`Error leaving family ${familyName}:`, error);
       throw error;
@@ -417,7 +381,7 @@ export const familyService = {
    * Promote a user to admin in a family
    * @param {string} familyName - Name of the family
    * @param {string} username - Username of the user to promote
-   * @returns {Promise<object>} - Response from the server
+   * @returns {Response} - Response from the server
    */
   promoteToAdmin: async (familyName, username) => {
     try {
@@ -440,12 +404,7 @@ export const familyService = {
         }
       );
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to promote user to admin');
-      }
-      
-      return await response.json();
+      return response;
     } catch (error) {
       console.error(`Error promoting user in family ${familyName}:`, error);
       throw error;
@@ -489,7 +448,7 @@ export const familyService = {
   /**
    * Accept a family invitation
    * @param {number} requestId - ID of the invitation request to accept
-   * @returns {Promise<object>} - Response from the server
+   * @returns {Response} - Response from the server
    */
   acceptFamilyInvitation: async (requestId) => {
     try {
@@ -512,12 +471,7 @@ export const familyService = {
         }
       );
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to accept invitation');
-      }
-      
-      return await response.json();
+      return response;
     } catch (error) {
       console.error('Error accepting family invitation:', error);
       throw error;
@@ -527,7 +481,7 @@ export const familyService = {
   /**
    * Decline a family invitation
    * @param {number} requestId - ID of the invitation request to decline
-   * @returns {Promise<object>} - Response from the server
+   * @returns {Response} - Response from the server
    */
   declineFamilyInvitation: async (requestId) => {
     try {
@@ -551,12 +505,7 @@ export const familyService = {
         }
       );
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to decline invitation');
-      }
-      
-      return await response.json();
+      return response;
     } catch (error) {
       console.error('Error declining family invitation:', error);
       throw error;

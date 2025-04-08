@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -56,7 +56,7 @@ import ClearIcon from '@mui/icons-material/Clear';
 
 // Import the family service
 import { familyService } from '../services/familyService';
-import { USERNAME_KEY } from '../utils/secureStorage';
+import { USERNAME_KEY, secureStorage } from '../utils/secureStorage';
 
 // Define TypeScript interfaces
 interface Family {
@@ -131,28 +131,50 @@ const FamilyPage: React.FC = () => {
   const [loadingMembers, setLoadingMembers] = useState<boolean>(false);
   const [loadingInvitations, setLoadingInvitations] = useState<boolean>(false);
 
+  // Add this ref to track loading state without causing re-renders
+  const isLoadingInvitationsRef = useRef(false);
+
+  // Add this new state at the top with your other state variables
+  const [refreshingDialogOpen, setRefreshingDialogOpen] = useState<boolean>(false);
+
   // Get current username when component mounts
   useEffect(() => {
-    const username = localStorage.getItem(USERNAME_KEY) || '';
-    setCurrentUsername(username);
+    const getUsername = async () => {
+      try {
+        // Use secureStorage to retrieve the username
+        const username = await secureStorage.getItem(USERNAME_KEY) || '';
+        console.log('Username from secureStorage:', username);
+        setCurrentUsername(username);
+      } catch (error) {
+        console.error('Error retrieving username:', error);
+      }
+    };
+    
+    getUsername();
   }, []);
 
-  // Load families and invitations on initial render and set up polling
   useEffect(() => {
     // Fetch families when component mounts
     fetchFamilies();
-    
-    // Other initialization code can stay
+  }
+  , []);
+
+  // Fix the effect to avoid the infinite loop
+  useEffect(() => {
+    // Initial fetch
     fetchInvitations();
     
     // Set up polling interval
     const intervalId = setInterval(() => {
-      fetchInvitations();
-    }, 30000); // Check every 30 seconds
+      if (!isLoading) {
+        console.log('Polling for new invitations...');
+        fetchInvitations();
+      }
+    }, 30000);
     
     // Clean up interval on component unmount
     return () => clearInterval(intervalId);
-  }, []);
+  }, [isLoading]); // Remove loadingInvitations from dependency array
 
   // Log families state whenever it changes
   useEffect(() => {
@@ -187,7 +209,7 @@ const FamilyPage: React.FC = () => {
     }
   }, [searchQuery, familyMembers]);
 
-  const fetchFamilies = async () => {
+  const fetchFamilies = async () => { // Good
     try {
       setLoadingFamilies(true);
 
@@ -218,7 +240,7 @@ const FamilyPage: React.FC = () => {
     }
   };
 
-  const fetchFamilyMembers = async (familyName: string) => {
+  const fetchFamilyMembers = async (familyName: string) => { //Good
     try {
       setLoadingMembers(true);
 
@@ -226,49 +248,64 @@ const FamilyPage: React.FC = () => {
       const response = await familyService.getFamilyMembers(familyName);
       console.log(`Fetched members for family ${familyName}:`, response);
 
-      // Ensure the response contains the expected structure
       if (response && typeof response === 'object' && 'members' in response && Array.isArray(response.members)) {
-        // Transform API response to match our FamilyMember interface
-        const members = response.members.map((member: any, index) => ({
-          id: index + 1, // Generate an ID if the API doesn't provide one
-          username: member.username,
-          firstName: member.fname,
-          lastName: member.lname,
-          joinDate: member.join_date || new Date().toISOString().split('T')[0], // Default to today if not provided
-          isAdmin: member.is_admin,
-        }));
+        // Add debug logging for the raw response
+        console.log('Raw members data:', response.members);
+        
+        const members = response.members.map((member: any, index) => {
+          // Explicitly convert is_admin to a proper boolean
+          const isAdmin = Boolean(member.is_admin);
+          console.log(`Member ${member.username} - is_admin raw value:`, member.is_admin, 'converted to:', isAdmin);
+          
+          return {
+            id: index + 1,
+            username: member.username,
+            firstName: member.fname,
+            lastName: member.lname,
+            joinDate: member.joined_at || new Date().toISOString().split('T')[0], // Note: changed join_date to joined_at
+            isAdmin: isAdmin,
+          };
+        });
 
         setFamilyMembers(members);
 
         // Check if the current user is an admin
+        console.log('Current username for admin check:', currentUsername);
         const currentUserIsAdmin = members.some(
-          (member) => member.isAdmin && member.username === currentUsername
+          (member) => member.isAdmin && member.username.toLowerCase() === currentUsername.toLowerCase()
         );
+        console.log('Setting isAdmin to:', currentUserIsAdmin);
         setIsAdmin(currentUserIsAdmin);
       } else {
         console.warn('Unexpected response structure:', response);
         setFamilyMembers([]);
+        setIsAdmin(false);
       }
     } catch (error) {
       console.error(`Error fetching members for family:`, error);
       setSnackbarMessage('Failed to load family members. Please try again.');
       setSnackbarSeverity('error');
       setSnackbarOpen(true);
+      setIsAdmin(false);
     } finally {
       setLoadingMembers(false);
     }
   };
 
-  const fetchInvitations = async () => {
+  const fetchInvitations = async () => { //Good
+    // If already fetching, don't start another request
+    if (isLoadingInvitationsRef.current) return;
+    
     try {
       setLoadingInvitations(true);
+      isLoadingInvitationsRef.current = true;
+      
       const response = await familyService.getNotifications();
-
       console.log('Fetched notifications:', response);
 
       // Transform the API response to match our component's expected format
       const familyInvitations = response
-        .filter((request: any) => request.status === 'pending')
+        .filter((request: any) => request.status === null)
         .map((request: any) => ({
           id: request.request_id,
           familyName: request.family_name,
@@ -281,14 +318,20 @@ const FamilyPage: React.FC = () => {
       setInvitations(familyInvitations);
     } catch (error) {
       console.error('Error fetching invitations:', error);
-      // Don't show an error snackbar for invitations, as it's not critical
     } finally {
       setLoadingInvitations(false);
+      isLoadingInvitationsRef.current = false;
     }
   };
 
   const handleFamilyChange = (event: SelectChangeEvent<string>) => {
-    setSelectedFamily(event.target.value);
+    const newFamilyName = event.target.value;
+    console.log('Selected family:', newFamilyName);
+    setSelectedFamily(newFamilyName);
+    // If a family is selected, fetch its members
+    if (newFamilyName) {
+      fetchFamilyMembers(newFamilyName);
+    }
   };
 
   const stringToColor = (string: string): string => {
@@ -361,12 +404,19 @@ const FamilyPage: React.FC = () => {
       setIsLoading(true);
       
       // Send the invitation using the selected family name
-      await familyService.sendFamilyInvitation(selectedFamily, inviteUsername);
+      const response = familyService.sendFamilyInvitation(selectedFamily, inviteUsername);
+
+      if (response.status < 200 || response.status >= 300) {
+        throw new Error('Failed to create family');
+      }
       
       setSnackbarMessage(`Invitation sent to ${inviteUsername}`);
       setSnackbarSeverity('success');
       setSnackbarOpen(true);
       handleInviteClose();
+      
+      // Fetch updated families and invitations after sending an invite
+      fetchInvitations(); // Add this line to refresh notifications
     } catch (error) {
       console.error('Error inviting user:', error);
       setSnackbarMessage('Failed to send invitation. Please check the username and try again.');
@@ -387,11 +437,11 @@ const FamilyPage: React.FC = () => {
     setMemberToRemove(null);
   };
 
-  const handleRemoveSubmit = async () => {
+  const handleRemoveSubmit = async () => { //Start here. Going up
     if (!memberToRemove) return;
     try {
       setIsLoading(true);
-      
+
       // Only allow admin to remove users
       if (!isAdmin) {
         setSnackbarMessage('You need admin privileges to remove members');
@@ -400,20 +450,26 @@ const FamilyPage: React.FC = () => {
         handleRemoveClose();
         return;
       }
-      
+
       // Send the request with family name and username
-      await familyService.removeUser(selectedFamily, memberToRemove.username);
-      
+      const response = familyService.removeUser(selectedFamily, memberToRemove.username);
+
+      if (response.status < 200 || response.status >= 300) {
+        throw new Error('Failed to create family');
+      }
+
+      console.log('Remove user response:', response);
+
       // Update the UI
       setFamilyMembers(prevMembers => prevMembers.filter(m => m.username !== memberToRemove.username));
-      
+
       setSnackbarMessage(`${memberToRemove.username} has been removed from the family`);
       setSnackbarSeverity('success');
       setSnackbarOpen(true);
       handleRemoveClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error removing member:', error);
-      setSnackbarMessage('Failed to remove member. Please try again.');
+      setSnackbarMessage(error?.message || 'Failed to remove member. Please try again.');
       setSnackbarSeverity('error');
       setSnackbarOpen(true);
     } finally {
@@ -446,7 +502,11 @@ const FamilyPage: React.FC = () => {
       }
       
       // Send the request with family name and username
-      await familyService.promoteToAdmin(selectedFamily, memberToPromote.username);
+      const response = familyService.promoteToAdmin(selectedFamily, memberToPromote.username);
+
+      if (response.status < 200 || response.status >= 300) {
+        throw new Error('Failed to create family');
+      }
       
       // Update the UI to reflect the change
       setFamilyMembers(prevMembers => 
@@ -485,16 +545,38 @@ const FamilyPage: React.FC = () => {
       setIsLoading(true);
       
       // Send leave request with family name
-      await familyService.leaveFamily(selectedFamily);
+      const response = familyService.leaveFamily(selectedFamily);
+
+      if (response.status < 200 || response.status >= 300) {
+        throw new Error('Failed to leave family');
+      }
+
+      console.log('Leave family response:', response);
       
       setSnackbarMessage(`You have left ${selectedFamily}`);
       setSnackbarSeverity('success');
       setSnackbarOpen(true);
+      
+      const familyLeft = selectedFamily; // Store the family name before clearing it
       setSelectedFamily('');
       handleLeaveClose();
       
-      // Refresh the families list to reflect changes
-      fetchFamilies();
+      // Show the refreshing dialog
+      setRefreshingDialogOpen(true);
+      
+      // Wait for 3 seconds, then refresh families
+      setTimeout(async () => {
+        try {
+          await fetchFamilies();
+          console.log('Families refreshed after leaving');
+        } catch (error) {
+          console.error('Error refreshing families:', error);
+        } finally {
+          // Close the refreshing dialog
+          setRefreshingDialogOpen(false);
+        }
+      }, 1000);
+      
     } catch (error: any) {
       console.error('Error leaving family:', error);
       setSnackbarMessage(error.message || 'Failed to leave family. Please try again.');
@@ -527,16 +609,36 @@ const FamilyPage: React.FC = () => {
       }
       
       // Send the delete request with family name
-      await familyService.deleteFamily(selectedFamily);
+      const response = familyService.deleteFamily(selectedFamily);
+
+      if (response.status < 200 || response.status >= 300) {
+        throw new Error('Failed to delete family');
+      }
       
-      setSnackbarMessage(`Family "${selectedFamily}" has been deleted`);
+      const deletedFamilyName = selectedFamily; // Store the family name before clearing it
+      
+      setSnackbarMessage(`Family "${deletedFamilyName}" has been deleted`);
       setSnackbarSeverity('success');
       setSnackbarOpen(true);
       setSelectedFamily('');
       handleDeleteClose();
       
-      // Refresh the families list
-      fetchFamilies();
+      // Show the refreshing dialog
+      setRefreshingDialogOpen(true);
+      
+      // Wait for 1 second, then refresh families
+      setTimeout(async () => {
+        try {
+          await fetchFamilies();
+          console.log('Families refreshed after deletion');
+        } catch (error) {
+          console.error('Error refreshing families:', error);
+        } finally {
+          // Close the refreshing dialog
+          setRefreshingDialogOpen(false);
+        }
+      }, 1000);
+      
     } catch (error) {
       console.error('Error deleting family:', error);
       setSnackbarMessage('Failed to delete family. Please try again.');
@@ -559,8 +661,13 @@ const FamilyPage: React.FC = () => {
   const handleCreateFamilySubmit = async () => {
     try {
       setIsLoading(true);
-      const response = await familyService.createFamily(newFamilyName);
-      console.log('Family created:', response);
+      const response = familyService.createFamily(newFamilyName);
+
+      if (response.status < 200 || response.status >= 300) {
+        throw new Error('Failed to create family');
+      }
+
+      console.log('Family created:', newFamilyName);
       
       setSnackbarMessage(`Family "${newFamilyName}" created successfully!`);
       setSnackbarSeverity('success');
@@ -594,31 +701,47 @@ const FamilyPage: React.FC = () => {
   const handleAcceptInvitation = async (invitation: FamilyInvitation) => {
     try {
       setIsLoading(true);
-      
+
+      // Update the UI immediately for better feedback
+      setInvitations(prevInvitations =>
+        prevInvitations.map(inv =>
+          inv.id === invitation.id ? { ...inv, status: 'processing' } : inv
+        )
+      );
+
       // Accept the invitation with the proper request format
-      // Convert to number if it's a string
       const invitationId = typeof invitation.id === 'string' ? parseInt(invitation.id, 10) : invitation.id;
-      await familyService.acceptFamilyInvitation(invitationId);
-      
+      const response = await familyService.acceptFamilyInvitation(invitationId);
+
+      // Check if the response is not OK
+      if (response.status < 200 || response.status >= 300) {
+        throw new Error('Failed to accept invitation');
+      }
+
+
+
       // Remove from invitations list
       setInvitations(prevInvitations => prevInvitations.filter(inv => inv.id !== invitation.id));
-      
+
       setSnackbarMessage(`You have joined ${invitation.familyName}!`);
       setSnackbarSeverity('success');
       setSnackbarOpen(true);
-      
+
       // Refresh families
       await fetchFamilies();
-      
+
       // Select the new family by name
       setSelectedFamily(invitation.familyName);
-      
+
       handleNotificationClose();
     } catch (error) {
       console.error('Error accepting invitation:', error);
       setSnackbarMessage('Failed to accept invitation. Please try again.');
       setSnackbarSeverity('error');
       setSnackbarOpen(true);
+
+      // Revert processing status if there was an error
+      fetchInvitations();
     } finally {
       setIsLoading(false);
     }
@@ -631,7 +754,11 @@ const FamilyPage: React.FC = () => {
       // Decline the invitation with the proper request format
       // Convert to number if it's a string
       const invitationId = typeof invitation.id === 'string' ? parseInt(invitation.id, 10) : invitation.id;
-      await familyService.declineFamilyInvitation(invitationId);
+      const response = familyService.declineFamilyInvitation(invitationId);
+
+      if (response.status < 200 || response.status >= 300) {
+        throw new Error('Failed to decline Invitation family');
+      }
       
       // Remove from invitations list
       setInvitations(prevInvitations => prevInvitations.filter(inv => inv.id !== invitation.id));
@@ -729,7 +856,11 @@ const FamilyPage: React.FC = () => {
                   <ListItem
                     alignItems="flex-start"
                     sx={{
-                      backgroundColor: invitation.read ? 'transparent' : 'rgba(25, 118, 210, 0.08)'
+                      backgroundColor: invitation.read 
+                        ? 'transparent' 
+                        : invitation.status === 'processing' 
+                          ? 'rgba(255, 152, 0, 0.08)' 
+                          : 'rgba(25, 118, 210, 0.08)'
                     }}
                   >
                     <ListItemAvatar>
@@ -760,27 +891,33 @@ const FamilyPage: React.FC = () => {
                       }
                     />
                     <ListItemSecondaryAction>
-                      <Tooltip title="Accept">
-                        <IconButton
-                          edge="end"
-                          color="success"
-                          onClick={() => handleAcceptInvitation(invitation)}
-                          disabled={isLoading}
-                        >
-                          <CheckCircleIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Decline">
-                        <IconButton
-                          edge="end"
-                          color="error"
-                          onClick={() => handleDeclineInvitation(invitation)}
-                          disabled={isLoading}
-                          sx={{ ml: 1 }}
-                        >
-                          <CancelIcon />
-                        </IconButton>
-                      </Tooltip>
+                      {invitation.status === 'processing' ? (
+                        <CircularProgress size={20} />
+                      ) : (
+                        <>
+                          <Tooltip title="Accept">
+                            <IconButton
+                              edge="end"
+                              color="success"
+                              onClick={() => handleAcceptInvitation(invitation)}
+                              disabled={isLoading}
+                            >
+                              <CheckCircleIcon />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Decline">
+                            <IconButton
+                              edge="end"
+                              color="error"
+                              onClick={() => handleDeclineInvitation(invitation)}
+                              disabled={isLoading}
+                              sx={{ ml: 1 }}
+                            >
+                              <CancelIcon />
+                            </IconButton>
+                          </Tooltip>
+                        </>
+                      )}
                     </ListItemSecondaryAction>
                   </ListItem>
                   <Divider variant="inset" component="li" />
@@ -830,15 +967,7 @@ const FamilyPage: React.FC = () => {
                 labelId="family-select-label"
                 id="family-select"
                 value={selectedFamily}
-                onChange={(e) => {
-                  const newFamilyName = e.target.value;
-                  console.log('Selected family:', newFamilyName);
-                  setSelectedFamily(newFamilyName);
-                  // If a family is selected, fetch its members
-                  if (newFamilyName) {
-                    fetchFamilyMembers(newFamilyName);
-                  }
-                }}
+                onChange={handleFamilyChange}
                 label="Select Family"
                 sx={{ width: '100%' }} // Make select take full width of its container
                 MenuProps={{
@@ -1292,6 +1421,19 @@ const FamilyPage: React.FC = () => {
             {isLoading ? 'Creating...' : 'Create Family'}
           </Button>
         </DialogActions>
+      </Dialog>
+      
+      {/* Refreshing dialog */}
+      <Dialog open={refreshingDialogOpen}>
+        <DialogTitle>Refreshing Families</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Please wait while we refresh your families list...
+          </DialogContentText>
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+            <CircularProgress />
+          </Box>
+        </DialogContent>
       </Dialog>
       
       {/* Snackbar for notifications - moved to top center for better visibility */}

@@ -487,7 +487,9 @@
       "allow_methods": [
         "GET",
         "HEAD",
-        "POST"
+        "POST",
+        "PUT",
+        "DELETE"
       ],
       "allow_headers": [
         "*"

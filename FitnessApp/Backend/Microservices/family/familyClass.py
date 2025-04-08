@@ -150,9 +150,9 @@ class Family:
                 raise FamilyNotFoundError()
             
             # Update attributes with loaded data
-            self.id = result['id']
+            self.id = int(result['id'])
             self.name = result['family_name']
-            self.admin_id = result['family_admin']
+            self.admin_id = int(result['family_admin'])
             
             logger.debug(f"Successfully loaded family: {self.name} (ID: {self.id})")
             
@@ -354,7 +354,9 @@ class Family:
                 raise UserNotInFamilyError()
             
             # Check if user is admin
-            if self.admin_id == user_id:
+            
+            
+            if self.is_admin(user_id, conn):
                 logger.warning(f"Admin {user_id} cannot leave the family")
                 raise CannotRemoveAdminError()
             
@@ -371,7 +373,7 @@ class Family:
             # Remove user from family
             cur.execute(
                 "DELETE FROM family_members WHERE family_id = %s AND user_id = %s",
-                (self.id, self.admin_id)
+                (self.id, user_id)
             )
             
             conn.commit()
@@ -534,7 +536,7 @@ class Family:
             
             # Query family members with user details
             query = """
-                SELECT u.username as username, u.fname as fname, u.lname as lname,
+                SELECT u.username as username, u.fname as fname, u.lname as lname, fm.joined_at as joined_at,
                        CASE WHEN f.family_admin = u.id THEN TRUE ELSE FALSE END as is_admin
                 FROM family_members fm
                 JOIN users u ON fm.user_id = u.id
@@ -693,7 +695,7 @@ class Family:
             
             # Check if request already exists
             cur.execute(
-                "SELECT id FROM family_requests WHERE family_id = %s AND receiver_id = %s AND status = NULL",
+                "SELECT id FROM family_requests WHERE family_id = %s AND receiver_id = %s AND status IS NULL",
                 (self.id, receiver_id)
             )
             if cur.fetchone():
@@ -879,6 +881,11 @@ class Family:
                 logger.warning(f"User {new_admin_id} is not in family {self.id}")
                 raise UserNotInFamilyError("New admin must be a member of the family")
             
+            #Check if user is already Admin
+            if self.admin_id == new_admin_id:
+                logger.warning(f"User {new_admin_id} is already admin of family {self.id}")
+                raise UserAlreadyInFamilyError("User is already admin of the family")
+            
             # Update admin
             cur.execute(
                 "UPDATE family SET family_admin = %s WHERE id = %s",
@@ -891,7 +898,7 @@ class Family:
             self.admin_id = new_admin_id
             logger.info(f"Successfully changed admin of family {self.id} to {new_admin_id}")
             
-        except (FamilyNotFoundError, UserNotFoundError, UserNotInFamilyError):
+        except (FamilyNotFoundError, UserNotFoundError, UserNotInFamilyError, UserAlreadyInFamilyError):
             # Re-raise these exceptions
             if conn:
                 conn.rollback()
@@ -957,16 +964,12 @@ class Family:
             
             cur.execute(query, params)
             requests = cur.fetchall()
-            
-            self.__dict__ = {"request_id": None, "family_id": None, "status": None, "created_at": None, "family_name": None, "sender_username": None}
-            
-            final = self.__jsonify_tuple_list__(requests)
-            
-            for f in final:
+                        
+            for f in requests:
                 del f['family_id']
             
             logger.debug(f"Found {len(requests)} requests for user {user_id}")
-            return final
+            return requests
             
         except FamilyNotFoundError:
             # Re-raise this exception
