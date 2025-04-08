@@ -4,9 +4,19 @@ import { Picker } from '@react-native-picker/picker';
 import { secureStorage, AUTH_TOKEN_KEY } from '../utils/secureStorage';
 import ChooseExercise from './chooseExercise';
 import encode from 'jwt-encode';
-import * as NetworkUtils from '../utils/networkUtils'; // Add a new utility file for network operations
+import * as NetworkUtils from '../utils/networkUtils';
+import StackedWaves from '../assets/SVG/StackedWaves.svg';
+import { Dimensions } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useFonts } from 'expo-font';
+
+
+
+const screenHeight = Dimensions.get('window').height;
+
 
 export default function WorkoutForm() {
+
   // Workout metadata state
   const [workoutName, setWorkoutName] = useState('');
   const [workoutType, setWorkoutType] = useState('Strength');
@@ -43,6 +53,7 @@ export default function WorkoutForm() {
   // Constants for dropdowns
   const setTypes = ['Warmup', 'Normal', 'Drop', 'Failure'];
   const difficultyOptions = [1, 2, 3, 4, 5];
+
 
   // Load auth token on component mount
   useEffect(() => {
@@ -83,6 +94,7 @@ export default function WorkoutForm() {
     
     getAuthToken();
   }, []);
+
 
   // Open exercise selection modal for a specific exercise
   const openExerciseModal = useCallback((exerciseIndex) => {
@@ -258,55 +270,61 @@ export default function WorkoutForm() {
     setCurrentExerciseIndex(null);
   }, []);
 
-  // Update the Submit button to show loading state
-  return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.title}>Log Your Workout</Text>
+  const [fontsLoaded] = useFonts({
+    'RalewayRegular': require('../assets/fonts/Raleway-Regular.ttf'),
+  });
 
-      {/* Workout Info */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Workout Info</Text>
-        
-        <TextInput
-          style={styles.input}
-          placeholder="Workout Name"
-          value={workoutName}
-          onChangeText={setWorkoutName}
-        />
-        
-        <View style={styles.pickerContainer}>
-          <Text style={styles.label}>Workout Type</Text>
-          <View style={styles.pickerWrapper}>
-            <Picker
-              selectedValue={workoutType}
-              onValueChange={setWorkoutType}
-              style={styles.picker}
-            >
-              <Picker.Item label="Strength" value="Strength" />
-              <Picker.Item label="Cardio" value="Cardio" />
-              <Picker.Item label="Flexibility" value="Flexibility" />
-              <Picker.Item label="HIIT" value="HIIT" />
-            </Picker>
+  if (!fontsLoaded) return null;
+  // Update the Submit button to show loading state
+  
+  return (
+    <LinearGradient colors={['#007AFF', '#B3E5FC']} style={{ flex: 1 }}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={{ paddingBottom: 40 }}
+      >
+        <Text style={styles.title}>Log Your Workout</Text>
+
+        {/* Workout Info */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Workout Info</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Workout Name"
+            value={workoutName}
+            onChangeText={setWorkoutName}
+          />
+          <View style={styles.pickerContainer}>
+            <Text style={styles.label}>Workout Type</Text>
+            <View style={styles.pickerWrapper}>
+              <Picker
+                selectedValue={workoutType}
+                onValueChange={setWorkoutType}
+                style={styles.picker}
+              >
+                <Picker.Item label="Strength" value="Strength" />
+                <Picker.Item label="Cardio" value="Cardio" />
+                <Picker.Item label="Flexibility" value="Flexibility" />
+                <Picker.Item label="HIIT" value="HIIT" />
+              </Picker>
+            </View>
           </View>
+          <TextInput
+            style={styles.input}
+            placeholder="Average Heart Rate"
+            keyboardType="numeric"
+            value={heartRate}
+            onChangeText={setHeartRate}
+          />
+          <TextInput
+            style={styles.textArea}
+            placeholder="Workout Notes"
+            multiline
+            numberOfLines={4}
+            value={notes}
+            onChangeText={setNotes}
+          />
         </View>
-        
-        <TextInput
-          style={styles.input}
-          placeholder="Average Heart Rate"
-          keyboardType="numeric"
-          value={heartRate}
-          onChangeText={setHeartRate}
-        />
-        
-        <TextInput
-          style={styles.textArea}
-          placeholder="Workout Notes"
-          multiline
-          numberOfLines={4}
-          value={notes}
-          onChangeText={setNotes}
-        />
-      </View>
 
       {/* Exercises */}
       {exercises.map((exercise, exerciseIndex) => (
@@ -610,43 +628,45 @@ export default function WorkoutForm() {
 
       {/* Exercise Selection Modal */}
       <Modal
-        visible={exerciseModalVisible}
-        animationType="slide"
-        onRequestClose={handleCloseModal}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Select an Exercise</Text>
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={handleCloseModal}
-            >
-              <Text style={styles.closeButtonText}>Close</Text>
-            </TouchableOpacity>
+          visible={exerciseModalVisible}
+          animationType="slide"
+          onRequestClose={handleCloseModal}
+        >
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select an Exercise</Text>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={handleCloseModal}
+              >
+                <Text style={styles.closeButtonText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.modalContent}>
+              <ChooseExercise onExerciseSelect={handleExerciseSelect} />
+            </View>
           </View>
-          
-          <View style={styles.modalContent}>
-            <ChooseExercise onExerciseSelect={handleExerciseSelect} />
-          </View>
-        </View>
-      </Modal>
-    </ScrollView>
+        </Modal>
+      </ScrollView>
+    </LinearGradient>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: '#f4f4f9',
+    backgroundColor: 'transparent', // ✅ lets the gradient show
   },
+  
   title: {
     fontSize: 26,
     marginBottom: 20,
     textAlign: 'center',
     fontWeight: '600',
-    color: '#2c3e50',
+    color: '#ffffff',
+    fontFamily: 'RalewayRegular', // ✅ custom font
   },
+  
   section: {
     marginBottom: 20,
     backgroundColor: '#ffffff',
@@ -662,6 +682,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     fontWeight: '500',
     color: '#34495e',
+    fontFamily: 'RalewayRegular',
   },
   input: {
     height: 45,

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { secureStorage, AUTH_TOKEN_KEY } from '../utils/secureStorage';
 import { Base64 } from 'js-base64';
-import './chooseExercise.css';
+//import '@/components/chooseExercise.css';
 
 const ChooseExercise = ({ onExerciseSelect }) => {
     const [searchQuery, setSearchQuery] = useState('');
