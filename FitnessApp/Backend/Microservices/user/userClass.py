@@ -1374,6 +1374,169 @@ class UserStats(User):
             if should_close_conn and 'conn' in locals() and conn:
                 conn.close()
                 logger.debug("Database connection closed")
+                
+    def getHomePageData(self, leaderboardType = None, conn = None):
+        """
+        Gets the user data for the home page
+
+        Args:
+            conn (_type_, optional): _description_. Defaults to None.
+        """
+        # most recent activity
+        activities = self.getUserActivities(verbose = True, days = -1, number = 1, conn = conn)
+        
+        if not activities:
+            logger.warning("No activities found for user ID")
+            activity = {}
+        elif(activities[1]['type'] == 'strength'):
+            sets = 0
+            reps = 0
+            weight = 0
+            for exercise in activities[1]['details']:
+                sets += len(exercise['weight'])
+                reps += sum(exercise['reps'])
+                weight += sum(exercise['weight'])
+            activity = {
+                "name": activities[1]['name'],
+                "type": activities[1]['type'],
+                "date": activities[1]['date'],
+                "sets": sets,
+                "reps": reps,
+                "weight": weight
+            }
+        logger.info(f"Home page data for user ID {self.id}: {activity}")
+        
+        # weight data
+        
+        weightStats = self.getUserStats(365)
+        
+        if not weightStats:
+            logger.warning("No weight stats found for user ID")
+            weightStats = {}
+        else:
+            weights = []
+            for i in range(len(weightStats)):
+                weights[i] = {
+                    "weight": weightStats[i]['weight'],
+                    "date": weightStats[i]['date']
+                }
+                
+        if leaderboardType is None:
+            leaderboardType = 'steps'
+        else:
+            leaderboardType = leaderboardType.lower()
+        
+        if leaderboardType not in ['steps', 'weight', 'deadlift', 'squat', 'bench']:
+            logger.warning(f"Invalid leaderboard type: {leaderboardType}")
+            raise InvalidLeaderboardTypeError()
+        
+        match leaderboardType:
+            case 'deadlift':
+                leaderboard = self.getLeaderboardRank('deadlift', conn)
+            case 'squat':
+                leaderboard = self.getLeaderboardRank('squat', conn)
+            case 'bench':
+                leaderboard = self.getLeaderboardRank('bench', conn)
+                
+        logger.info(f"Weight stats for user ID {self.id}: {weightStats}")
+        
+
+    def getLeaderboardRank(self, exercise = None, conn = None):
+        """
+        Gets the leaderboard rank for the user
+        
+        :param exercise: The exercise to get the rank for
+        :param conn: The connection to the database
+        
+        :type exercise: str
+        :type conn: psycopg2.connection
+        
+        :return: The leaderboard rank
+        :rtype: dict
+        """
+        logger.info(f"Getting leaderboard rank for user ID {self.id} for exercise {exercise}")
+        
+        if not conn:
+            try:
+                logger.debug("Establishing database connection")
+                conn = global_func.getConnection()
+            except Exception as e:
+                logger.error(f"Failed to connect to database: {str(e)}")
+                raise ConnectionError(str(e))
+            
+        cur = conn.cursor()
+        
+        ex = {'deadlift': 523, 'squat': 716, 'bench': 273}
+        query = sql.Sql("""
+                        WITH latest_1rm AS (
+                            SELECT DISTINCT ON (uem.user_id)
+                                uem.user_id,
+                                uem.exercise_id,
+                                uem.calculated_1rm,
+                                uem.date_performed,
+                                u.username
+                            FROM user_exercise_max uem
+                            JOIN users u ON u.id = uem.user_id
+                            WHERE uem.exercise_id = %s
+                            ORDER BY uem.user_id, uem.date_performed DESC
+                        ),
+                        ranked AS (
+                            SELECT *,
+                                RANK() OVER (ORDER BY calculated_1rm DESC) AS rank
+                            FROM latest_1rm
+                        ),
+                        target_user AS (
+                            SELECT rank FROM ranked WHERE user_id = %s
+                        )
+                        SELECT r.*
+                        FROM ranked r
+                        JOIN target_user t ON r.rank BETWEEN t.rank - 2 AND t.rank + 2
+                        ORDER BY r.rank;
+                        """)
+        
+        if self.id is None or self.id == -1:
+            logger.warning("Cannot get leaderboard rank - Invalid user ID")
+            raise UserNotFoundException()
+        
+        if exercise is None:
+            logger.warning("Cannot get leaderboard rank - Invalid exercise")
+            raise InvalidLeaderboardTypeError()
+        
+        try:
+            match exercise:
+                case 'deadlift':
+                    cur.execute(query, (ex['deadlift'], self.id))
+                case 'squat':
+                    cur.execute(query, (ex['squat'], self.id))
+                case 'bench':
+                    cur.execute(query, (ex['bench'], self.id))
+                case _:
+                    logger.warning(f"Invalid exercise type: {exercise}")
+                    raise InvalidLeaderboardTypeError()
+                
+            result = cur.fetchall()
+            logger.debug(f"Fetched leaderboard rank for user ID {self.id}: {result}")
+            if not result:
+                logger.info(f"No leaderboard data found for user ID {self.id}")
+                return {}
+            else:
+                # Process the result into a more readable format
+                keys = ("user_id", "exercise_id", "calculated_1rm", "date_performed", "username", "rank")
+                final = self.__jsonifyTuple__(result, keys)
+                logger.info(f"Leaderboard rank data for user ID {self.id}: {final}")
+                return final
+        except Exception as e:
+            logger.error(f"Error fetching leaderboard rank: {str(e)}")
+            logger.debug(traceback.format_exc())
+            raise QueryError(f"Error fetching leaderboard rank: {str(e)}")
+        
+        
+        
+        
+        
+        
+    def __getSingleSided__(self, exercise):
+        pass
 
     def __jsonifyTuple__(self, data, keys):
         """

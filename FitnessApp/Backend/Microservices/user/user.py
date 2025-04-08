@@ -648,7 +648,36 @@ def get_user_page():
         logger.error(f"Request {request_id}: Unexpected error in get_user_page: {str(e)}")
         logger.error(f"Request {request_id}: {traceback.format_exc()}")
         raise UserServiceError(f"An unexpected error occurred while retrieving user page data")
+    
 
+@app.route('/homepage', methods=['GET'])
+def homepage():
+    """
+    Home page route.
+    
+    Returns:
+        flask.Response: JSON response with welcome message
+    """
+    
+    request_id = getattr(request, 'request_id', 'unknown')
+    try:
+        logger.info(f"Request {request_id}: Processing user page request")
+        key = request.headers.get('Authorization')
+        
+        if not key or not key.startswith('ApiKey '):
+            logger.warning(f"Request {request_id}: Missing or invalid Authorization header")
+            raise MissingTokenError("Authorization header is required and must start with 'ApiKey '")
+                
+        key = key.split(' ')[1]
+        
+        key = base64.b64decode(key).decode()
+        
+        user = userClass.UserStats(key=key)
+        
+        data = user.getHomePageData()
+    
+    except Exception as e:
+        pass
 
         
 if __name__ == '__main__':
