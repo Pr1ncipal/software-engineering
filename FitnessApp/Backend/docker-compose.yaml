@@ -57,6 +57,18 @@ services:
     networks:
       - private-network
 
+  family:
+    container_name: family
+    depends_on:
+      - postgres
+    ports:
+      - "8080"
+    build: 
+      context: ./Microservices/family
+      dockerfile: Dockerfile
+    networks:
+      - private-network
+
 networks:
   private-network:
     driver: bridge

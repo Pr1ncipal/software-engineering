@@ -12,6 +12,8 @@ import Chatbot from '@/components/chatbot';  // Import Chatbot
 import MotivationScreen from '@/components/MotivationScreen';
 
 import ChooseExercise from '@/components/chooseExercise';
+import leaderboardPage from '@/components/leaderboard';
+import Family from '@/components/familyPage';
 
 const Tab = createBottomTabNavigator();
 
@@ -53,6 +55,19 @@ export default function AppTabs() {
                 size={size}
                 color={color}
               />;
+            } 
+            else if (route.name === 'Leaderboard') {
+              return <Ionicons 
+                name={focused ? 'trophy' : 'trophy-outline'} 
+                size={size} 
+                color={color} 
+              />;
+            } else if (route.name === 'Family') {
+              return <Ionicons 
+                name={focused ? 'people' : 'people-outline'} 
+                size={size} 
+                color={color} 
+              />;
             }
           },
           tabBarActiveTintColor: '#f4511e',
@@ -68,6 +83,15 @@ export default function AppTabs() {
         <Tab.Screen name="Login" component={App} />
         <Tab.Screen name="Chatbot" component={Chatbot} />
         <Tab.Screen name="Motivation" component={MotivationScreen} />
+        <Tab.Screen 
+          name="Leaderboard" 
+          component={leaderboardPage} 
+          options={{ headerShown: false }}
+        />
+        <Tab.Screen
+            name = "Family" component= {Family}
+            options={{ headerShown: false }}
+        />
         <Tab.Screen 
           name="Choose Exercise" 
           component={() => <ChooseExercise onExerciseSelect={() => {}} />} 

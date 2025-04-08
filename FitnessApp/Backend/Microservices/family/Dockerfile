@@ -9,7 +9,11 @@ COPY requirements.txt ./
 RUN pip install -r requirements.txt
 
 # Bundle app source
-COPY user2.py /app/user.py
+COPY family.py /app/family.py
+COPY familyClass.py /app/familyClass.py
+COPY familyErrors.py /app/familyErrors.py
+COPY global_func.py /app/global_func.py
 
 EXPOSE 8080
-CMD [ "python", "user.py" ]
+
+CMD [ "python", "family.py" ]

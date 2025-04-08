@@ -1,4 +1,4 @@
-import { Stack } from "expo-router";
+import { Tabs, Stack } from "expo-router";
 
 export default function RootLayout() {
   return <Stack>
@@ -6,3 +6,20 @@ export default function RootLayout() {
   <Stack.Screen name="+not-found" options={{ headerShown: false }} />
 </Stack>;
 }
+
+
+// export default function TabsLayout() {
+//   return (
+//     <Tabs>
+//       <Tabs.Screen name = "index" options = { {
+//         headerTitle: "FWLR test",
+//         headerLeft: () => <></>
+//       } } />
+//       <Tabs.Screen name = "about" options = { {
+//         headerTitle: "DSLR test",
+//         headerLeft: () => <></>
+//       } } />
+
+//     </Tabs>
+//   );
+// }
