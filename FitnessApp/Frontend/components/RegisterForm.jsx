@@ -88,7 +88,7 @@ export default function RegisterForm({ onLogin }) {
         weight: formData.weight
       };
 
-      await fetch('http://10.28.4.234:8080/api/user/create_user', {
+      await fetch('http://localhost:8080/api/user/create_user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userData)
