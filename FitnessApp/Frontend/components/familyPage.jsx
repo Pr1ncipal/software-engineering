@@ -17,7 +17,6 @@ import {
   Avatar,
   Chip,
   Divider,
-  SelectChangeEvent,
   Button,
   Dialog,
   DialogActions,
@@ -58,84 +57,86 @@ import ClearIcon from '@mui/icons-material/Clear';
 import { familyService } from '../services/familyService';
 import { USERNAME_KEY, secureStorage } from '../utils/secureStorage';
 
-// Define TypeScript interfaces
-interface Family {
-  id: number;
-  name: string;
-}
+/**
+ * @typedef {Object} Family
+ * @property {number} id
+ * @property {string} name
+ */
 
-interface FamilyMember {
-  id?: number;
-  username: string;
-  firstName: string;
-  lastName: string;
-  joinDate: string;
-  isAdmin: boolean;
-}
+/**
+ * @typedef {Object} FamilyMember
+ * @property {number} [id]
+ * @property {string} username
+ * @property {string} firstName
+ * @property {string} lastName
+ * @property {string} joinDate
+ * @property {boolean} isAdmin
+ */
 
-interface FamilyInvitation {
-  id: number | string;
-  familyName: string;
-  fromUsername: string;
-  timestamp: string;
-  status: string;
-  read: boolean;
-}
+/**
+ * @typedef {Object} FamilyInvitation
+ * @property {number|string} id
+ * @property {string} familyName
+ * @property {string} fromUsername
+ * @property {string} timestamp
+ * @property {string} status
+ * @property {boolean} read
+ */
 
-const FamilyPage: React.FC = () => {
+const FamilyPage = () => {
   // State for families and selection
-  const [families, setFamilies] = useState<Family[]>([]);
-  const [selectedFamily, setSelectedFamily] = useState<string>('');
-  const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
-  const [filteredMembers, setFilteredMembers] = useState<FamilyMember[]>([]);
-  const [isAdmin, setIsAdmin] = useState<boolean>(false);
-  const [currentUsername, setCurrentUsername] = useState<string>('');
+  const [families, setFamilies] = useState([]);
+  const [selectedFamily, setSelectedFamily] = useState('');
+  const [familyMembers, setFamilyMembers] = useState([]);
+  const [filteredMembers, setFilteredMembers] = useState([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [currentUsername, setCurrentUsername] = useState('');
   
   // State for invite dialog
-  const [inviteDialogOpen, setInviteDialogOpen] = useState<boolean>(false);
-  const [inviteUsername, setInviteUsername] = useState<string>('');
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [inviteUsername, setInviteUsername] = useState('');
   
   // State for remove member dialog
-  const [removeDialogOpen, setRemoveDialogOpen] = useState<boolean>(false);
-  const [memberToRemove, setMemberToRemove] = useState<FamilyMember | null>(null);
+  const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
+  const [memberToRemove, setMemberToRemove] = useState(null);
   
   // State for promote to admin dialog
-  const [promoteDialogOpen, setPromoteDialogOpen] = useState<boolean>(false);
-  const [memberToPromote, setMemberToPromote] = useState<FamilyMember | null>(null);
+  const [promoteDialogOpen, setPromoteDialogOpen] = useState(false);
+  const [memberToPromote, setMemberToPromote] = useState(null);
   
   // State for leave family dialog
-  const [leaveDialogOpen, setLeaveDialogOpen] = useState<boolean>(false);
+  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   
   // State for delete family dialog
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState<boolean>(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   // State for create family dialog
-  const [createFamilyDialogOpen, setCreateFamilyDialogOpen] = useState<boolean>(false);
-  const [newFamilyName, setNewFamilyName] = useState<string>('');
+  const [createFamilyDialogOpen, setCreateFamilyDialogOpen] = useState(false);
+  const [newFamilyName, setNewFamilyName] = useState('');
 
   // State for notifications
-  const [snackbarOpen, setSnackbarOpen] = useState<boolean>(false);
-  const [snackbarMessage, setSnackbarMessage] = useState<string>('');
-  const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState('success');
   
   // State for notification menu
-  const [notificationAnchorEl, setNotificationAnchorEl] = useState<null | HTMLElement>(null);
-  const [invitations, setInvitations] = useState<FamilyInvitation[]>([]);
+  const [notificationAnchorEl, setNotificationAnchorEl] = useState(null);
+  const [invitations, setInvitations] = useState([]);
 
   // State for member search/filtering
-  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Loading states
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [loadingFamilies, setLoadingFamilies] = useState<boolean>(false);
-  const [loadingMembers, setLoadingMembers] = useState<boolean>(false);
-  const [loadingInvitations, setLoadingInvitations] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingFamilies, setLoadingFamilies] = useState(false);
+  const [loadingMembers, setLoadingMembers] = useState(false);
+  const [loadingInvitations, setLoadingInvitations] = useState(false);
 
   // Add this ref to track loading state without causing re-renders
   const isLoadingInvitationsRef = useRef(false);
 
   // Add this new state at the top with your other state variables
-  const [refreshingDialogOpen, setRefreshingDialogOpen] = useState<boolean>(false);
+  const [refreshingDialogOpen, setRefreshingDialogOpen] = useState(false);
 
   // Get current username when component mounts
   useEffect(() => {
@@ -156,8 +157,7 @@ const FamilyPage: React.FC = () => {
   useEffect(() => {
     // Fetch families when component mounts
     fetchFamilies();
-  }
-  , []);
+  }, []);
 
   // Fix the effect to avoid the infinite loop
   useEffect(() => {
@@ -222,8 +222,8 @@ const FamilyPage: React.FC = () => {
         throw new Error('Unexpected response format: Expected an array');
       }
 
-      // Transform the response to match the Family interface
-      const transformedFamilies = response.map((family: any) => ({
+      // Transform the response to match the Family structure
+      const transformedFamilies = response.map((family) => ({
         id: family.family_id, // Use family_id from the response
         name: family.family_name, // Use family_name from the response
       }));
@@ -240,7 +240,7 @@ const FamilyPage: React.FC = () => {
     }
   };
 
-  const fetchFamilyMembers = async (familyName: string) => { //Good
+  const fetchFamilyMembers = async (familyName) => { //Good
     try {
       setLoadingMembers(true);
 
@@ -252,7 +252,7 @@ const FamilyPage: React.FC = () => {
         // Add debug logging for the raw response
         console.log('Raw members data:', response.members);
         
-        const members = response.members.map((member: any, index) => {
+        const members = response.members.map((member, index) => {
           // Explicitly convert is_admin to a proper boolean
           const isAdmin = Boolean(member.is_admin);
           console.log(`Member ${member.username} - is_admin raw value:`, member.is_admin, 'converted to:', isAdmin);
@@ -305,8 +305,8 @@ const FamilyPage: React.FC = () => {
 
       // Transform the API response to match our component's expected format
       const familyInvitations = response
-        .filter((request: any) => request.status === null)
-        .map((request: any) => ({
+        .filter((request) => request.status === null)
+        .map((request) => ({
           id: request.request_id,
           familyName: request.family_name,
           fromUsername: request.sender_username,
@@ -324,7 +324,7 @@ const FamilyPage: React.FC = () => {
     }
   };
 
-  const handleFamilyChange = (event: SelectChangeEvent<string>) => {
+  const handleFamilyChange = (event) => {
     const newFamilyName = event.target.value;
     console.log('Selected family:', newFamilyName);
     setSelectedFamily(newFamilyName);
@@ -334,7 +334,7 @@ const FamilyPage: React.FC = () => {
     }
   };
 
-  const stringToColor = (string: string): string => {
+  const stringToColor = (string) => {
     let hash = 0;
     for (let i = 0; string.length > i; i++) {
       hash = string.charCodeAt(i) + ((hash << 5) - hash);
@@ -347,8 +347,8 @@ const FamilyPage: React.FC = () => {
     return color;
   };
 
-  const formatDate = (dateString: string): string => {
-    const options: Intl.DateTimeFormatOptions = { 
+  const formatDate = (dateString) => {
+    const options = { 
       year: 'numeric', 
       month: 'long', 
       day: 'numeric' 
@@ -356,7 +356,7 @@ const FamilyPage: React.FC = () => {
     return new Date(dateString).toLocaleDateString(undefined, options);
   };
 
-  const formatTimeAgo = (dateString: string): string => {
+  const formatTimeAgo = (dateString) => {
     // Try to parse the date in multiple formats (in case the format changes)
     let date;
     try {
@@ -427,7 +427,7 @@ const FamilyPage: React.FC = () => {
     }
   };
 
-  const handleRemoveOpen = (member: FamilyMember) => {
+  const handleRemoveOpen = (member) => {
     setMemberToRemove(member);
     setRemoveDialogOpen(true);
   };
@@ -437,7 +437,7 @@ const FamilyPage: React.FC = () => {
     setMemberToRemove(null);
   };
 
-  const handleRemoveSubmit = async () => { //Start here. Going up
+  const handleRemoveSubmit = async () => {
     if (!memberToRemove) return;
     try {
       setIsLoading(true);
@@ -467,7 +467,7 @@ const FamilyPage: React.FC = () => {
       setSnackbarSeverity('success');
       setSnackbarOpen(true);
       handleRemoveClose();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error removing member:', error);
       setSnackbarMessage(error?.message || 'Failed to remove member. Please try again.');
       setSnackbarSeverity('error');
@@ -477,7 +477,7 @@ const FamilyPage: React.FC = () => {
     }
   };
 
-  const handlePromoteOpen = (member: FamilyMember) => {
+  const handlePromoteOpen = (member) => {
     setMemberToPromote(member);
     setPromoteDialogOpen(true);
   };
@@ -564,7 +564,7 @@ const FamilyPage: React.FC = () => {
       // Show the refreshing dialog
       setRefreshingDialogOpen(true);
       
-      // Wait for 3 seconds, then refresh families
+      // Wait for 1 second, then refresh families
       setTimeout(async () => {
         try {
           await fetchFamilies();
@@ -577,7 +577,7 @@ const FamilyPage: React.FC = () => {
         }
       }, 1000);
       
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error leaving family:', error);
       setSnackbarMessage(error.message || 'Failed to leave family. Please try again.');
       setSnackbarSeverity('error');
@@ -690,7 +690,7 @@ const FamilyPage: React.FC = () => {
     }
   };
 
-  const handleNotificationClick = (event: React.MouseEvent<HTMLElement>) => {
+  const handleNotificationClick = (event) => {
     setNotificationAnchorEl(event.currentTarget);
   };
 
@@ -698,7 +698,7 @@ const FamilyPage: React.FC = () => {
     setNotificationAnchorEl(null);
   };
 
-  const handleAcceptInvitation = async (invitation: FamilyInvitation) => {
+  const handleAcceptInvitation = async (invitation) => {
     try {
       setIsLoading(true);
 
@@ -710,6 +710,7 @@ const FamilyPage: React.FC = () => {
       );
 
       // Accept the invitation with the proper request format
+      // Convert to number if it's a string
       const invitationId = typeof invitation.id === 'string' ? parseInt(invitation.id, 10) : invitation.id;
       const response = await familyService.acceptFamilyInvitation(invitationId);
 
@@ -717,8 +718,6 @@ const FamilyPage: React.FC = () => {
       if (response.status < 200 || response.status >= 300) {
         throw new Error('Failed to accept invitation');
       }
-
-
 
       // Remove from invitations list
       setInvitations(prevInvitations => prevInvitations.filter(inv => inv.id !== invitation.id));
@@ -747,7 +746,7 @@ const FamilyPage: React.FC = () => {
     }
   };
 
-  const handleDeclineInvitation = async (invitation: FamilyInvitation) => {
+  const handleDeclineInvitation = async (invitation) => {
     try {
       setIsLoading(true);
       
@@ -781,7 +780,7 @@ const FamilyPage: React.FC = () => {
     setSearchQuery('');
   };
 
-  const handleSnackbarClose = (event?: React.SyntheticEvent | Event, reason?: string) => {
+  const handleSnackbarClose = (event, reason) => {
     if (reason === 'clickaway') {
       return;
     }
