@@ -1,11 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, TextInput, StyleSheet, Text, Alert, ScrollView, TouchableOpacity, Modal, Button } from 'react-native';
+import { View, TextInput, StyleSheet, Text, ScrollView, TouchableOpacity, Modal, Button } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { secureStorage, AUTH_TOKEN_KEY } from '../utils/secureStorage';
 import ChooseExercise from './chooseExercise';
 import encode from 'jwt-encode';
-import * as NetworkUtils from '../utils/networkUtils'; // Add a new utility file for network operations
-import { Base64 } from 'js-base64'; // Import Base64 from js-base64
+import * as NetworkUtils from '../utils/networkUtils'; 
+import { Base64 } from 'js-base64';
+import { Snackbar, Alert as MuiAlert, IconButton } from '@mui/material'; // Added IconButton import
+import CloseIcon from '@mui/icons-material/Close'; // Added CloseIcon import
+
+// Alert component for web
+const Alert = React.forwardRef(function Alert(props, ref) {
+  return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
+});
 
 export default function WorkoutForm() {
   // Workout metadata state
@@ -24,6 +31,12 @@ export default function WorkoutForm() {
   
   // Loading state
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Add states for web alerts
+  const [alertOpen, setAlertOpen] = useState(false);
+  const [alertMessage, setAlertMessage] = useState('');
+  const [alertSeverity, setAlertSeverity] = useState('success');
+  const [alertAction, setAlertAction] = useState(null);
   
   // Initial exercise template
   const createEmptyExercise = useCallback(() => ({
@@ -45,6 +58,27 @@ export default function WorkoutForm() {
   const setTypes = ['Warmup', 'Normal', 'Drop', 'Failure'];
   const difficultyOptions = [1, 2, 3, 4, 5];
 
+  // Function to show web-based alerts
+  const showAlert = useCallback((title, message, severity = 'info', action = null) => {
+    setAlertMessage(`${title}: ${message}`);
+    setAlertSeverity(severity);
+    setAlertAction(action);
+    setAlertOpen(true);
+  }, []);
+
+  // Handle alert close
+  const handleAlertClose = (event, reason) => {
+    if (reason === 'clickaway') {
+      return;
+    }
+    setAlertOpen(false);
+    // Execute action if one was provided (like resetForm)
+    if (alertAction) {
+      alertAction();
+      setAlertAction(null);
+    }
+  };
+
   // Load auth token on component mount
   useEffect(() => {
     const getAuthToken = async () => {
@@ -52,7 +86,7 @@ export default function WorkoutForm() {
         // Check for network connection first
         const isConnected = await NetworkUtils.isNetworkAvailable();
         if (!isConnected) {
-          Alert.alert('No Connection', 'You are offline. Please connect to the internet and try again.');
+          showAlert('No Connection', 'You are offline. Please connect to the internet and try again.', 'error');
           setIsAuthenticated(false);
           return;
         }
@@ -67,23 +101,23 @@ export default function WorkoutForm() {
             setIsAuthenticated(true);
           } else {
             // Token exists but is invalid - user needs to log in again
-            Alert.alert('Session Expired', 'Your session has expired. Please log in again.');
+            showAlert('Session Expired', 'Your session has expired. Please log in again.', 'warning');
             secureStorage.removeItem(AUTH_TOKEN_KEY);
             setIsAuthenticated(false);
           }
         } else {
-          Alert.alert('Authentication Required', 'Please log in to continue.');
+          showAlert('Authentication Required', 'Please log in to continue.', 'warning');
           setIsAuthenticated(false);
         }
       } catch (err) {
         console.error('Error retrieving or validating auth token:', err);
-        Alert.alert('Authentication Error', 'Failed to authenticate. Please try logging in again.');
+        showAlert('Authentication Error', 'Failed to authenticate. Please try logging in again.', 'error');
         setIsAuthenticated(false);
       }
     };
     
     getAuthToken();
-  }, []);
+  }, [showAlert]);
 
   // Open exercise selection modal for a specific exercise
   const openExerciseModal = useCallback((exerciseIndex) => {
@@ -206,7 +240,7 @@ export default function WorkoutForm() {
       const exercise = updatedExercises[exerciseIndex];
       
       if (exercise.reps.length <= 1) {
-        Alert.alert('Cannot Remove', 'Each exercise must have at least one set');
+        showAlert('Cannot Remove', 'Each exercise must have at least one set', 'warning');
         return prevExercises;
       }
       
@@ -230,7 +264,7 @@ export default function WorkoutForm() {
       
       return updatedExercises;
     });
-  }, []);
+  }, [showAlert]);
 
   // Parse numeric values before submission
   const parseNumericValues = useCallback((data) => {
@@ -272,7 +306,7 @@ export default function WorkoutForm() {
 
   const handleSubmitWorkout = async () => {
     if (!isAuthenticated) {
-      Alert.alert('Authentication Required', 'Please log in to submit a workout.');
+      showAlert('Authentication Required', 'Please log in to submit a workout.', 'warning');
       return;
     }
     
@@ -282,14 +316,14 @@ export default function WorkoutForm() {
     
     // Validate form
     if (!workoutName.trim()) {
-      Alert.alert('Missing Information', 'Please enter a workout name.');
+      showAlert('Missing Information', 'Please enter a workout name.', 'warning');
       return;
     }
     
     // Validate exercises
     const validExercises = exercises.filter(ex => ex.exerciseName.trim());
     if (validExercises.length === 0) {
-      Alert.alert('Missing Exercises', 'Please add at least one exercise to your workout.');
+      showAlert('Missing Exercises', 'Please add at least one exercise to your workout.', 'warning');
       return;
     }
     
@@ -299,7 +333,7 @@ export default function WorkoutForm() {
       // Check for network connectivity
       const isConnected = await NetworkUtils.isNetworkAvailable();
       if (!isConnected) {
-        Alert.alert('No Connection', 'You are offline. Please connect to the internet to submit your workout.');
+        showAlert('No Connection', 'You are offline. Please connect to the internet to submit your workout.', 'error');
         setIsSubmitting(false);
         return;
       }
@@ -343,11 +377,7 @@ export default function WorkoutForm() {
         
         if (!token) {
           console.error('Authorization token is missing');
-          Alert.alert(
-            'Authentication Error', 
-            'No authentication token found. Please log in again.',
-            [{ text: 'OK', onPress: () => setIsAuthenticated(false) }]
-          );
+          showAlert('Authentication Error', 'No authentication token found. Please log in again.', 'error', () => setIsAuthenticated(false));
           setIsSubmitting(false);
           return;
         }
@@ -362,10 +392,7 @@ export default function WorkoutForm() {
         console.log('Token successfully encoded and added to headers');
       } catch (err) {
         console.error('Error retrieving or processing auth token:', err);
-        Alert.alert(
-          'Authentication Error', 
-          'Failed to process authentication token. Please try logging in again.'
-        );
+        showAlert('Authentication Error', 'Failed to process authentication token. Please try logging in again.', 'error');
         setIsSubmitting(false);
         return;
       }
@@ -400,14 +427,11 @@ export default function WorkoutForm() {
       console.log('Workout submitted successfully:', result);
       
       // Show success message
-      Alert.alert(
-        'Workout Logged!', 
-        'Your workout has been successfully recorded.',
-        [{ text: 'OK', onPress: resetForm }]
-      );
+      showAlert('Workout Logged!', 'Your workout has been successfully recorded.', 'success', resetForm);
+      
     } catch (error) {
       console.error('Error submitting workout:', error);
-      Alert.alert('Submission Error', `Failed to submit workout: ${error.message}`);
+      showAlert('Submission Error', `Failed to submit workout: ${error.message}`, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -468,6 +492,47 @@ export default function WorkoutForm() {
           onChangeText={setNotes}
         />
       </View>
+
+      {/* Replace the existing Snackbar with this fixed position alert */}
+      <div 
+        style={{
+          display: alertOpen ? 'flex' : 'none',
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 9999,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        }}
+      >
+        <Alert 
+          onClose={handleAlertClose} 
+          severity={alertSeverity}
+          variant="filled"
+          elevation={24}
+          sx={{ 
+            width: { xs: '90%', sm: '70%', md: '50%' },
+            padding: 2,
+            fontSize: '1rem',
+            maxWidth: '500px',
+          }}
+          action={
+            <IconButton
+              size="small"
+              aria-label="close"
+              color="inherit"
+              onClick={handleAlertClose}
+            >
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          }
+        >
+          {alertMessage}
+        </Alert>
+      </div>
 
       {/* Exercises Section Header - Without the Add button */}
       <View style={styles.sectionHeader}>
