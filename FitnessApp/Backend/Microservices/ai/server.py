@@ -41,7 +41,7 @@ def generate():
     data = request.json
     try:
         response = requests.post(OLLAMA_SERVER_URL_GEN, json={
-            "model": "llama3.3:latest",
+            "model": "llama3:latest",
             "prompt": data.get("prompt"),
             "stream": False
         })
@@ -111,7 +111,7 @@ def generate_llama_response(prompt):
     
     try:
         response = requests.post(OLLAMA_SERVER_URL_GEN, json={
-            "model": "llama3.3:latest",
+            "model": "llama3:latest",
             "prompt": prompt,
             "stream": False
         })
@@ -261,7 +261,7 @@ def chat():
         logger.debug(f"Request [{request_id}]: Chat context generated successfully")
 
         ollama_request = {
-            "model": "llama3.3:latest",
+            "model": "llama3:latest",
             "messages": [
                 {"role": "system", "content": context},
                 {"role": "user", "content": user_message}
