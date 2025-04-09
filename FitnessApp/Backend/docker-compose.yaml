@@ -10,6 +10,17 @@ services:
       - private-network
       - public-network
 
+  ai:
+    container_name: ai
+    build:
+      context: ./Microservices/ai
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    networks:
+      - private-network
+      - public-network
+
   postgres:
     container_name: postgres
     build:

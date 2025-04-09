@@ -1440,6 +1440,10 @@ class UserStats(User):
                 
         logger.info(f"Weight stats for user ID {self.id}: {weightStats}")
         
+        # get user goal progress
+        
+        goal = self.getUserGoal('strength', conn)
+        
 
     def getLeaderboardRank(self, exercise = None, conn = None):
         """
@@ -1531,7 +1535,48 @@ class UserStats(User):
             raise QueryError(f"Error fetching leaderboard rank: {str(e)}")
         
         
+    def getUserGoal(self, goalType, exercise = None, conn = None):
+        """
+        Gets the user goal for the given type
         
+        :param type: The type of goal to get
+        :param conn: The connection to the database
+        
+        :type type: str
+        :type conn: psycopg2.connection
+        
+        :return: The user goal
+        :rtype: dict
+        """
+        logger.info(f"Getting user goal for user ID {self.id} of type {type}")
+        
+        if not conn:
+            try:
+                logger.debug("Establishing database connection")
+                conn = global_func.getConnection()
+            except Exception as e:
+                logger.error(f"Failed to connect to database: {str(e)}")
+                raise ConnectionError(str(e))
+        
+        cur = conn.cursor()
+        try:
+            match goalType:
+                case 'weight':
+                    query = sql.SQL("""SELECT created_at, target_weight FROM weight_goals WHERE user_id = %s AND achieved = false ORDER BY created_at DESC LIMIT 1""")
+                    cur.execute(query, (self.id,))
+                case 'strength':
+                    query = sql.SQL("""SELECT created_at, target_1rm FROM strength_goals WHERE user_id = %s AND achieved = false AND target_exercise = %s ORDER BY created_at DESC LIMIT 1""")
+                    if exercise is None:
+                        logger.warning("Cannot get strength goal - Invalid exercise")
+                        raise InvalidStatsDataError("Exercise is required for strength goal")
+                    cur.execute(query, (self.id,exercise))
+                case _:
+                    logger.warning(f"Invalid goal type: {goalType}")
+                    raise InvalidGoalTypeError()
+                
+            
+        except:
+            pass
         
         
         

@@ -5,6 +5,7 @@ import { secureStorage, AUTH_TOKEN_KEY } from '../utils/secureStorage';
 import ChooseExercise from './chooseExercise';
 import encode from 'jwt-encode';
 import * as NetworkUtils from '../utils/networkUtils'; // Add a new utility file for network operations
+import { Base64 } from 'js-base64'; // Import Base64 from js-base64
 
 export default function WorkoutForm() {
   // Workout metadata state
@@ -269,6 +270,149 @@ export default function WorkoutForm() {
     }
   };
 
+  const handleSubmitWorkout = async () => {
+    if (!isAuthenticated) {
+      Alert.alert('Authentication Required', 'Please log in to submit a workout.');
+      return;
+    }
+    
+    if (isSubmitting) {
+      return; // Prevent multiple submissions
+    }
+    
+    // Validate form
+    if (!workoutName.trim()) {
+      Alert.alert('Missing Information', 'Please enter a workout name.');
+      return;
+    }
+    
+    // Validate exercises
+    const validExercises = exercises.filter(ex => ex.exerciseName.trim());
+    if (validExercises.length === 0) {
+      Alert.alert('Missing Exercises', 'Please add at least one exercise to your workout.');
+      return;
+    }
+    
+    try {
+      setIsSubmitting(true);
+      
+      // Check for network connectivity
+      const isConnected = await NetworkUtils.isNetworkAvailable();
+      if (!isConnected) {
+        Alert.alert('No Connection', 'You are offline. Please connect to the internet to submit your workout.');
+        setIsSubmitting(false);
+        return;
+      }
+      
+      // Format exercises to match the expected API format in workoutExample.json
+      const formattedExercises = exercises
+        .filter(ex => ex.exerciseName.trim())
+        .map((ex, index) => {
+          const parsedEx = parseNumericValues(ex);
+          return {
+            exerciseID: parsedEx.databaseExerciseId || parseInt(parsedEx.exerciseID),
+            superset: parsedEx.superset,
+            order_exercise: index + 1,
+            reps: parsedEx.reps,
+            setType: parsedEx.setType.map(type => type.toLowerCase()),
+            weight: parsedEx.weight,
+            percievedDifficulty: parsedEx.perceivedDifficulty, // Note: Using the misspelled version to match the example
+            notes: parsedEx.exerciseNotes
+          };
+        });
+      
+      // Construct the workout payload to match workoutExample.json format
+      const workoutData = {
+        name: workoutName.trim(),
+        workoutType: workoutType.toLowerCase(),
+        notes: notes.trim(),
+        averageHeartRate: heartRate ? parseInt(heartRate) : null,
+        exercises: formattedExercises
+      };
+      
+      console.log('Submitting workout:', JSON.stringify(workoutData, null, 2));
+      
+      // Get authentication headers
+      const headers = {
+        'Content-Type': 'application/json'
+      };
+
+      // Properly encode the token in base64 as required by the API
+      try {
+        const token = await secureStorage.getItem(AUTH_TOKEN_KEY);
+        
+        if (!token) {
+          console.error('Authorization token is missing');
+          Alert.alert(
+            'Authentication Error', 
+            'No authentication token found. Please log in again.',
+            [{ text: 'OK', onPress: () => setIsAuthenticated(false) }]
+          );
+          setIsSubmitting(false);
+          return;
+        }
+        
+        // Update the state in case it changed
+        setAuthToken(token);
+        
+        // Encode and add to headers
+        const base64Token = Base64.encode(token);
+        headers['Authorization'] = `ApiKey ${base64Token}`;
+        
+        console.log('Token successfully encoded and added to headers');
+      } catch (err) {
+        console.error('Error retrieving or processing auth token:', err);
+        Alert.alert(
+          'Authentication Error', 
+          'Failed to process authentication token. Please try logging in again.'
+        );
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Submit the workout with proper headers
+      const secret = await secureStorage.getItem(AUTH_TOKEN_KEY);
+      const response = await fetch('http://localhost:8080/api/workout/add_workout', {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify({"token": encode(workoutData, secret)})
+      });
+      
+      // Log response details for debugging
+      console.log('Response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Server error response:', errorText);
+        
+        let errorMessage;
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.message || `Server returned ${response.status}: ${response.statusText}`;
+        } catch {
+          errorMessage = `Server returned ${response.status}: ${response.statusText}`;
+        }
+        
+        throw new Error(errorMessage);
+      }
+      
+      const result = await response.json();
+      console.log('Workout submitted successfully:', result);
+      
+      // Show success message
+      Alert.alert(
+        'Workout Logged!', 
+        'Your workout has been successfully recorded.',
+        [{ text: 'OK', onPress: resetForm }]
+      );
+    } catch (error) {
+      console.error('Error submitting workout:', error);
+      Alert.alert('Submission Error', `Failed to submit workout: ${error.message}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.title}>Log Your Workout</Text>
@@ -525,9 +669,7 @@ export default function WorkoutForm() {
         
         <TouchableOpacity 
           style={[styles.submitButton, isSubmitting && styles.disabledButton]}
-          onPress={async () => {
-            // ...existing submit code...
-          }}
+          onPress={handleSubmitWorkout}
           disabled={isSubmitting}
         >
           <Text style={styles.submitButtonText}>

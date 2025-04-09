@@ -284,7 +284,7 @@ def validate_token():
             logger.warning(f"Request {request_id}: Invalid key in token: {str(e)}")
             raise InvalidTokenError("The provided key is invalid or does not exist")
         
-        logger.info(f"Request {request_id}: Token validation successful for user ID: {key}")
+        logger.info(f"Request {request_id}: Token validation successful for user ID: {user.id}")
         return jsonify({"username": user.username, "key": user.key}), 200
         
     except UserServiceError:
