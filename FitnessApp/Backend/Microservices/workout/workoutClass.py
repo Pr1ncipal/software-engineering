@@ -154,12 +154,6 @@ class Workout():
             logger.error(f"Invalid workout type: {self.workout_type}")
             raise InvalidWorkoutDataError(f"Invalid workout type. Must be one of: {', '.join(valid_types)}")
         
-        createWorkoutQuery = sql.SQL("""
-            INSERT INTO workouts (user_id, name, workout_type, workout_date, notes, average_heart_rate)
-            VALUES (%s, %s, %s, %s, %s, %s)
-            RETURNING id
-        """)
-        
         try:
             should_close_conn = False
             if not conn:
@@ -175,18 +169,66 @@ class Workout():
             """)
             
             try:
-                cur.execute(checkQuery, (self.user_id, self.name, self.workout_date))
-                if cur.fetchone():
-                    conn.rollback()
-                    raise WorkoutAlreadyExistsError()
+                # Set default workout date to current date if None
+                workout_date_param = self.workout_date
+                
+                # Explicitly log what we're doing with the date
+                if workout_date_param is None:
+                    logger.debug("workout_date is None, will use database default")
                     
-                cur.execute(createWorkoutQuery, (self.user_id, self.name, self.workout_type, self.workout_date, self.notes, self.averageHR))
+                    # Use a different query that excludes the workout_date column entirely
+                    createWorkoutQuery = sql.SQL("""
+                        INSERT INTO workouts (user_id, name, workout_type, notes, average_heart_rate)
+                        VALUES (%s, %s, %s, %s, %s)
+                        RETURNING id
+                    """)
+                    
+                    # Execute the query without the workout_date parameter
+                    cur.execute(checkQuery, (self.user_id, self.name, None))  # Use None for date check
+                    if cur.fetchone():
+                        conn.rollback()
+                        raise WorkoutAlreadyExistsError()
+                    
+                    # Execute the insert without the workout_date
+                    cur.execute(createWorkoutQuery, (
+                        self.user_id, 
+                        self.name, 
+                        self.workout_type, 
+                        self.notes, 
+                        self.averageHR
+                    ))
+                else:
+                    logger.debug(f"Using workout_date: {workout_date_param}")
+                    
+                    # Use the original query that includes workout_date
+                    createWorkoutQuery = sql.SQL("""
+                        INSERT INTO workouts (user_id, name, workout_type, workout_date, notes, average_heart_rate)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                        RETURNING id
+                    """)
+                    
+                    # Check for duplicates with the explicit date
+                    cur.execute(checkQuery, (self.user_id, self.name, workout_date_param))
+                    if cur.fetchone():
+                        conn.rollback()
+                        raise WorkoutAlreadyExistsError()
+                    
+                    # Execute the insert with the workout_date
+                    cur.execute(createWorkoutQuery, (
+                        self.user_id, 
+                        self.name, 
+                        self.workout_type, 
+                        workout_date_param,
+                        self.notes, 
+                        self.averageHR
+                    ))
+                
                 result = cur.fetchone()
                 
                 if result:
                     self.id = result[0]
                     conn.commit()
-                    if self.workout_type == "Strength":
+                    if self.workout_type == "strength":
                         self.__add_exercise__(conn)
                     else:
                         self.__add_cardio__(conn)

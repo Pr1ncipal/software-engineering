@@ -225,6 +225,93 @@ ALTER SEQUENCE public.exercises_id_seq OWNED BY public.exercises.id;
 
 
 --
+-- Name: family; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.family (
+    id integer NOT NULL,
+    family_name character varying(50) NOT NULL,
+    family_admin integer,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+ALTER TABLE public.family OWNER TO postgres;
+
+--
+-- Name: family_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.family_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.family_id_seq OWNER TO postgres;
+
+--
+-- Name: family_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.family_id_seq OWNED BY public.family.id;
+
+
+--
+-- Name: family_members; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.family_members (
+    family_id integer NOT NULL,
+    user_id integer NOT NULL,
+    joined_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+ALTER TABLE public.family_members OWNER TO postgres;
+
+--
+-- Name: family_requests; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.family_requests (
+    id integer NOT NULL,
+    family_id integer,
+    sender_id integer,
+    receiver_id integer,
+    status boolean,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+ALTER TABLE public.family_requests OWNER TO postgres;
+
+--
+-- Name: family_requests_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.family_requests_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.family_requests_id_seq OWNER TO postgres;
+
+--
+-- Name: family_requests_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.family_requests_id_seq OWNED BY public.family_requests.id;
+
+
+--
 -- Name: motivational_messages; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -668,6 +755,20 @@ ALTER TABLE ONLY public.cardio_goals ALTER COLUMN achieved SET DEFAULT false;
 --
 
 ALTER TABLE ONLY public.exercises ALTER COLUMN id SET DEFAULT nextval('public.exercises_id_seq'::regclass);
+
+
+--
+-- Name: family id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.family ALTER COLUMN id SET DEFAULT nextval('public.family_id_seq'::regclass);
+
+
+--
+-- Name: family_requests id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.family_requests ALTER COLUMN id SET DEFAULT nextval('public.family_requests_id_seq'::regclass);
 
 
 --
@@ -1672,6 +1773,36 @@ COPY public.exercises (id, name, equipment, description, single_sided, primary_m
 
 
 --
+-- Data for Name: family; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.family (id, family_name, family_admin, created_at) FROM stdin;
+5	testFamily3	53	2025-04-07 20:54:31.662417
+7	testFamily2	53	2025-04-08 13:49:26.359557
+\.
+
+
+--
+-- Data for Name: family_members; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.family_members (family_id, user_id, joined_at) FROM stdin;
+5	53	2025-04-07 20:54:31.662417
+7	53	2025-04-08 13:49:26.359557
+\.
+
+
+--
+-- Data for Name: family_requests; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.family_requests (id, family_id, sender_id, receiver_id, status, created_at) FROM stdin;
+7	5	53	51	t	2025-04-07 20:58:29.162723
+9	7	53	51	t	2025-04-08 13:49:35.120737
+\.
+
+
+--
 -- Data for Name: motivational_messages; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
@@ -1919,6 +2050,10 @@ COPY public.user_exercise_max (id, user_id, exercise_id, calculated_1rm, weight_
 201	50	5	172.36	140.00	8	2025-03-23 19:45:56.155041
 202	50	8	172.36	140.00	8	2025-03-23 19:45:56.159316
 203	50	5	172.36	140.00	8	2025-03-23 19:45:56.165658
+204	51	600	277.01	225.00	8	2025-04-01 15:04:49.018107
+205	51	857	116.96	95.00	8	2025-04-01 15:04:49.032732
+206	51	273	300.00	300.00	1	2025-04-01 18:28:39.421657
+207	51	716	415.00	415.00	1	2025-04-01 18:31:47.026805
 \.
 
 
@@ -3490,6 +3625,10 @@ COPY public.workout_exercises (id, workout_id, exercise_id, order_exercise, note
 406	105	5	2	This is a note	2025-03-23 19:45:56.152876	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
 407	105	8	3	This is a note	2025-03-23 19:45:56.157075	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
 408	105	5	4	This is a note	2025-03-23 19:45:56.161909	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
+409	107	600	1		2025-04-01 15:04:49.006368	("{8,8,8}","{normal,normal,normal}","{135.00,175.00,225.00}","{2,3,4}",-1)
+410	107	857	2		2025-04-01 15:04:49.028141	("{8,8,8}","{normal,normal,normal}","{95.00,95.00,95.00}","{3,3,3}",-1)
+411	108	273	1		2025-04-01 18:28:39.414568	({1},{normal},{300.00},{3},-1)
+412	109	716	1		2025-04-01 18:31:47.020837	({1},{normal},{415.00},{2},-1)
 \.
 
 
@@ -3603,6 +3742,10 @@ COPY public.workouts (id, name, user_id, workout_type, workout_date, notes, aver
 103	Heather	48	strength	\N	felis fusce posuere felis sed lacus morbi sem mauris laoreet ut rhoncus	134
 104	Dion	49	strength	\N	hac habitasse platea dictumst maecenas ut massa quis augue luctus tincidunt nulla mollis molestie lorem	110
 105	Kassie	50	strength	\N	felis donec semper sapien a libero nam dui proin leo odio porttitor id	164
+106	Test workout 1	51	strength	\N	\nSubmitting workout...\nSending data to server...\nError: Server error 500: {\n  "error": "workout_service_error",\n  "message": "Failed to add workout: 'distance'",\n  "status": 500,\n  "timestamp": "2025-03-31T21:14:58.575234"\n}\n	0
+107	Test workout 2	51	strength	\N		120
+108	test workout for max	51	strength	2025-04-01 18:28:39.40076		0
+109	Squat test max	51	strength	2025-04-01 18:31:47.015224		120
 \.
 
 
@@ -3611,6 +3754,20 @@ COPY public.workouts (id, name, user_id, workout_type, workout_date, notes, aver
 --
 
 SELECT pg_catalog.setval('public.exercises_id_seq', 873, true);
+
+
+--
+-- Name: family_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.family_id_seq', 7, true);
+
+
+--
+-- Name: family_requests_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.family_requests_id_seq', 9, true);
 
 
 --
@@ -3638,7 +3795,7 @@ SELECT pg_catalog.setval('public.user_engagement_id_seq', 1, false);
 -- Name: user_exercise_max_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.user_exercise_max_id_seq', 203, true);
+SELECT pg_catalog.setval('public.user_exercise_max_id_seq', 207, true);
 
 
 --
@@ -3673,14 +3830,14 @@ SELECT pg_catalog.setval('public.workout_cardio_id_seq', 1, false);
 -- Name: workout_exercises_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.workout_exercises_id_seq', 408, true);
+SELECT pg_catalog.setval('public.workout_exercises_id_seq', 412, true);
 
 
 --
 -- Name: workouts_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.workouts_id_seq', 105, true);
+SELECT pg_catalog.setval('public.workouts_id_seq', 109, true);
 
 
 --
@@ -3689,6 +3846,38 @@ SELECT pg_catalog.setval('public.workouts_id_seq', 105, true);
 
 ALTER TABLE ONLY public.exercises
     ADD CONSTRAINT exercises_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: family family_family_name_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.family
+    ADD CONSTRAINT family_family_name_key UNIQUE (family_name);
+
+
+--
+-- Name: family_members family_members_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.family_members
+    ADD CONSTRAINT family_members_pkey PRIMARY KEY (family_id, user_id);
+
+
+--
+-- Name: family family_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.family
+    ADD CONSTRAINT family_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: family_requests family_requests_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.family_requests
+    ADD CONSTRAINT family_requests_pkey PRIMARY KEY (id);
 
 
 --
@@ -3817,6 +4006,54 @@ ALTER TABLE ONLY public.workouts
 
 ALTER TABLE ONLY public.exercises
     ADD CONSTRAINT exercises_createdby_fkey FOREIGN KEY (createdby) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: family family_family_admin_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.family
+    ADD CONSTRAINT family_family_admin_fkey FOREIGN KEY (family_admin) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: family_members family_members_family_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.family_members
+    ADD CONSTRAINT family_members_family_id_fkey FOREIGN KEY (family_id) REFERENCES public.family(id) ON DELETE CASCADE;
+
+
+--
+-- Name: family_members family_members_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.family_members
+    ADD CONSTRAINT family_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: family_requests family_requests_family_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.family_requests
+    ADD CONSTRAINT family_requests_family_id_fkey FOREIGN KEY (family_id) REFERENCES public.family(id) ON DELETE CASCADE;
+
+
+--
+-- Name: family_requests family_requests_receiver_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.family_requests
+    ADD CONSTRAINT family_requests_receiver_id_fkey FOREIGN KEY (receiver_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: family_requests family_requests_sender_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.family_requests
+    ADD CONSTRAINT family_requests_sender_id_fkey FOREIGN KEY (sender_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --

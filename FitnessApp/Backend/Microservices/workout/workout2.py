@@ -154,6 +154,8 @@ def get_data_jwt(request):
                 logger.debug(f"Request {request_id}: Extracting Authorization header")
                 auth_header = request.headers.get('Authorization')
                 
+                logger.info(f"Request {request_id}: headers: {request.headers}")
+                
                 if not auth_header or not auth_header.startswith('ApiKey '):
                     logger.warning(f"Request {request_id}: Missing or invalid Authorization header: {auth_header}")
                     raise MissingTokenError("Authorization header is required and must start with 'ApiKey '")

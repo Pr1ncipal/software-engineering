@@ -1,0 +1,194 @@
+.chatbot-container {
+    position: fixed;
+    bottom: 60px;
+    right: 20px;
+    z-index: 1000;
+  }
+  
+  .chat-button {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    font-size: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s ease;
+  }
+  
+  .chat-button:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25);
+  }
+  
+  .chat-window {
+    position: fixed;
+    bottom: 90px;
+    right: 20px;
+    width: 350px;
+    height: 500px;
+    background-color: white;
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  
+  /* Mobile responsiveness */
+  @media (max-width: 480px) {
+    .chat-window {
+      width: 90vw;
+      height: 70vh;
+      bottom: 80px;
+      right: 5vw;
+    }
+  }
+  
+  .chat-header {
+    background-color: #007bff;
+    color: white;
+    padding: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .close-button {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 20px;
+    cursor: pointer;
+  }
+  
+  .chat-messages {
+    flex: 1;
+    padding: 15px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .chat-bubble {
+    padding: 10px 15px;
+    border-radius: 18px;
+    max-width: 80%;
+    word-wrap: break-word;
+    position: relative;
+  }
+  
+  .chat-bubble.user {
+    align-self: flex-end;
+    background-color: #e3f2fd;
+  }
+  
+  .chat-bubble.bot {
+    align-self: flex-start;
+    background-color: #f1f1f1;
+    padding-right: 35px; /* Space for the audio button */
+  }
+  
+  .chat-input {
+    display: flex;
+    padding: 10px;
+    border-top: 1px solid #eee;
+  }
+  
+  .chat-input input {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 20px;
+    outline: none;
+  }
+  
+  .send-button, .mic-button {
+    margin-left: 8px;
+    padding: 8px 16px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+  }
+  
+  .send-button:hover, .mic-button:hover {
+    background-color: #0056b3;
+  }
+  
+  .mic-button.recording {
+    background-color: #f44336;
+    animation: pulse 1.5s infinite;
+  }
+  
+  @keyframes pulse {
+    0% {
+      box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.4);
+    }
+    70% {
+      box-shadow: 0 0 0 10px rgba(244, 67, 54, 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgba(244, 67, 54, 0);
+    }
+  }
+  
+  .recording-status {
+    align-self: center;
+    color: #666;
+    font-style: italic;
+    margin: 5px 0;
+    animation: fadeIn 0.3s;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  /* New styles for the speak button */
+  .speak-button {
+    position: absolute;
+    right: 5px;
+    bottom: 5px;
+    background: none;
+    border: none;
+    color: #555;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 4px;
+    border-radius: 50%;
+    transition: background-color 0.2s;
+  }
+  
+  .speak-button:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+    color: #0056b3;
+  }
+  
+  /* Style for the markdown content */
+  .chat-bubble p {
+    margin: 0;
+  }
+  
+  .chat-bubble pre {
+    white-space: pre-wrap;
+    word-break: break-word;
+    background-color: rgba(0, 0, 0, 0.05);
+    padding: 5px;
+    border-radius: 4px;
+  }
+  
+  .chat-bubble code {
+    background-color: rgba(0, 0, 0, 0.05);
+    padding: 2px 4px;
+    border-radius: 4px;
+  }
