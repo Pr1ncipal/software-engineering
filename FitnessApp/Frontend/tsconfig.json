@@ -13,5 +13,5 @@
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
-, "components/StreakGraph.jsx", "components/StreakGraph.jsx"  ]
+, "components/StreakGraph.jsx", "components/StreakGraph.jsx", "components/MotivationScreen.jsx"  ]
 }

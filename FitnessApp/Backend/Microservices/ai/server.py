@@ -8,7 +8,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../.
 
 from flask import Flask, request, jsonify, session
 import requests
-from AI_resources.getData import get_data, get_userName, build_motivation_prompt, get_user_id_by_username, predict_progress
+from AI_resources.getData import get_data, get_userName, build_motivation_prompt, get_user_id_by_username, predict_progress, generate_weight_graph_with_prediction, get_actual_and_predicted_weights, format_weight_chart
 
 app = Flask(__name__)
 app.config["SESSION_TYPE"] = "filesystem"
@@ -107,6 +107,20 @@ def progress_prediction():
 
     message = predict_progress(user_id)
     return jsonify({"prediction": message})
+
+
+@app.route("/api/weight-chart", methods=["GET"])
+def get_weight_chart_data():
+    user_id = request.args.get("user_id", type=int)
+    try:
+        actual, predicted = get_actual_and_predicted_weights(user_id)
+        chart_data = format_weight_chart(actual, predicted)
+        print(jsonify(chart_data))
+        print("Chart Data:", chart_data)
+        return jsonify(chart_data)
+    except Exception as e:
+        print("❌ Error fetching chart data:", e)
+        return jsonify({"error": str(e)}), 500
 
  
 
