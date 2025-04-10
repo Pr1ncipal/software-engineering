@@ -14,6 +14,7 @@ import MotivationScreen from '@/components/MotivationScreen';
 import ChooseExercise from '@/components/chooseExercise';
 import leaderboardPage from '@/components/leaderboard';
 import Family from '@/components/familyPage';
+import ProfilePage from '@/components/profile_page';
 
 const Tab = createBottomTabNavigator();
 
@@ -79,8 +80,9 @@ export default function AppTabs() {
         })}
       >
         <Tab.Screen name="Register" component={RegisterForm} />
-        <Tab.Screen name="Workout" component={WorkoutForm} />
         <Tab.Screen name="Login" component={App} />
+        <Tab.Screen name="Workout" component={WorkoutForm} />
+        <Tab.Screen name="Profile" component={ProfilePage} />
         <Tab.Screen name="Chatbot" component={Chatbot} />
         <Tab.Screen name="Motivation" component={MotivationScreen} />
         <Tab.Screen 

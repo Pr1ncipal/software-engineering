@@ -51,7 +51,10 @@ def before_request():
             for field in ['password_hash', 'password']:
                 if field in safe_copy:
                     safe_copy[field] = "***REDACTED***"
-        logger.debug(f"Request {request.request_id}: JSON payload: {safe_copy}")
+            logger.debug(f"Request {request.request_id}: JSON payload: {safe_copy}")
+        else:
+            # If safe_data is not a dict, just log it as is
+            logger.debug(f"Request {request.request_id}: JSON payload: {safe_data}")
     elif request.args:
         # Log query parameters without sensitive data
         safe_args = request.args.copy()
@@ -640,7 +643,7 @@ def get_user_page():
         }
         
         logger.info(f"Request {request_id}: Successfully retrieved user page data")
-        return jsonify({"message": "User page data retrieved successfully", "data": final}), 200
+        return jsonify({"data": final}), 200
     
     except UserServiceError:
         # Let the global error handler handle these
