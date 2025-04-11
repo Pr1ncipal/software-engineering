@@ -643,7 +643,7 @@ def get_user_page():
         }
         
         logger.info(f"Request {request_id}: Successfully retrieved user page data")
-        return jsonify({"data": final}), 200
+        return jsonify({"first_name": user.fname, "last_name": user.lname, "username": user.username, "data": final}), 200
     
     except UserServiceError:
         # Let the global error handler handle these

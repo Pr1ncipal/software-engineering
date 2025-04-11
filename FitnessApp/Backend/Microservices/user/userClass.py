@@ -67,7 +67,110 @@ class User():
             self.id = None
             
             self.getUser()
+            
+    def updateUserActivity(self, workout = False, conn = None):
+        """
+        Updates the user activity in the database
         
+        :param conn: The connection to the database
+        :type conn: psycopg2.connection
+        
+        :return: None
+        :raises UserNotFoundException: When user ID is not found
+        :raises ConnectionError: When database connection fails
+        :raises QueryError: When there's an error executing the query
+        """
+        logger.info(f"Updating user activity for ID {self.id}")
+        
+        if self.id is None or self.id == -1:
+            logger.warning("Cannot update user activity - Invalid user ID")
+            raise UserNotFoundException()
+        
+        query = sql.SQL("""SELECT TO_CHAR(last_login:: DATE, 'YYYY-MM-DD'), day_streak, TO_CHAR(last_workout:: DATE, 'YYYY-MM-DD') 
+                        FROM user_engagement 
+                        WHERE user_id = %s""")
+        
+        closeConn = False
+
+        try:
+            try:
+                logger.debug("Establishing database connection")
+                if not conn:
+                    conn = global_func.getConnection()
+                    closeConn = True
+            except Exception as e:
+                logger.error(f"Failed to connect to database: {str(e)}")
+                raise ConnectionError(str(e))
+                
+            cur = conn.cursor()
+            logger.debug(f"Executing query to fetch user activity for ID {self.id}")
+            cur.execute(query, (self.id,))
+            result = cur.fetchone()
+            
+            if result:
+                last_login = datetime.strptime(result[0], "%Y-%m-%d").date() if result[0] else None
+                day_streak = result[1]
+                last_workout = datetime.strptime(result[2], "%Y-%m-%d").date() if result[2] else None
+                logger.info(f"Successfully fetched user activity for ID {self.id}")
+            else:
+                logger.warning(f"No user found with ID {self.id}")
+                last_login = None
+                
+            updateQuery = None
+            updateQuery1 = None
+            
+            # Update last login and day streak
+            if last_login is None:
+                updateQuery = sql.SQL("""INSERT INTO user_engagement (user_id, last_login, day_streak, last_workout) VALUES (%s, CURRENT_TIMESTAMP, %s, NULL)""")
+                day_streak = 1
+            
+            elif last_login and last_login == datetime.now().date():
+                # Already logged in today, no need to update streak
+                updateQuery1 = sql.SQL("""UPDATE user_engagement SET last_login = CURRENT_TIMESTAMP WHERE user_id = %s""")
+                # Note: We'll execute this later with just date and user_id
+            elif last_login and (datetime.now().date() - last_login).days == 1:
+                # Consecutive day, increment streak
+                day_streak += 1
+                updateQuery = sql.SQL("""UPDATE user_engagement SET last_login = CURRENT_TIMESTAMP, day_streak = %s WHERE user_id = %s""")
+            elif last_login and (datetime.now().date() - last_login).days >= 2:
+                # Not consecutive, reset streak
+                day_streak = 1
+                updateQuery = sql.SQL("""UPDATE user_engagement SET last_login = CURRENT_TIMESTAMP, day_streak = %s WHERE user_id = %s""")
+            else:
+                # First login or other cases
+                day_streak = 1
+                updateQuery = sql.SQL("""UPDATE user_engagement SET last_login = CURRENT_TIMESTAMP, day_streak = %s WHERE user_id = %s""")
+                
+            if workout:
+                updateQueryWorkout = sql.SQL("""UPDATE user_engagement SET last_workout = CURRENT_TIMESTAMP WHERE user_id = %s""")
+            
+            # Execute the update query
+            if updateQuery1:
+                cur.execute(updateQuery1, (self.id,))
+            if updateQuery:
+                cur.execute(updateQuery, (day_streak, self.id))
+            
+            if workout:
+                cur.execute(updateQueryWorkout, (self.id,))
+            conn.commit()
+            logger.info(f"Successfully updated user activity for ID {self.id}") 
+            
+            
+        except (UserNotFoundException, ConnectionError):
+            # Re-raise these specific exceptions
+            logger.debug("Re-raising specific exception")
+            raise
+        except Exception as e:
+            logger.error(f"Error updating user activity: {str(e)}")
+            logger.debug(traceback.format_exc())
+            raise QueryError(f"Error updating user activity: {str(e)}")
+        finally:
+            if 'cur' in locals() and cur:
+                cur.close()
+            if conn and closeConn:
+                conn.close()
+            logger.debug("Database connection closed")        
+            
     def getUser(self, conn = None):
         """
         gets the user information from the database
@@ -188,6 +291,7 @@ class User():
             
             if result:
                 logger.info(f"User with key {self.key[:5]} exists")
+                self.updateUserActivity()
                 return True
             else:
                 logger.warning(f"No user found with key {self.key[:5]}")
@@ -269,6 +373,9 @@ class User():
                 self.id = id
                 conn.commit()
                 logger.info(f"User created successfully with ID {id}")
+                
+                # Insert into user_engagement table
+                self.updateUserActivity(conn=conn)
             else:
                 conn.rollback()
                 logger.error("User creation failed - no ID returned")
@@ -512,7 +619,7 @@ class User():
             logger.warning("Login attempt with missing credentials")
             raise MissingRequiredFieldError("username and password")
             
-        loginUserQuery = sql.SQL("""SELECT key FROM users WHERE username = %s AND password_hash = %s""")
+        loginUserQuery = sql.SQL("""SELECT key, id FROM users WHERE username = %s AND password_hash = %s""")
         try:
             try:
                 logger.debug("Establishing database connection")
@@ -529,6 +636,10 @@ class User():
             
             if result:
                 logger.info(f"Login successful for username {self.username}")
+                
+                self.id = result[1]
+                
+                self.updateUserActivity()
                 return result[0]
             else:
                 logger.warning(f"Login failed for username {self.username} - incorrect credentials")

@@ -15,6 +15,11 @@ const ProfilePage = () => {
     starting_weight: [{ weight: "0", height: 0, date: new Date().toISOString() }],
     goal_weight: ""
   });
+  
+  // User's personal information
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [username, setUsername] = useState('');
 
   // State for the weight/height update modal
   const [modalVisible, setModalVisible] = useState(false);
@@ -74,6 +79,11 @@ const ProfilePage = () => {
 
       // Update state with fetched data
       setUserData(data.data);
+      
+      // Set user's personal information from the response
+      setFirstName(data.first_name || '');
+      setLastName(data.last_name || '');
+      setUsername(data.username || '');
 
       // Set form values for the modal
       const currentWeight = data.data.current_weight[data.data.current_weight.length - 1] || {};
@@ -341,7 +351,12 @@ const ProfilePage = () => {
           source={{ uri: 'https://picsum.photos/id/73/400' }}
           style={styles.profilePicture}
         />
-        <Text style={styles.name}>John Doe</Text>
+        <Text style={styles.name}>
+          {firstName && lastName ? `${firstName} ${lastName}` : 'Anonymous User'}
+        </Text>
+        {username && (
+          <Text style={styles.username}>@{username}</Text>
+        )}
         <Text style={styles.bio}>
           Fitness enthusiast and weight lifting journeyman
         </Text>
@@ -855,6 +870,11 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: '600',
     fontSize: 16,
+  },
+  username: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 8,
   },
 });
 
