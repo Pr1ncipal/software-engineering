@@ -452,19 +452,6 @@ const MotivationScreen = () => {
                 color: (opacity = 1) => `rgba(30, 82, 180, ${opacity})`,
                 strokeWidth: 4,
               },
-              // Fill area for confidence interval (combined upper/lower bounds)
-              // {
-              //   data: chartData.datasets[2].data,
-              //   color: (opacity = 0.2) => `rgba(243, 156, 18, ${opacity})`,
-              //   strokeWidth: 0,
-              //   withDots: false,
-              // },
-              // {
-              //   data: chartData.datasets[3].data,
-              //   color: (opacity = 0.2) => `rgba(243, 156, 18, ${opacity})`,
-              //   strokeWidth: 0,
-              //   withDots: false,
-              // }
             ],
           }}
           width={screenWidth - 80}
@@ -496,12 +483,13 @@ const MotivationScreen = () => {
             // For custom dotted line rendering (not directly supported)
             useShadowColorFromDataset: true,
           }}
-          bezier
+          
           style={{ 
             marginVertical: 10, 
             borderRadius: 16,
             paddingRight: 60,
           }}
+
           segments={5}
           formatYLabel={(y) => `${y} lbs`}
           verticalLabelRotation={0}

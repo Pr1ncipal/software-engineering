@@ -9,64 +9,6 @@ import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 
 
-# def format_weight_chart(actual_data, prediction_data):
-#     labels = [d.strftime("%m-%d") for d, _ in actual_data + prediction_data]
-
-#     # Convert weights
-#     actual_weights = [w for _, w in actual_data] + [None] * len(prediction_data)
-#     predicted_weights = [None] * (len(actual_data) - 1) + [actual_data[-1][1]] + [w for _, w in prediction_data]
-
-#     # Filter out None for min/max
-#     valid_actual = [w for w in actual_weights if w is not None]
-#     valid_predicted = [w for w in predicted_weights if w is not None]
-
-#     min_y = min(valid_actual + valid_predicted) - 5
-#     max_y = max(valid_actual + valid_predicted) + 5
-
-#     return {
-#         "labels": labels,
-#         "datasets": [
-#             {"label": "Actual", "data": actual_weights},
-#             {"label": "Predicted", "data": predicted_weights}
-#         ],
-#         "yAxisRange": [min_y, max_y]
-#     }
-
-
-
-
-# def get_actual_and_predicted_weights(user_id):
-#     conn = psycopg2.connect(
-#         dbname="gitfitbro",
-#         user="postgres",
-#         password="password",
-#         host="localhost",
-#         port="5432"
-#     )
-#     cur = conn.cursor()
-
-#     cur.execute("""
-#         SELECT created_at::date, weight
-#         FROM user_stats
-#         WHERE user_id = %s
-#         ORDER BY created_at ASC
-#         LIMIT 10
-#     """, (user_id,))
-#     actual_data = [(d, float(w)) for d, w in cur.fetchall()]
-
-#     predicted_data = []
-#     if actual_data:
-#         last_date, last_weight = actual_data[-1]
-#         for i in range(1, 5):  # Predict next 4 weeks only
-#             future_date = last_date + timedelta(weeks=i)
-#             future_weight = last_weight - i * 1.5
-#             predicted_data.append((future_date, future_weight))
-
-#     cur.close()
-#     conn.close()
-
-#     return actual_data, predicted_data
-
 # Trim trailing Nones from actual data
 def trim_trailing_none(values):
     while values and values[-1] is None:
@@ -93,8 +35,14 @@ def format_weight_chart(actual_data, prediction_data):
 
     # Determine Y-axis range based on both datasets
     visible_weights = actual_weights + predicted_weights
-    min_y = min(visible_weights) - 5 if visible_weights else 100
-    max_y = max(visible_weights) + 5 if visible_weights else 250
+    # padding = 0.05 * (max(visible_weights) - min(visible_weights))
+    # min_y = min(visible_weights) - padding
+    # max_y = max(visible_weights) + padding
+    min_y = 300
+    max_y = 450
+
+    # min_y = min(visible_weights) - 10 if visible_weights else 100
+    # max_y = max(visible_weights) + 10 if visible_weights else 250
 
     return {
         "labels": labels,
@@ -112,82 +60,6 @@ import numpy as np
 from sklearn.linear_model import LinearRegression
 from datetime import timedelta
 import random
-
-# def get_actual_and_predicted_weights(user_id):
-#     conn = psycopg2.connect(
-#         dbname="gitfitbro",
-#         user="postgres",
-#         password="password",
-#         host="localhost",
-#         port="5432"
-#     )
-#     cur = conn.cursor()
-
-#     # Get actual weights
-#     cur.execute("""
-#         SELECT created_at::date, weight
-#         FROM user_stats
-#         WHERE user_id = %s
-#         ORDER BY created_at ASC
-#     """, (user_id,))
-#     actual_data = [(d, float(w)) for d, w in cur.fetchall()]
-
-#     # Get user's goal
-#     cur.execute("""
-#         SELECT target_weight, achieve_by
-#         FROM weight_goals
-#         WHERE user_id = %s
-#         ORDER BY created_at DESC
-#         LIMIT 1
-#     """, (user_id,))
-#     goal_result = cur.fetchone()
-#     goal_weight, goal_date = float(goal_result[0]), goal_result[1] if goal_result else (None, None)
-
-#     predicted_data = []
-
-#     if actual_data and goal_weight and goal_date:
-#         start_date, start_weight = actual_data[0]
-#         days_to_goal = (goal_date - start_date).days
-#         weeks_to_goal = max(1, days_to_goal // 7)
-
-#         # Train linear regression model
-#         x = np.array([(d - start_date).days for d, _ in actual_data]).reshape(-1, 1)
-#         y = np.array([w for _, w in actual_data])
-#         model = LinearRegression().fit(x, y)
-
-#         predicted_data.append((start_date, start_weight))  # Start from first actual weight
-
-#         for i in range(1, weeks_to_goal + 1):
-#             date = start_date + timedelta(weeks=i)
-#             if date > goal_date:
-#                 break  # ❗️STOP at goal date
-
-#             days_from_start = (date - start_date).days
-#             pred_weight = model.predict(np.array([[days_from_start]]))[0]
-#             pred_weight += random.uniform(-1.0, 1.0)
-#             pred_weight = max(goal_weight, pred_weight)
-#             predicted_data.append((date, pred_weight))
-
-
-
-#         # # 👉 Start prediction from last actual weight
-#         # predicted_data.insert(0, (last_date, last_weight))
-
-#         # for i in range(1, weeks_to_goal + 1):
-#         #     date = last_date + timedelta(weeks=i)
-#         #     days_from_start = (date - actual_data[0][0]).days
-
-#         #     # Predict with noise
-#         #     pred_weight = model.predict(np.array([[days_from_start]]))[0]
-#         #     pred_weight += random.uniform(-1.0, 1.0)
-#         #     pred_weight = max(goal_weight, pred_weight)
-
-#         #     predicted_data.append((date, pred_weight))
-
-#     cur.close()
-#     conn.close()
-#     return actual_data, predicted_data
-
 
 def get_actual_and_predicted_weights(user_id):
     conn = psycopg2.connect(
@@ -241,7 +113,7 @@ def get_actual_and_predicted_weights(user_id):
 
             days_from_start = (future_date - start_date).days
             pred_weight = model.predict(np.array([[days_from_start]]))[0]
-            pred_weight += random.uniform(-1.0, 1.0)
+            #pred_weight += random.uniform(-1.0, 1.0)
             pred_weight = max(goal_weight, pred_weight)
 
             predicted_data.append((future_date, pred_weight))
@@ -366,94 +238,7 @@ def generate_weight_graph_with_prediction(actual_data, prediction_data):
     encoded = base64.b64encode(buf.read()).decode("utf-8")
     plt.close()
 
-    encoded[:100]  # Return a snippet of the base64 string for confirmation
-
-    # # actual_data & prediction_data = list of tuples (date, weight)
-    # actual_dates, actual_weights = zip(*actual_data)
-    # pred_dates, pred_weights = zip(*prediction_data)
-
-    # plt.figure(figsize=(8, 4.5))
-    # plt.plot(actual_dates, actual_weights, "o-", color="royalblue", label="Actual Weight")
-    # plt.plot(pred_dates, pred_weights, "s--", color="orange", label="Predicted Weight")
-
-    # # Optional shaded confidence region (±2 lbs for example)
-    # upper = [w + 2 for w in pred_weights]
-    # lower = [w - 2 for w in pred_weights]
-    # plt.fill_between(pred_dates, lower, upper, color="orange", alpha=0.2)
-
-    # plt.title("Weight Progress Forecast")
-    # plt.xlabel("Date")
-    # plt.ylabel("Weight (lbs)")
-    # plt.xticks(rotation=45)
-    # plt.legend(loc="upper left")
-    # plt.tight_layout()
-
-    # # Convert to base64
-    # buf = io.BytesIO()
-    # plt.savefig(buf, format="png")
-    # buf.seek(0)
-    # encoded = base64.b64encode(buf.read()).decode("utf-8")
-    # plt.close()
-    # return encoded
-
-
-# def predict_progress(user_id):
-#     try:
-#         conn = psycopg2.connect(
-#             dbname="gitfitbro",
-#             user="postgres",
-#             password="password",
-#             host="localhost",
-#             port="5432"
-#         )
-#         cur = conn.cursor()
-
-#         # Get recent weights
-#         cur.execute("""
-#             SELECT weight, created_at
-#             FROM user_stats
-#             WHERE user_id = %s
-#             ORDER BY created_at DESC
-#             LIMIT 6
-#         """, (user_id,))
-#         weights = cur.fetchall()
-
-#         # Calculate trend (e.g., weight loss per day)
-#         if len(weights) < 2:
-#             return "Not enough data to make a prediction."
-
-#         weights = sorted(weights, key=lambda x: x[1])
-#         start_weight, start_date = weights[0]
-#         end_weight, end_date = weights[-1]
-
-#         days = (end_date - start_date).days or 1
-#         rate = (end_weight - start_weight) / days  # lbs/day
-
-#         # Estimate when goal will be hit
-#         cur.execute("""
-#             SELECT target_weight
-#             FROM weight_goals
-#             WHERE user_id = %s
-#             ORDER BY created_at DESC
-#             LIMIT 1
-#         """, (user_id,))
-#         goal_result = cur.fetchone()
-#         target_weight = goal_result[0] if goal_result else None
-
-#         if target_weight is not None and rate != 0:
-#             days_remaining = (target_weight - end_weight) / rate
-#             days_remaining = round(abs(days_remaining))
-#             message = f"At your current pace, you'll reach your goal in about {days_remaining} days."
-#         else:
-#             message = "You're making progress! Keep tracking for more accurate predictions."
-
-#         cur.close()
-#         conn.close()
-#         return message
-
-#     except Exception as e:
-#         print("❌ Error in predictive progress analysis:", e)
-#         return "Unable to generate prediction at this time."
+    encoded[:100]
 
 def predict_progress(user_id):
     try:
