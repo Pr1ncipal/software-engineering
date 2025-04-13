@@ -111,6 +111,28 @@
       ]
     },
     {
+      "endpoint": "/api/user/add_user_stats",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "backend": [
+        {
+          "url_pattern": "/add_user_stats",
+          "encoding": "no-op",
+          "sd": "static",
+          "method": "POST",
+          "host": [
+            "http://user:8080"
+          ],
+          "disable_host_sanitize": false
+        }
+      ],
+      "input_query_strings": [],
+      "input_headers": [
+        "Authorization", 
+        "Content-Type"
+      ]
+    },
+    {
       "endpoint": "/api/user/get_user_page",
       "method": "GET",
       "output_encoding": "no-op",
@@ -211,6 +233,28 @@
       "backend": [
         {
           "url_pattern": "/add_step_data",
+          "encoding": "no-op",
+          "sd": "static",
+          "method": "POST",
+          "host": [
+            "http://user:8080"
+          ],
+          "disable_host_sanitize": false
+        }
+      ],
+      "input_query_strings": [],
+      "input_headers": [
+        "Authorization",
+        "Content-Type"
+      ]
+    },
+    {
+      "endpoint": "/api/user/create_goal",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "backend": [
+        {
+          "url_pattern": "/create_goal",
           "encoding": "no-op",
           "sd": "static",
           "method": "POST",

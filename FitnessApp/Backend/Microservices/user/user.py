@@ -161,7 +161,154 @@ def get_data_json(request):
     else:
         logger.warning(f"Request {request_id}: Request does not contain valid JSON data")
         raise InvalidUserDataError("Request must contain JSON data")
-
+    
+@app.route('/create_goal', methods=['POST'])
+def create_goal():
+    """
+    Create a new goal for the authenticated user.
+    """
+    request_id = getattr(request, 'request_id', 'unknown')
+    
+    try:
+        goalTypes = ["weight", "cardio", "strength"]
+        logger.info(f"Request {request_id}: Processing create_goal request")
+        data, id = get_data_jwt(request)
+        
+        if not data:
+            logger.warning(f"Request {request_id}: No goal data provided")
+            raise InvalidUserDataError("No goal data provided")
+        if 'goal_type' not in data:
+            logger.warning(f"Request {request_id}: Missing required goal_type field")
+            raise MissingRequiredFieldError('goal_type')
+        if 'achieve_by' not in data:
+            logger.warning(f"Request {request_id}: Missing required achieve_by field")
+            raise MissingRequiredFieldError('achieve_by')
+        
+        goal_type = data['goal_type']
+        if goal_type not in goalTypes:
+            logger.warning(f"Request {request_id}: Invalid goal type: {goal_type}")
+            raise InvalidUserDataError("Invalid goal type")
+        
+        match goal_type:
+            case "weight": # Working
+                if 'target_weight' not in data:
+                    logger.warning(f"Request {request_id}: Missing required goal_weight field")
+                    raise MissingRequiredFieldError('target_weight')
+                goal_weight = data['target_weight']
+                
+                if goal_weight is None:
+                    logger.warning(f"Request {request_id}: Goal weight value cannot be null")
+                    raise InvalidUserDataError("Goal weight value cannot be null")
+                
+                if goal_weight < 0:
+                    logger.warning(f"Request {request_id}: Invalid goal weight value: {goal_weight} (negative)")
+                    raise InvalidUserDataError("Goal weight value must be a positive number")
+                
+                if goal_weight > 1000:
+                    logger.warning(f"Request {request_id}: Invalid goal weight value: {goal_weight} (Too big)")
+                    raise InvalidUserDataError("Goal weight value is too big")
+                logger.debug(f"Request {request_id}: Creating goal object for weight goal: {goal_weight}")
+                
+                user = userClass.UserStats(id=id)
+                user.createGoal(goal_type, achieve_by = data['achieve_by'], goal_weight = goal_weight)
+                
+                logger.info(f"Request {request_id}: Successfully created weight goal: {goal_weight}")
+                return jsonify({}), 201
+            case "cardio":
+                target_distance = None
+                target_time = None
+                if 'target_distance' not in data or 'target_time' not in data:
+                    logger.warning(f"Request {request_id}: Missing required target_distance or target_time field")
+                    raise MissingRequiredFieldError('target_distance or target_time')
+                target_distance = data['target_distance']
+                target_time = data['target_time']
+                
+                if target_distance is None and target_time is None:
+                    logger.warning(f"Request {request_id}: Goal distance and time values cannot be null")
+                    raise InvalidUserDataError("Goal distance and time values cannot be null")
+                if target_distance < 0:
+                    logger.warning(f"Request {request_id}: Invalid goal distance value: {target_distance} (negative)")
+                    raise InvalidUserDataError("Goal distance value must be a positive number")
+                if target_distance > 500:
+                    logger.warning(f"Request {request_id}: Invalid goal distance value: {target_distance} (Too big)")
+                    raise InvalidUserDataError("Goal distance value is too big")
+                if target_time < 0:
+                    logger.warning(f"Request {request_id}: Invalid goal time value: {target_time} (negative)")
+                    raise InvalidUserDataError("Goal time value must be a positive number")
+                if target_time > 5000:
+                    logger.warning(f"Request {request_id}: Invalid goal time value: {target_time} (Too big)")
+                    raise InvalidUserDataError("Goal time value is too big")
+                logger.debug(f"Request {request_id}: Creating goal object for cardio goal: {target_distance} km in {target_time} min")
+                
+                # Fixed by creating user object correctly and passing parameters properly
+                user = userClass.UserStats(id=id)
+                user.createGoal(goal_type, achieve_by=data['achieve_by'], target_distance=target_distance, 
+                               target_time=target_time)
+                
+                logger.info(f"Request {request_id}: Successfully created cardio goal: {target_distance} km in {target_time} min")
+                return jsonify({}), 201
+            case "strength": #working
+                target_weight = None
+                target_reps = None
+                target_exercise = None
+                if 'target_weight' not in data:
+                    logger.warning(f"Request {request_id}: Missing required target_weight field")
+                    raise MissingRequiredFieldError('target_weight')
+                if 'target_reps' not in data:
+                    logger.warning(f"Request {request_id}: Missing required target_reps field")
+                    raise MissingRequiredFieldError('target_reps')
+                if 'target_exercise' not in data:
+                    logger.warning(f"Request {request_id}: Missing required target_exercise field")
+                    raise MissingRequiredFieldError('target_exercise')
+                target_weight = data['target_weight']
+                target_reps = data['target_reps']
+                target_exercise = data['target_exercise']
+                if target_weight is None:
+                    logger.warning(f"Request {request_id}: Goal weight value cannot be null")
+                    raise InvalidUserDataError("Goal weight value cannot be null")
+                if target_weight < 0:
+                    logger.warning(f"Request {request_id}: Invalid goal weight value: {target_weight} (negative)")
+                    raise InvalidUserDataError("Goal weight value must be a positive number")
+                if target_weight > 1000:
+                    logger.warning(f"Request {request_id}: Invalid goal weight value: {target_weight} (Too big)")
+                    raise InvalidUserDataError("Goal weight value is too big")
+                if target_reps is None:
+                    logger.warning(f"Request {request_id}: Goal reps value cannot be null")
+                    raise InvalidUserDataError("Goal reps value cannot be null")
+                if target_reps < 0:
+                    logger.warning(f"Request {request_id}: Invalid goal reps value: {target_reps} (negative)")
+                    raise InvalidUserDataError("Goal reps value must be a positive number")
+                if target_reps > 100:
+                    logger.warning(f"Request {request_id}: Invalid goal reps value: {target_reps} (Too big)")
+                    raise InvalidUserDataError("Goal reps value is too big")
+                if target_exercise is None:
+                    logger.warning(f"Request {request_id}: Goal exercise value cannot be null")
+                    raise InvalidUserDataError("Goal exercise value cannot be null")
+                # Fixed type checking with isinstance instead of incorrect syntax
+                if not isinstance(target_exercise, int):
+                    logger.warning(f"Request {request_id}: Invalid goal exercise value: {target_exercise} (not an int)")
+                    raise InvalidUserDataError("Goal exercise value must be an int")
+                if target_exercise < 0:
+                    logger.warning(f"Request {request_id}: Invalid goal exercise value: {target_exercise} (negative)")
+                    raise InvalidUserDataError("Goal exercise value must be a positive number")
+                
+                user = userClass.UserStats(id=id)
+                # Fixed parameter passing to use named parameters
+                user.createGoal(goal_type, achieve_by=data['achieve_by'], target_weight=target_weight, 
+                               target_reps=target_reps, target_exercise=target_exercise)
+                logger.info(f"Request {request_id}: Successfully created strength goal: {target_weight} kg for {target_reps} reps of exercise {target_exercise}")
+                return jsonify({}), 201
+            case _:
+                logger.warning(f"Request {request_id}: Invalid goal type: {goal_type}")
+                raise InvalidUserDataError("Invalid goal type")
+    except UserServiceError:
+        # Let the global error handler handle these
+        raise
+    except Exception as e:
+        logger.error(f"Request {request_id}: Unexpected error in create_goal: {str(e)}")
+        logger.error(f"Request {request_id}: {traceback.format_exc()}")
+        raise UserServiceError(f"An unexpected error occurred while creating goal: {str(e)}")
+                    
 @app.route('/create_user', methods=['POST'])
 def create_user():
     """
@@ -415,16 +562,23 @@ def add_user_stats():
         if 'weight' not in data:
             logger.warning(f"Request {request_id}: Missing required weight field")
             raise MissingRequiredFieldError('weight')
-        
-        height = data.get('height')
+        if 'height' in data:
+            height = data.get('height')
         weight = data.get('weight')
         
         if weight is None:
             logger.warning(f"Request {request_id}: Weight value cannot be null")
             raise InvalidStatsDataError("Weight value cannot be null")
         
-        logger.debug(f"Request {request_id}: Creating user stats object with key: {key[:5]}...")
-        user = userClass.UserStats(key=key, height=height, weight=weight)
+        logger.debug(f"Request {request_id}: Creating user stats object with id: {key}...")
+        if 'height' in data and 'weight' in data:
+            user = userClass.UserStats(id=key, height=height, weight=weight)
+        elif 'weight' in data and 'height' not in data:
+            user = userClass.UserStats(id=key, weight=weight)
+            height = user.height
+        elif 'height' in data and 'weight' not in data:
+            user = userClass.UserStats(id=key, height=height)
+            weight = user.weight
         
         if user.id is None or user.id == -1:
             logger.warning(f"Request {request_id}: User not found for stats addition")

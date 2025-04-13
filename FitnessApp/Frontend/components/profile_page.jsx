@@ -1,13 +1,75 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput, Alert, Platform } from 'react-native';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { LineChart } from 'react-native-chart-kit';
 import { Dimensions } from 'react-native';
 import encode from 'jwt-encode';
 import { secureStorage, AUTH_TOKEN_KEY } from '../utils/secureStorage';
 import { isNetworkAvailable, getAuthHeaders } from '../utils/networkUtils';
+import { Picker } from '@react-native-picker/picker';
+import ChooseExercise from './chooseExercise';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
+
+// Create a custom input component that works better with React Native
+const CustomDatePickerInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
+  <TouchableOpacity onPress={onClick} style={styles.input}>
+    <Text style={value ? styles.selectedExerciseText : styles.placeholderText}>
+      {value || placeholder}
+    </Text>
+  </TouchableOpacity>
+));
+
+// Replace your calendar implementation with this:
+const CalendarPicker = ({ selected, onChange, placeholder }) => {
+  // Handle web and native platforms differently
+  if (typeof document !== 'undefined') {
+    return (
+      <DatePicker
+        selected={selected}
+        onChange={onChange}
+        dateFormat="MM/dd/yyyy"
+        minDate={new Date()}
+        popperPlacement="top-start"
+        popperProps={{
+          strategy: 'fixed',
+          modifiers: [
+            {
+              name: 'preventOverflow',
+              options: {
+                rootBoundary: 'viewport',
+                altAxis: true,
+              },
+            },
+            {
+              name: 'offset',
+              options: {
+                offset: [0, 10],
+              },
+            }
+          ]
+        }}
+        customInput={
+          <CustomDatePickerInput placeholder={placeholder} />
+        }
+      />
+    );
+  } else {
+    // For React Native, use a simple TouchableOpacity that could open a native date picker
+    return (
+      <TouchableOpacity onPress={() => onChange(new Date())} style={styles.input}>
+        <Text style={selected ? styles.selectedExerciseText : styles.placeholderText}>
+          {selected ? selected.toLocaleDateString() : placeholder}
+        </Text>
+      </TouchableOpacity>
+    );
+  }
+};
 
 const ProfilePage = () => {
+  const router = useRouter();
+  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
+
   // State variables for user data
   const [userData, setUserData] = useState({
     activities: {},
@@ -33,10 +95,71 @@ const ProfilePage = () => {
   const [alertMessage, setAlertMessage] = useState('');
   const [alertSeverity, setAlertSeverity] = useState('info');
 
+  // State for goal setting modal
+  const [goalModalVisible, setGoalModalVisible] = useState(false);
+  const [goalType, setGoalType] = useState('weight');
+  const [achieveByDate, setAchieveByDate] = useState(new Date());  // New state for Date object
+  const [achieveBy, setAchieveBy] = useState('');  // Keep this for YYYY-MM-DD string format
+  const [targetWeight, setTargetWeight] = useState('');
+  const [targetReps, setTargetReps] = useState('');
+  const [targetExercise, setTargetExercise] = useState('');
+  const [targetExerciseName, setTargetExerciseName] = useState('');
+  const [displayDate, setDisplayDate] = useState(''); // MM-DD-YYYY format for display
+  
+  // New: State for exercise picker modal
+  const [exercisePickerVisible, setExercisePickerVisible] = useState(false);
+
   useEffect(() => {
     // Fetch user profile data when component mounts
     fetchProfileData();
+    
+    // Set default achieve by date to 3 months from now
+    const threeMonthsFromNow = new Date();
+    threeMonthsFromNow.setMonth(threeMonthsFromNow.getMonth() + 3);
+    setAchieveByDate(threeMonthsFromNow);
+    setAchieveBy(formatDateToYYYYMMDD(threeMonthsFromNow));
+    setDisplayDate(formatDateToMMDDYYYY(threeMonthsFromNow));
+    
+    // Add clean-up for any event listeners or styles added to the document
+    return () => {
+      if (typeof document !== 'undefined') {
+        const datepickerStyles = document.getElementById('datepicker-styles');
+        if (datepickerStyles) {
+          datepickerStyles.remove();
+        }
+      }
+    };
   }, []);
+
+  // Format date object to YYYY-MM-DD string
+  const formatDateToYYYYMMDD = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // Format date to MM-DD-YYYY for display
+  const formatDateToMMDDYYYY = (date) => {
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${month}-${day}-${year}`;
+  };
+
+  // Handle date change from calendar picker
+  const handleDateChange = (date) => {
+    setAchieveByDate(date);
+    setAchieveBy(formatDateToYYYYMMDD(date));
+    setDisplayDate(formatDateToMMDDYYYY(date));
+  };
+
+  // Handle exercise selection from ChooseExercise component
+  const handleExerciseSelect = (exercise) => {
+    setTargetExercise(exercise.id.toString());
+    setTargetExerciseName(exercise.name);
+    setExercisePickerVisible(false);
+  };
 
   const fetchProfileData = async () => {
     try {
@@ -103,15 +226,21 @@ const ProfilePage = () => {
     try {
       setIsLoading(true);
 
-      // Validate inputs
-      if (!weight || isNaN(parseFloat(weight))) {
-        showAlert('Please enter a valid weight.', 'warning');
+      // Validate inputs - require at least one of height or weight
+      if ((!weight || weight.trim() === '') && (!height || height.trim() === '')) {
+        showAlert('Please enter either weight or height or both.', 'warning');
         setIsLoading(false);
         return;
       }
 
-      if (!height || isNaN(parseInt(height))) {
-        showAlert('Please enter a valid height in inches.', 'warning');
+      if (weight && (isNaN(parseFloat(weight)) || parseFloat(weight) <= 0)) {
+        showAlert('Please enter a valid weight (positive number).', 'warning');
+        setIsLoading(false);
+        return;
+      }
+
+      if (height && (isNaN(parseInt(height)) || parseInt(height) <= 0)) {
+        showAlert('Please enter a valid height in inches (positive number).', 'warning');
         setIsLoading(false);
         return;
       }
@@ -124,12 +253,20 @@ const ProfilePage = () => {
         return;
       }
 
-      // Prepare payload
-      const updateData = {
-        height: parseInt(height),
-        weight: parseFloat(weight),
-        goal_weight: goalWeight ? parseFloat(goalWeight) : null
-      };
+      // Prepare payload - only include fields that have values
+      const updateData = {};
+      
+      if (height && height.trim() !== '') {
+        updateData.height = parseInt(height);
+      }
+      
+      if (weight && weight.trim() !== '') {
+        updateData.weight = parseFloat(weight);
+      }
+      
+      if (goalWeight && goalWeight.trim() !== '') {
+        updateData.goal_weight = parseFloat(goalWeight);
+      }
 
       // Get auth token for JWT signing
       const secret = await secureStorage.getItem(AUTH_TOKEN_KEY);
@@ -160,8 +297,6 @@ const ProfilePage = () => {
         return;
       }
 
-      const result = await response.json();
-
       // Show success message
       showAlert('Profile updated successfully!', 'success');
 
@@ -174,6 +309,128 @@ const ProfilePage = () => {
     } catch (error) {
       console.error('Error in updateWeightHeight:', error);
       showAlert('An error occurred while updating your profile. Please try again.', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Function to create a new goal
+  const createGoal = async () => {
+    try {
+      setIsLoading(true);
+
+      // Validate inputs based on goal type
+      if (goalType === 'weight') {
+        if (!targetWeight || isNaN(parseFloat(targetWeight)) || parseFloat(targetWeight) <= 0) {
+          showAlert('Please enter a valid target weight.', 'warning');
+          setIsLoading(false);
+          return;
+        }
+      } else if (goalType === 'strength') {
+        if (!targetWeight || isNaN(parseFloat(targetWeight)) || parseFloat(targetWeight) <= 0) {
+          showAlert('Please enter a valid target weight.', 'warning');
+          setIsLoading(false);
+          return;
+        }
+        if (!targetReps || isNaN(parseInt(targetReps)) || parseInt(targetReps) <= 0) {
+          showAlert('Please enter a valid target number of reps.', 'warning');
+          setIsLoading(false);
+          return;
+        }
+        if (!targetExercise) {
+          showAlert('Please select an exercise.', 'warning');
+          setIsLoading(false);
+          return;
+        }
+      }
+      
+      if (!achieveBy) {
+        showAlert('Please select a target date.', 'warning');
+        setIsLoading(false);
+        return;
+      }
+      
+      // Validate achieve by date is in the future
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Set to beginning of day for fair comparison
+      
+      if (achieveByDate < today) {
+        showAlert('Target date must be in the future.', 'warning');
+        setIsLoading(false);
+        return;
+      }
+
+      // Check network connectivity
+      const connected = await isNetworkAvailable();
+      if (!connected) {
+        showAlert('No internet connection. Please try again when you\'re online.', 'error');
+        setIsLoading(false);
+        return;
+      }
+
+      // Prepare payload based on goal type
+      let goalData = {
+        goal_type: goalType,
+        achieve_by: formatDateToYYYYMMDD(achieveByDate),
+      };
+
+      if (goalType === 'weight') {
+        goalData.target_weight = parseFloat(targetWeight);
+      } else if (goalType === 'strength') {
+        goalData.target_weight = parseFloat(targetWeight);
+        goalData.target_reps = parseInt(targetReps);
+        goalData.target_exercise = parseInt(targetExercise);
+      }
+
+      console.log("Goal data being sent:", goalData);
+
+      // Get auth token for JWT signing
+      const secret = await secureStorage.getItem(AUTH_TOKEN_KEY);
+      if (!secret) {
+        showAlert('Authentication required. Please login again.', 'error');
+        setIsLoading(false);
+        return;
+      }
+
+      // Get proper headers with base64 encoded token
+      const headers = await getAuthHeaders(secret);
+
+      // Encode the payload as JWT
+      const token = encode(goalData, secret);
+
+      // Submit the goal creation request
+      const response = await fetch('http://localhost:8080/api/user/create_goal', {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify({ token })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error creating goal:', errorText);
+        showAlert('Failed to create goal. Please try again later.', 'error');
+        setIsLoading(false);
+        return;
+      }
+
+      // Show success message
+      showAlert('Goal created successfully!', 'success');
+
+      // Close the modal
+      setGoalModalVisible(false);
+
+      // Reset form fields
+      setTargetWeight('');
+      setTargetReps('');
+      setTargetExercise('');
+      setTargetExerciseName('');
+
+      // Refresh the profile data
+      fetchProfileData();
+
+    } catch (error) {
+      console.error('Error creating goal:', error);
+      showAlert('An error occurred while creating your goal. Please try again.', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -297,6 +554,41 @@ const ProfilePage = () => {
     };
   };
 
+  const handleLogout = async () => {
+    try {
+      setIsLoading(true);
+      // Clear the auth token from secure storage
+      await secureStorage.removeItem(AUTH_TOKEN_KEY);
+      
+      showAlert('Logged out successfully!', 'success');
+      
+      // Close the dialog
+      setLogoutDialogOpen(false);
+      
+      // Navigate to login page after a short delay
+      setTimeout(() => {
+        // Use router to navigate to login page
+        router.replace('/login');
+      }, 1000);
+    } catch (error) {
+      console.error('Error during logout:', error);
+      showAlert('Error logging out. Please try again.', 'error');
+      setIsLoading(false);
+    }
+  };
+
+  // Inside your Goal Setting Modal, replace the existing calendar picker with:
+  const renderCalendarField = () => (
+    <View style={styles.inputGroup}>
+      <Text style={styles.inputLabel}>Target Date</Text>
+      <CalendarPicker
+        selected={achieveByDate}
+        onChange={handleDateChange}
+        placeholder="MM/DD/YYYY"
+      />
+    </View>
+  );
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       {/* Web-based alert - replaced Platform.OS check with direct web detection */}
@@ -344,6 +636,84 @@ const ProfilePage = () => {
           </div>
         </div>
       )}
+
+      {/* Logout confirmation dialog */}
+      {typeof document !== 'undefined' && logoutDialogOpen && (
+        <div
+          style={{
+            display: 'flex',
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 9999,
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          }}
+        >
+          <div
+            style={{
+              padding: 24,
+              backgroundColor: 'white',
+              borderRadius: 8,
+              maxWidth: 400,
+              width: '90%',
+              boxShadow: '0 4px 8px rgba(0,0,0,0.2)'
+            }}
+          >
+            <h3 style={{ margin: '0 0 16px 0', color: '#333' }}>Confirm Logout</h3>
+            <p style={{ margin: '0 0 24px 0', color: '#666' }}>
+              Are you sure you want to log out of your account?
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                style={{
+                  background: '#eee',
+                  border: 'none',
+                  borderRadius: 4,
+                  padding: '8px 16px',
+                  marginRight: 8,
+                  cursor: 'pointer',
+                  color: '#333',
+                  fontWeight: 'bold'
+                }}
+                onClick={() => setLogoutDialogOpen(false)}
+                disabled={isLoading}
+              >
+                Cancel
+              </button>
+              <button
+                style={{
+                  background: '#f44336',
+                  border: 'none',
+                  borderRadius: 4,
+                  padding: '8px 16px',
+                  cursor: 'pointer',
+                  color: 'white',
+                  fontWeight: 'bold'
+                }}
+                onClick={handleLogout}
+                disabled={isLoading}
+              >
+                {isLoading ? 'Logging out...' : 'Logout'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Logout button in top right corner */}
+      <View style={styles.logoutButtonContainer}>
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={() => setLogoutDialogOpen(true)}
+          disabled={isLoading}
+        >
+          <Text style={styles.logoutButtonText}>Logout</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Profile Header Section */}
       <View style={styles.profileHeader}>
@@ -420,13 +790,26 @@ const ProfilePage = () => {
         <Text style={styles.heightValue}>{getCurrentHeight()}</Text>
       </View>
 
-      {/* Update Weight/Height Button */}
-      <TouchableOpacity
-        style={styles.updateButton}
-        onPress={() => setModalVisible(true)}
-      >
-        <Text style={styles.updateButtonText}>Update Weight & Height</Text>
-      </TouchableOpacity>
+      {/* Button Group */}
+      <View style={styles.buttonGroup}>
+        {/* Update Weight/Height Button */}
+        <TouchableOpacity
+          style={[styles.button, styles.updateButton]}
+          onPress={() => setModalVisible(true)}
+          disabled={isLoading}
+        >
+          <Text style={styles.updateButtonText}>Update Weight & Height</Text>
+        </TouchableOpacity>
+        
+        {/* NEW: Set Goal Button */}
+        <TouchableOpacity
+          style={[styles.button, styles.goalButton]}
+          onPress={() => setGoalModalVisible(true)}
+          disabled={isLoading}
+        >
+          <Text style={styles.goalButtonText}>Set New Goal</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Recent Workouts Section */}
       <View style={styles.workoutsContainer}>
@@ -556,18 +939,154 @@ const ProfilePage = () => {
           </View>
         </View>
       </Modal>
+
+      {/* NEW: Goal Setting Modal */}
+      <Modal
+        visible={goalModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setGoalModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Set New Fitness Goal</Text>
+            
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Goal Type</Text>
+              <View style={styles.pickerContainer}>
+                <Picker
+                  selectedValue={goalType}
+                  onValueChange={(value) => setGoalType(value)}
+                  style={styles.picker}
+                >
+                  <Picker.Item label="Weight Goal" value="weight" />
+                  <Picker.Item label="Strength Goal" value="strength" />
+                </Picker>
+              </View>
+            </View>
+            
+            {/* Replace the old calendar input with our new component */}
+            {renderCalendarField()}
+            
+            {/* Rest of your goal form fields */}
+            {goalType === 'weight' && (
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Target Weight (lbs)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={targetWeight}
+                  onChangeText={setTargetWeight}
+                  keyboardType="numeric"
+                  placeholder="Enter target weight"
+                />
+              </View>
+            )}
+            
+            {goalType === 'strength' && (
+              <>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Target Weight (lbs)</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={targetWeight}
+                    onChangeText={setTargetWeight}
+                    keyboardType="numeric"
+                    placeholder="Enter target weight"
+                  />
+                </View>
+                
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Target Reps</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={targetReps}
+                    onChangeText={setTargetReps}
+                    keyboardType="numeric"
+                    placeholder="Enter target repetitions"
+                  />
+                </View>
+                
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Exercise</Text>
+                  <TouchableOpacity 
+                    style={styles.exerciseSelector} 
+                    onPress={() => setExercisePickerVisible(true)}
+                  >
+                    <Text style={targetExercise ? styles.selectedExerciseText : styles.placeholderText}>
+                      {targetExerciseName || "Tap to select an exercise"}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setGoalModalVisible(false)}
+                disabled={isLoading}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.saveButton}
+                onPress={createGoal}
+                disabled={isLoading}
+              >
+                <Text style={styles.saveButtonText}>
+                  {isLoading ? "Creating..." : "Create Goal"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Exercise Picker Modal */}
+      <Modal
+        visible={exercisePickerVisible}
+        animationType="slide"
+        onRequestClose={() => setExercisePickerVisible(false)}
+      >
+        <View style={styles.exercisePickerContainer}>
+          <View style={styles.exercisePickerHeader}>
+            <Text style={styles.exercisePickerTitle}>Select Exercise</Text>
+            <TouchableOpacity 
+              style={styles.closeButton}
+              onPress={() => setExercisePickerVisible(false)}
+            >
+              <Text style={styles.closeButtonText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <ChooseExercise onExerciseSelect={handleExerciseSelect} />
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
 
+// Add calendar-specific styles
 const styles = StyleSheet.create({
+  // Update these specific styles
+  calendarContainer: {
+    marginBottom: 16,
+    position: 'relative',
+    zIndex: 1000, // High z-index
+  },
+  
+  // The rest of your styles remain unchanged
+  // ...
   container: {
     padding: 20,
     paddingBottom: 40,
+    position: 'relative',
   },
   profileHeader: {
     alignItems: 'center',
     marginBottom: 20,
+    marginTop: 30,
   },
   profilePicture: {
     width: 120,
@@ -580,44 +1099,17 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 5,
   },
+  username: {
+    fontSize: 16,
+    color: '#666',
+    marginBottom: 8,
+  },
   bio: {
     fontSize: 16,
     textAlign: 'center',
     color: '#666',
     marginBottom: 10,
     maxWidth: '80%',
-  },
-  chartContainer: {
-    marginBottom: 20,
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 15,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    color: '#333',
-  },
-  chart: {
-    marginVertical: 8,
-    borderRadius: 16,
-  },
-  noDataChart: {
-    height: 220,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f7f7f7',
-    borderRadius: 16,
-  },
-  noDataText: {
-    color: '#888',
-    fontSize: 16,
   },
   statsRow: {
     flexDirection: 'row',
@@ -671,22 +1163,195 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
   },
-  updateButton: {
-    backgroundColor: '#4a69bd',
+  // NEW: Button group
+  buttonGroup: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 30,
+  },
+  button: {
+    flex: 1,
+    marginHorizontal: 5,
     borderRadius: 10,
     paddingVertical: 12,
-    paddingHorizontal: 20,
     alignItems: 'center',
-    marginBottom: 30,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
     elevation: 2,
   },
+  updateButton: {
+    backgroundColor: '#4a69bd',
+  },
   updateButtonText: {
     color: 'white',
     fontWeight: 'bold',
+    fontSize: 14,
+  },
+  goalButton: {
+    backgroundColor: '#38a169',
+  },
+  goalButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  buttonContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+    marginTop: 10,
+  },
+  allActivitiesButton: {
+    backgroundColor: '#1e272e',
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    borderRadius: 10,
+    minWidth: 200,
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    width: '90%',
+    maxWidth: 400,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+    color: '#333',
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 14,
+    marginBottom: 8,
+    color: '#555',
+    fontWeight: '500',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    fontSize: 16,
+    backgroundColor: '#f9f9f9',
+  },
+  pickerContainer: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    backgroundColor: '#f9f9f9',
+    marginBottom: 5,
+  },
+  picker: {
+    height: 50,
+    width: '100%',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 20,
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: '#eee',
+    padding: 12,
+    borderRadius: 8,
+    marginRight: 10,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    color: '#555',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  saveButton: {
+    flex: 1,
+    backgroundColor: '#4a69bd',
+    padding: 12,
+    borderRadius: 8,
+    marginLeft: 10,
+    alignItems: 'center',
+  },
+  saveButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  logoutButtonContainer: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    zIndex: 10,
+  },
+  logoutButton: {
+    backgroundColor: '#f44336',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  logoutButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  chartContainer: {
+    marginBottom: 20,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    color: '#333',
+  },
+  chart: {
+    marginVertical: 8,
+    borderRadius: 16,
+  },
+  noDataChart: {
+    height: 220,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f7f7f7',
+    borderRadius: 16,
+  },
+  noDataText: {
+    color: '#888',
     fontSize: 16,
   },
   workoutsContainer: {
@@ -779,103 +1444,116 @@ const styles = StyleSheet.create({
     color: '#666',
     fontSize: 16,
   },
-  buttonContainer: {
-    alignItems: 'center',
-    marginBottom: 20,
-    marginTop: 10,
-  },
-  allActivitiesButton: {
-    backgroundColor: '#1e272e',
-    paddingVertical: 15,
-    paddingHorizontal: 30,
-    borderRadius: 10,
-    minWidth: 200,
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: 'white',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  modalOverlay: {
+  // New styles for exercise picker
+  exercisePickerContainer: {
     flex: 1,
-    justifyContent: 'center',
+    backgroundColor: '#f5f7fa',
+  },
+  exercisePickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  modalContent: {
-    width: '90%',
-    maxWidth: 400,
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 20,
+    padding: 16,
+    backgroundColor: '#4a69bd',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
   },
-  modalTitle: {
-    fontSize: 20,
+  exercisePickerTitle: {
+    fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-    color: '#333',
+    color: 'white',
   },
-  inputGroup: {
-    marginBottom: 16,
+  closeButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
   },
-  inputLabel: {
-    fontSize: 14,
-    marginBottom: 8,
-    color: '#555',
-    fontWeight: '500',
+  closeButtonText: {
+    color: 'white',
+    fontWeight: '600',
   },
-  input: {
+  exerciseSelector: {
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 15,
-    fontSize: 16,
     backgroundColor: '#f9f9f9',
   },
-  modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 20,
-  },
-  cancelButton: {
-    flex: 1,
-    backgroundColor: '#eee',
-    padding: 12,
-    borderRadius: 8,
-    marginRight: 10,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    color: '#555',
-    fontWeight: '600',
+  selectedExerciseText: {
+    color: '#333',
     fontSize: 16,
   },
-  saveButton: {
-    flex: 1,
-    backgroundColor: '#4a69bd',
-    padding: 12,
-    borderRadius: 8,
-    marginLeft: 10,
-    alignItems: 'center',
-  },
-  saveButtonText: {
-    color: 'white',
-    fontWeight: '600',
+  placeholderText: {
+    color: '#aaa',
     fontSize: 16,
-  },
-  username: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 8,
   },
 });
+
+// Add this global style for the calendar
+if (typeof document !== 'undefined') {
+  // This will only run in web environments
+  const style = document.createElement('style');
+  style.textContent = `
+    /* Critical: Make calendar appear on top of everything */
+    .react-datepicker-popper {
+      z-index: 9999 !important;
+      position: fixed !important;
+    }
+    
+    /* Calendar styling */
+    .react-datepicker {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      border: 1px solid #e2e8f0;
+    }
+    
+    .react-datepicker__header {
+      background-color: #4a69bd;
+      border-bottom: none;
+      border-top-left-radius: 8px;
+      border-top-right-radius: 8px;
+      padding-top: 10px;
+    }
+    
+    .react-datepicker__current-month {
+      color: white;
+      font-weight: bold;
+      font-size: 1rem;
+    }
+    
+    .react-datepicker__day-name {
+      color: white;
+      margin-top: 5px;
+    }
+    
+    .react-datepicker__day--selected {
+      background-color: #4a69bd;
+      border-radius: 50%;
+    }
+    
+    .react-datepicker__day--keyboard-selected {
+      background-color: rgba(74, 105, 189, 0.7);
+      border-radius: 50%;
+    }
+    
+    .react-datepicker__day:hover {
+      background-color: #e6eeff;
+      border-radius: 50%;
+    }
+    
+    /* Make sure the calendar container is properly positioned */
+    .react-datepicker-wrapper {
+      display: block;
+      width: 100%;
+    }
+  `;
+  document.head.appendChild(style);
+}
 
 export default ProfilePage;

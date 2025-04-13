@@ -694,11 +694,11 @@ class UserStats(User):
         self.weight = weight
         self.height = height
         if self.height is not None:
-            self.height = int(self.height)
+            self.height = int(height)
         if self.weight is not None:
-            self.weight = float(self.weight)
+            self.weight = float(weight)
         
-        if self.height is None and self.weight is None:
+        if self.height is None or self.weight is None:
             self.__findStats__()
             
     def __findStats__(self, conn = None):
@@ -724,8 +724,10 @@ class UserStats(User):
             result = cur.fetchone()
             
             if result:
-                self.height = result[0]
-                self.weight = result[1]
+                if self.height is None:
+                    self.height = result[0]
+                if self.weight is None:
+                    self.weight = result[1]
                 logger.debug(f"Found stats for user ID {self.id}: height={self.height}, weight={self.weight}")
             else:
                 logger.warning(f"No stats found for user ID {self.id}")
@@ -1685,9 +1687,74 @@ class UserStats(User):
                     logger.warning(f"Invalid goal type: {goalType}")
                     raise InvalidGoalTypeError()
                 
-            
         except:
             pass
+        
+    def createGoal(self, goalType, conn = None, **kwargs):
+        """
+        Creates a user goal for the given type
+        
+        :param goalType: The type of goal to create
+        :param conn: The connection to the database
+        
+        :type goalType: str
+        :type conn: psycopg2.connection
+        :param kwargs: Additional parameters for the goal
+        :type kwargs: dict
+        
+        :raises InvalidGoalTypeError: When the goal type is invalid
+        :raises InvalidStatsDataError: When the stats data is invalid
+        :raises ConnectionError: When database connection fails
+        :raises QueryError: When there's an error executing the query
+        """
+        logger.info(f"Creating user goal for user ID {self.id} of type {goalType}")
+        
+        if not conn:
+            try:
+                logger.debug("Establishing database connection")
+                conn = global_func.getConnection()
+            except Exception as e:
+                logger.error(f"Failed to connect to database: {str(e)}")
+                raise ConnectionError(str(e))
+        
+        cur = conn.cursor()
+        try:
+            match goalType:
+                case 'weight':
+                    if 'goal_weight' not in kwargs:
+                        logger.warning("Cannot create weight goal - target_weight is required")
+                        raise InvalidStatsDataError("target_weight is required for weight goal")
+                    query = sql.SQL("""INSERT INTO weight_goals (user_id, goal_type, target_weight, achieve_by) VALUES (%s, 'weight'::goal_type_enum, %s, %s)""")
+                    cur.execute(query, (self.id, kwargs['goal_weight'], kwargs['achieve_by']))
+                case 'strength':
+                    if 'target_reps' not in kwargs or 'target_exercise' not in kwargs or 'target_weight' not in kwargs:
+                        logger.warning("Cannot create strength goal - target_1rm and exercise_id are required")
+                        raise InvalidStatsDataError("target_weight and target_exercise are required for strength goal")
+                    query = sql.SQL("""INSERT INTO strength_goals (user_id, goal_type, target_reps, target_exercise, target_weight, achieve_by) VALUES (%s, 'strength'::goal_type_enum ,%s, %s, %s, %s)""")
+                    cur.execute(query, (self.id, kwargs['target_reps'], kwargs['target_exercise'], kwargs['target_weight'], kwargs['achieve_by']))
+                case 'cardio':
+                    if 'target_distance' not in kwargs or 'target_time' not in kwargs:
+                        logger.warning("Cannot create cardio goal - target_distance and target_time are required")
+                        raise InvalidStatsDataError("target_distance and target_time are required for cardio goal")
+                    query = sql.SQL("""INSERT INTO cardio_goals (user_id, target_distance, target_time, achieve_by) VALUES (%s, %s, %s, %s)""")
+                    cur.execute(query, (self.id, kwargs['target_distance'], kwargs['target_time'], kwargs['achieve_by']))
+                case _:
+                    logger.warning(f"Invalid goal type: {goalType}")
+                    raise InvalidGoalTypeError()
+                
+            conn.commit()
+            logger.info(f"Successfully created {goalType} goal for user ID {self.id}")
+            
+        except Exception as e:
+            conn.rollback()
+            logger.error(f"Error creating goal: {str(e)}")
+            logger.debug(traceback.format_exc())
+            raise QueryError(f"Error creating goal: {str(e)}")
+        finally:
+            if 'cur' in locals() and cur:
+                cur.close()
+            if conn:
+                conn.close()
         
         
         
