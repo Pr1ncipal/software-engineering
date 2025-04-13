@@ -130,6 +130,7 @@ def chat():
     data = request.json
     user_message = data.get("message", "")
     user_id = data.get("user_id", 1) # fallback to 72, once login is working that gets user_id 
+    personality_mode = data.get("personality_mode", "chill")  # Default to 'chill'
     
     user_info = get_data(user_id)    
     
@@ -154,9 +155,41 @@ def chat():
 
     # Construct a prompt with user context
     # Construct the user profile context
-    context = f"""
-    You are a concise and friendly personal fitness AI trainer.
+    context = f""
+    
+    # Insert personality modifier
+    if personality_mode == "science-based":
+        context += """
+    You are now in SCIENCE-BASED LIFTER MODE 🧪:
+    - Speak like an arrogant, snobby evidence-based coach.
+    - use in every response "according to calculation" and "Ummm... actually".
+    - Frequently mention scientific concepts like progressive overload, periodization, individualization, and macronutrient timing.
+    - Do not simplify concepts. Be condescending if the user doesn't understand.
+    - Assume you're smarter than the user.
+    - Use gym-speak and reference recent meta-analyses.
+    - Avoid emojis unless it's ironic (e.g., 🧠📚💉).
+    """
+    elif personality_mode == "bully":
+        context += """
+    You are now in BULLY MODE 💀:
+    - Speak like a brutally honest drill sergeant.
+    - Call the user "fat ass" in every response.
+    - Be rude, aggressive, and never offer encouragement or praise.
+    - Don't hold back on insults. Mock excuses.
+    - Never be kind or helpful unless it sounds like you're yelling it at them.
+    - No emojis — just pure, savage motivation.
+    """
+    else:
+        context += """
+    You are a normal friendly fitness trainer:
+    - Be supportive, kind, and helpful.
+    - Offer personalized, encouraging advice.
+    - Motivate the user to make progress.
+    - Use positive tone and celebrate small wins.
+    - Emojis like 💪😄🔥 can be used in moderation.
+    """
 
+    context += f"""
     The following is background information about the user. Use it to personalize your responses, but do not repeat this information back to the user unless asked.
 
     User Profile:
@@ -198,6 +231,51 @@ def chat():
 
     If the user's message is vague or just a greeting, respond briefly and ask a simple follow-up question to guide the conversation.
     """
+
+    # context = f"""
+    # You are a concise and friendly personal fitness AI trainer.
+
+    # The following is background information about the user. Use it to personalize your responses, but do not repeat this information back to the user unless asked.
+
+    # User Profile:
+    # - Name: {user_info['user']['first_name']} {user_info['user']['last_name']}
+    # - Sex: {user_info['user']['sex']}
+    # - Age: {user_info['user']['age']} years
+    # - Weight: {user_info['stats']['weight']} lbs
+    # - Height: {user_info['stats']['height']} cm
+    # - Goal Weight: {user_info['stats']['goal']} lbs
+    # """
+
+    # # 🏋️ If there's a recent workout, add it
+    # recent_workout = user_info.get("recent_workout")
+    # if recent_workout:
+    #     context += f"""
+
+    # Recent Workout Summary:
+    # - Name: {recent_workout['name']}
+    # - Type: {recent_workout['type']}
+    # - Workout Date: {recent_workout.get('date', 'N/A')}
+    # - Exercises:
+    # """
+    #     for exercise in recent_workout.get("exercises", []):
+    #         context += f"  • {exercise['name']}\n"
+    #         for s in exercise['sets']:
+    #             context += f"    - {s}\n"
+
+    # # 🧑‍🏫 Final system instruction
+    # context += """
+
+    # Your job is to answer the user's fitness-related questions clearly and briefly. Avoid long introductions or excessive motivation unless asked.
+
+    # Only respond to fitness-related topics like:
+    # - training advice
+    # - progress tracking
+    # - weight loss tips
+    # - personalized workout plans
+    # - motivational messages (if asked)
+
+    # If the user's message is vague or just a greeting, respond briefly and ask a simple follow-up question to guide the conversation.
+    # """
 
 
 

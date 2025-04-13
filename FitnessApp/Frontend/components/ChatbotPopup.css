@@ -192,3 +192,39 @@
   padding: 2px 4px;
   border-radius: 4px;
 }
+
+.personality-selector {
+  padding: 10px 16px;
+  background-color: #f3f3f3;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+  font-weight: 500;
+  color: #444;
+}
+
+.personality-selector label {
+  margin-right: 8px;
+}
+
+.personality-selector select {
+  flex: 1;
+  padding: 8px 12px;
+  margin-top: 10px;
+  /* margin-bottom: 5px; */
+  border-radius: 20px;
+  border: 1px solid #ccc;
+  background-color: #ffffff;
+  color: #222;
+  font-size: 14px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  transition: border-color 0.2s ease;
+}
+
+.personality-selector select:focus {
+  outline: none;
+  border-color: #1e52b4;
+  box-shadow: 0 0 0 2px rgba(30, 82, 180, 0.2);
+}

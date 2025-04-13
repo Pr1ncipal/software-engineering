@@ -17,6 +17,8 @@ const App = () => {
   const messagesEndRef = useRef(null);
   const recognitionRef = useRef(null);
   const speechSynthesisRef = useRef(window.speechSynthesis);
+  const [personalityMode, setPersonalityMode] = useState("chill");
+
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -198,7 +200,8 @@ useEffect(() => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: input,
-          user_id: userId
+          user_id: userId,
+          personality_mode: personalityMode
         }),
       });
   
@@ -286,11 +289,19 @@ useEffect(() => {
     try {
       const userMessage = { sender: "user", text };
       setMessages((prev) => [...prev, userMessage]);
+
+      const username = getUsernameFromStorage();
+      const userId = username ? await getUserId(username) : null;
+
       
       const chatResponse = await fetch("http://localhost:5000/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({ 
+          message: text, 
+          user_id: userId, 
+          personality_mode: personalityMode 
+        }),
       });
       
       const chatData = await chatResponse.json();
@@ -395,7 +406,19 @@ useEffect(() => {
             )}
             <div ref={messagesEndRef} />
           </div>
-          
+          {/* Personality Selector */}
+          <div className="personality-selector" style={{ padding: "0 1rem 0.5rem" }}>
+            <label htmlFor="mode" style={{ marginRight: "0.5rem" }}>Mode:</label>
+            <select 
+              id="mode" 
+              value={personalityMode}
+              onChange={(e) => setPersonalityMode(e.target.value)}
+            >
+              <option value="bully">Drill Sergeant 💀</option>
+              <option value="chill">Personal Trainer 🧘</option>
+              <option value="science-based">Science-Based 🧪</option>
+            </select>
+          </div>
           {/* Input Box */}
           <div className="chat-input">
             <input
