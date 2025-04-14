@@ -38,11 +38,11 @@ def format_weight_chart(actual_data, prediction_data):
     # padding = 0.05 * (max(visible_weights) - min(visible_weights))
     # min_y = min(visible_weights) - padding
     # max_y = max(visible_weights) + padding
-    min_y = 300
-    max_y = 450
+    # min_y = 300
+    # max_y = 450
 
-    # min_y = min(visible_weights) - 10 if visible_weights else 100
-    # max_y = max(visible_weights) + 10 if visible_weights else 250
+    min_y = min(visible_weights) - 10 if visible_weights else 100
+    max_y = max(visible_weights) + 10 if visible_weights else 250
 
     return {
         "labels": labels,

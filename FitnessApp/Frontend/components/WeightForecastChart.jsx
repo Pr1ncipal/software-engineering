@@ -1,35 +1,19 @@
+// File: WeightForecastChart.jsx
 import React, { useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  Dimensions,
-} from "react-native";
+import { View, Text, StyleSheet, ScrollView, Dimensions } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getUserId } from "../utils/getUserId";
 import { LineChart } from "react-native-chart-kit";
 
 const screenWidth = Dimensions.get("window").width;
 
-const MotivationScreen = () => {
-  const [showMotivation, setShowMotivation] = useState(false);
-  const [motivationMessage, setMotivationMessage] = useState("");
-  const [streakCount, setStreakCount] = useState(0);
-  const [progressPrediction, setProgressPrediction] = useState("");
+const WeightForecastChart = () => {
   const [chartData, setChartData] = useState(null);
+  const [progressPrediction, setProgressPrediction] = useState("");
 
   useEffect(() => {
-    fetchStreak();
     fetchPrediction();
     fetchWeightChart();
-
-    const timer = setTimeout(() => {
-      fetchMotivation();
-    }, 10000);
-
-    return () => clearTimeout(timer);
   }, []);
 
   const getUsernameFromStorage = async () => {
@@ -45,18 +29,6 @@ const MotivationScreen = () => {
     }
   };
 
-  const fetchStreak = async () => {
-    try {
-      const username = await getUsernameFromStorage();
-      const userId = await getUserId(username);
-      const res = await fetch(`http://localhost:5000/api/streak-graph?user_id=${userId}`);
-      const data = await res.json();
-      setStreakCount(data.day_streak ?? 0);
-    } catch (err) {
-      console.error("Failed to fetch streak:", err);
-    }
-  };
-
   const fetchPrediction = async () => {
     try {
       const username = await getUsernameFromStorage();
@@ -66,19 +38,6 @@ const MotivationScreen = () => {
       setProgressPrediction(data.prediction ?? "");
     } catch (err) {
       console.error("Failed to fetch prediction:", err);
-    }
-  };
-
-  const fetchMotivation = async () => {
-    try {
-      const username = await getUsernameFromStorage();
-      const userId = await getUserId(username);
-      const response = await fetch(`http://localhost:5000/api/motivation?user_id=${userId}`);
-      const data = await response.json();
-      setMotivationMessage(data.message);
-      setShowMotivation(true);
-    } catch (err) {
-      console.error("Failed to fetch motivation:", err);
     }
   };
 
@@ -94,22 +53,16 @@ const MotivationScreen = () => {
         return;
       }
 
-      // Process the data to create confidence intervals
-      // Assuming the server returns datasets[0] = actual, datasets[1] = predicted
       const processedData = {
         ...data,
         datasets: [
-          // Actual data (unchanged)
           data.datasets[0],
-          // Predicted data (unchanged)
           data.datasets[1],
-          // Lower confidence bound (2lbs below prediction)
           {
             data: data.datasets[1].data.map(val => val !== null ? Math.max(val - 2, 0) : null),
             color: (opacity = 1) => `rgba(243, 156, 18, ${opacity * 0.2})`,
             strokeWidth: 0,
           },
-          // Upper confidence bound (2lbs above prediction)
           {
             data: data.datasets[1].data.map(val => val !== null ? val + 2 : null),
             color: (opacity = 1) => `rgba(243, 156, 18, ${opacity * 0.2})`,
@@ -125,10 +78,8 @@ const MotivationScreen = () => {
     }
   };
 
-  // Function to identify where actual data ends and prediction begins
   const getPredictionStartIndex = () => {
     if (!chartData || !chartData.datasets || chartData.datasets.length < 2) return -1;
-    
     const actualData = chartData.datasets[0].data;
     for (let i = 0; i < actualData.length; i++) {
       if (actualData[i] === null) return i;
@@ -138,25 +89,21 @@ const MotivationScreen = () => {
 
   const renderWeightChart = () => {
     if (!chartData) return null;
-
     const predictionStartIdx = getPredictionStartIndex();
     const hasPrediction = predictionStartIdx >= 0 && predictionStartIdx < chartData.labels.length;
 
     return (
       <View style={styles.chartContainer}>
         <Text style={styles.graphTitle}>📊 Weight Progress</Text>
-        
         <LineChart
           data={{
             labels: chartData.labels,
             datasets: [
-              // Predicted weight line (dashed)
               {
                 data: chartData.datasets[1].data,
                 color: (opacity = 1) => `rgba(243, 156, 18, ${opacity})`,
                 strokeWidth: 4,
               },
-              // Actual weight line
               {
                 data: chartData.datasets[0].data,
                 color: (opacity = 1) => `rgba(30, 82, 180, ${opacity})`,
@@ -186,20 +133,12 @@ const MotivationScreen = () => {
             propsForBackgroundLines: {
               strokeDasharray: '',
             },
-            // Make prediction line dashed
             propsForLabels: {
               fontWeight: '600',
             },
-            // For custom dotted line rendering (not directly supported)
             useShadowColorFromDataset: true,
           }}
-          
-          style={{ 
-            marginVertical: 10, 
-            borderRadius: 16,
-            paddingRight: 60,
-          }}
-
+          style={{ marginVertical: 10, borderRadius: 16, paddingRight: 60 }}
           segments={5}
           formatYLabel={(y) => `${y} lbs`}
           verticalLabelRotation={0}
@@ -212,7 +151,6 @@ const MotivationScreen = () => {
           max={chartData.yAxisRange?.[1]}
         />
 
-        {/* Legend */}
         <View style={styles.legend}>
           <View style={styles.legendItem}>
             <View style={[styles.legendColor, { backgroundColor: '#3259A5' }]} />
@@ -224,63 +162,20 @@ const MotivationScreen = () => {
           </View>
         </View>
 
-        {/* Add explanation of prediction */}
         {hasPrediction && (
           <View style={styles.predictionInfo}>
             <Text style={styles.progressTitle}>📈 Your Progress Forecast</Text>
-            <Text style={styles.predictionInfoText}>
-              {progressPrediction?.message}
-            </Text>
-            {/* <Text style={styles.predictionInfoText}>
-              Prediction starts from {chartData.labels[predictionStartIdx]} and shows expected weight loss based on your current trend.
-            </Text> */}
+            <Text style={styles.predictionInfoText}>{progressPrediction.message}</Text>
           </View>
         )}
       </View>
     );
   };
 
-  return (
-    <ScrollView style={styles.container}>
-      {/* 🔥 Streak Counter */}
-      <View style={styles.streakBox}>
-        <Text style={styles.streakText}>🔥 {streakCount}-day streak</Text>
-      </View>
-
-      {/* 💬 Motivation Toast */}
-      {showMotivation && (
-        <View style={styles.motivationToast}>
-          <View style={styles.toastHeader}>
-            <View style={{ flex: 1 }} />
-            <TouchableOpacity onPress={() => setShowMotivation(false)}>
-              <Text style={styles.closeButton}>✕</Text>
-            </TouchableOpacity>
-          </View>
-          <Text style={styles.toastTitle}>💪 Keep Going!</Text>
-          <Text style={styles.toastText}>{motivationMessage.replace(/^"(.*)"$/, "$1")}</Text>
-        </View>
-      )}
-
-      {/* 📈 Predictive Progress Box */}
-      {progressPrediction && (
-        <View style={styles.progressBox}>
-          <Text style={styles.progressTitle}>📈 Your Progress Forecast</Text>
-          <Text style={styles.progressText}>
-            {progressPrediction.message}
-          </Text>
-          {/* <Text style={styles.progressText}>
-            {progressPrediction.replace(/^"(.*)"$/, "$1")}
-          </Text> */}
-        </View>
-      )}
-
-      {/* 📊 Weight Chart */}
-      {renderWeightChart()}
-    </ScrollView>
-  );
+  return <ScrollView style={styles.container}>{renderWeightChart()}</ScrollView>;
 };
 
-export default MotivationScreen;
+export default WeightForecastChart;
 
 const styles = StyleSheet.create({
   container: {

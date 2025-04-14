@@ -10,6 +10,8 @@ import RegisterForm from '@/components/RegisterForm';
 import App from '@/components/loginApp';
 import Chatbot from '@/components/chatbot';  // Import Chatbot
 import MotivationScreen from '@/components/MotivationScreen';
+import WeightForecastChart from '@/components/WeightForecastChart';
+import MotivationToastAndStreak from '@/components/MotivationStreak';
 
 import ChooseExercise from '@/components/chooseExercise';
 
@@ -68,6 +70,8 @@ export default function AppTabs() {
         <Tab.Screen name="Login" component={App} />
         <Tab.Screen name="Chatbot" component={Chatbot} />
         <Tab.Screen name="Motivation" component={MotivationScreen} />
+        <Tab.Screen name="Motivation2" component={MotivationToastAndStreak} />
+        <Tab.Screen name="Progress" component={WeightForecastChart} />
         <Tab.Screen 
           name="Choose Exercise" 
           component={() => <ChooseExercise onExerciseSelect={() => {}} />} 
