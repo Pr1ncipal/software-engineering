@@ -2,8 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Modal, Platform } from 'react-native';
 import { secureStorage, AUTH_TOKEN_KEY } from '../utils/secureStorage';
 import { isNetworkAvailable, getAuthHeaders } from '../utils/networkUtils';
+import { useNavigation } from '@react-navigation/native';
+import encode from 'jwt-encode';
 
 const StepsCalendar = () => {
+  const navigation = useNavigation(); // Replace router with navigation
+
   // Existing states
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -130,9 +134,8 @@ const StepsCalendar = () => {
     setCalendarDays(days);
   };
 
-  // Fetch steps data from API - simplified mock implementation
+  // Fetch steps data from API
   const fetchStepsData = async () => {
-    // Existing implementation
     setIsLoading(true);
     
     try {
@@ -143,32 +146,68 @@ const StepsCalendar = () => {
         setIsLoading(false);
         return;
       }
-      
-      // For now, let's simulate some data for demonstration
-      const mockData = {};
-      const today = new Date();
-      const currentMonthYear = `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}`;
-      
-      // Generate some random step data for current month
-      for (let i = 1; i <= 28; i++) {
-        if (Math.random() > 0.3) { // 70% chance of having data
-          const day = String(i).padStart(2, '0');
-          const dateStr = `${currentMonthYear}-${day}`;
-          
-          // Don't generate future data
-          const dateObj = new Date(`${dateStr}T00:00:00`);
-          if (dateObj > today) continue;
-          
-          mockData[dateStr] = Math.floor(Math.random() * 15000) + 1000; // Random between 1000-16000
-        }
+
+      // Get auth token
+      const token = await secureStorage.getItem(AUTH_TOKEN_KEY);
+      if (!token) {
+        showAlert('Authentication required. Please log in.', 'error');
+        navigation.navigate('Login');
+        return;
       }
+
+      // Build URL with optional month and year parameters
+      const year = currentMonth.getFullYear();
+      const month = currentMonth.getMonth() + 1; // JavaScript months are 0-indexed
+      const url = `http://localhost:8080/api/user/get_step_data?month=${month}&year=${year}`;
+
+      // Make API request
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          ...getAuthHeaders(token),
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Server responded with ${response.status}`);
+      }
+
+      const data = await response.json();
       
-      setStepsData(mockData);
-      calculateStats(mockData);
+      // Update user goal from API response
+      if (data.user_info && data.user_info.step_goal) {
+        setDailyStepGoal(data.user_info.step_goal);
+      }
+
+      // Update statistics from API response
+      if (data.statistics) {
+        setWeeklySteps(data.statistics.weekly_steps || 0);
+        setMonthlySteps(data.statistics.monthly_steps || 0);
+        setStreakDays(data.statistics.current_streak || 0);
+      }
+
+      // Format steps data to be used by calendar and history
+      const formattedStepsData = {};
+      if (Array.isArray(data.steps_data)) {
+        data.steps_data.forEach(entry => {
+          formattedStepsData[entry.date] = entry.steps;
+        });
+      }
+
+      setStepsData(formattedStepsData);
+      
+      // Success message
+      if (Object.keys(formattedStepsData).length > 0) {
+        showAlert('Steps data loaded successfully!', 'success');
+      } else {
+        showAlert('No steps data found for this month.', 'info');
+      }
       
     } catch (error) {
       console.error('Error fetching steps data:', error);
-      showAlert('An error occurred while fetching steps data.', 'error');
+      showAlert(`Error: ${error.message || 'Failed to fetch steps data'}`, 'error');
     } finally {
       setIsLoading(false);
     }
@@ -176,8 +215,14 @@ const StepsCalendar = () => {
 
   // Calculate weekly and monthly stats
   const calculateStats = (stepsMap) => {
-    // Existing implementation
-    // Calculate weekly steps
+    // If we have statistics from the API, use those instead
+    if (stepsMap === 'fromAPI') {
+      // Already set from API response
+      return;
+    }
+    
+    // Otherwise calculate from local data
+    // This is useful when user adds steps offline or before API refresh
     const today = new Date();
     const startOfWeek = new Date(today);
     startOfWeek.setDate(today.getDate() - today.getDay());
@@ -258,7 +303,7 @@ const StepsCalendar = () => {
   };
 
   // Save steps for the selected date
-  const saveSteps = () => {
+  const saveSteps = async () => {
     try {
       // Validate steps input
       const steps = parseInt(stepCount);
@@ -267,8 +312,48 @@ const StepsCalendar = () => {
         return;
       }
       
+      // Check network connectivity
+      const connected = await isNetworkAvailable();
+      if (!connected) {
+        showAlert('No internet connection. Please try again later.', 'error');
+        return;
+      }
+      
+      // Get auth token
+      const token = await secureStorage.getItem(AUTH_TOKEN_KEY);
+      if (!token) {
+        showAlert('Authentication required. Please log in.', 'error');
+        navigation.navigate('Login');
+        return;
+      }
+      
       // Format date for API
       const dateString = formatDateToYYYYMMDD(selectedDate);
+      
+      // Create JWT payload using the token as the secret
+      const payload = {
+        steps: steps,
+        date: dateString,
+        timestamp: new Date().getTime()
+      };
+      
+      // Create JWT token
+      const jwt = encode(payload, token);
+      
+      // Send data to API
+      const url = 'http://localhost:8080/api/user/add_step_data';
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `ApiKey ${jwt}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Server responded with ${response.status}`);
+      }
       
       // Update local state
       setStepsData(prevData => ({
@@ -276,20 +361,15 @@ const StepsCalendar = () => {
         [dateString]: steps
       }));
       
-      // Recalculate stats
-      calculateStats({
-        ...stepsData,
-        [dateString]: steps
-      });
+      // Recalculate stats - or refetch data from API
+      await fetchStepsData();
       
       showAlert('Steps saved successfully!', 'success');
       setModalVisible(false);
       
-      // In a real app, you would also send this data to your API here
-      
     } catch (error) {
       console.error('Error saving steps:', error);
-      showAlert('An error occurred while saving steps.', 'error');
+      showAlert(`Error: ${error.message || 'Failed to save steps'}`, 'error');
     }
   };
 
@@ -300,7 +380,7 @@ const StepsCalendar = () => {
   };
 
   // Save step goal
-  const saveStepGoal = () => {
+  const saveStepGoal = async () => {
     try {
       // Validate goal input
       const goal = parseInt(tempStepGoal);
@@ -309,15 +389,52 @@ const StepsCalendar = () => {
         return;
       }
       
+      // Check network connectivity
+      const connected = await isNetworkAvailable();
+      if (!connected) {
+        showAlert('No internet connection. Please try again later.', 'error');
+        return;
+      }
+      
+      // Get auth token
+      const token = await secureStorage.getItem(AUTH_TOKEN_KEY);
+      if (!token) {
+        showAlert('Authentication required. Please log in.', 'error');
+        navigation.navigate('Login');
+        return;
+      }
+      
+      // Create JWT payload using the token as the secret
+      const payload = {
+        goal: goal,
+        timestamp: new Date().getTime()
+      };
+      
+      // Create JWT token
+      const jwt = encode(payload, token);
+      
+      // Send goal to API
+      const url = 'http://localhost:8080/api/user/set_step_goal';
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `ApiKey ${jwt}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Server responded with ${response.status}`);
+      }
+      
       // Update state
       setDailyStepGoal(goal);
       
-      // Save to local storage
+      // Save to local storage as fallback
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem('dailyStepGoal', goal.toString());
       }
-      
-      // In a real app, you would also send this to your API
       
       // Recalculate stats with new goal
       calculateStats(stepsData);
@@ -327,7 +444,7 @@ const StepsCalendar = () => {
       
     } catch (error) {
       console.error('Error saving step goal:', error);
-      showAlert('An error occurred while saving your goal.', 'error');
+      showAlert(`Error: ${error.message || 'Failed to save step goal'}`, 'error');
     }
   };
 
@@ -358,8 +475,14 @@ const StepsCalendar = () => {
   };
 
   // Get activity level text based on step count
-  const getActivityLevel = (steps) => {
-    const percentage = (steps / dailyStepGoal) * 100;
+  const getActivityLevel = (steps, goalPercentage = null) => {
+    // If goalPercentage is directly provided (from API)
+    let percentage = goalPercentage;
+    
+    // Otherwise calculate it
+    if (percentage === null) {
+      percentage = (steps / dailyStepGoal) * 100;
+    }
     
     if (percentage < 30) return 'Low Activity';
     if (percentage < 60) return 'Moderate Activity';
@@ -386,6 +509,18 @@ const StepsCalendar = () => {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      {/* Back button */}
+      <View style={styles.headerContainer}>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.goBack()} // Change from router.back()
+        >
+          <Text style={styles.backButtonText}>← Back</Text>
+        </TouchableOpacity>
+        <Text style={styles.title}>Steps Tracker</Text>
+        <View style={styles.placeholderView} />
+      </View>
+      
       <Text style={styles.title}>Steps Tracker</Text>
       
       {/* Goal Setting Button and Progress */}
@@ -1211,6 +1346,27 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#718096',
     fontStyle: 'italic',
+  },
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    paddingTop: 8,
+  },
+  backButton: {
+    backgroundColor: '#e2e8f0',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  backButtonText: {
+    color: '#4a5568',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  placeholderView: {
+    width: 80, // Same width as back button to center the title
   },
 });
 

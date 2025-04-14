@@ -1800,18 +1800,21 @@ class UserStats(User):
         
         # Define SQL query to fetch step data
         query = sql.SQL("""SELECT date_performed, steps FROM user_steps WHERE user_id = %s AND EXTRACT(MONTH FROM date_performed) = %s AND EXTRACT(YEAR FROM date_performed) = %s""")
+        
         weeklyQuery = sql.SQL("""SELECT SUM(steps) AS total_steps
                                         FROM user_steps
-                                        WHERE date_performed >= CURRENT_DATE - ((EXTRACT(DOW FROM CURRENT_DATE)::INT + 0) % 7)
+                                        WHERE date_performed >= CURRENT_DATE - ((EXTRACT(DOW FROM CURRENT_DATE)::INT + 1) % 7)
                                             AND date_performed <= CURRENT_DATE
                                             AND user_id = %s;
                                 """)
-        monthlyStepsQuery = sql.SQL("""SELECT user_id, SUM(steps) AS total_steps
+        
+        monthlyStepsQuery = sql.SQL("""SELECT SUM(steps) AS total_steps
                                             FROM user_steps
                                             WHERE date_performed >= date_trunc('month', CURRENT_DATE)
                                                 AND date_performed <= CURRENT_DATE
                                                 AND user_id = %s;
                                         """)
+        
         currentStreakQuery = sql.SQL("""WITH consecutive_dates AS (
                                                 SELECT
                                                     date_performed,
@@ -1839,6 +1842,7 @@ class UserStats(User):
                                             FROM streak_groups
                                             WHERE end_date = CURRENT_DATE;
                                             """)
+        
         averageStepsQuery = sql.SQL("""SELECT AVG(steps) AS average_steps
                                             FROM user_steps
                                             WHERE user_id = %s;"""
@@ -1859,29 +1863,54 @@ class UserStats(User):
                 steps = {}
                 
             
-            cur.execute(weeklyQuery, (self.id,))
-            weeklySteps = cur.fetchone()
-            
-            
-            cur.execute(monthlyStepsQuery, (self.id,))
-            monthlySteps = cur.fetchone()
-            
-            
-            cur.execute(currentStreakQuery, (self.id,))
-            currentStreak = cur.fetchone()
-            
-            
-            cur.execute(averageStepsQuery, (self.id,))
-            averageSteps = cur.fetchone()
-            
-            cur.execute(stepGoalQuery, (self.id,))
-            stepGoal = cur.fetchone()
+            cur.execute(query, (self.id, month, year))
+            steps = cur.fetchall()
+        
+            if not steps:
+                logger.info(f"No step data found for user ID {self.id} for month {month} and year {year}")
+                steps = {}
+        
+        # Execute each query with proper error handling
+            try:
+                cur.execute(weeklyQuery, (self.id,))
+                weeklySteps = cur.fetchone()
+            except Exception as e:
+                logger.error(f"Error executing weekly steps query: {str(e)}")
+                weeklySteps = None
+        
+            try:
+                cur.execute(monthlyStepsQuery, (self.id,))
+                monthlySteps = cur.fetchone()
+            except Exception as e:
+                logger.error(f"Error executing monthly steps query: {str(e)}")
+                monthlySteps = None
+        
+            try:
+                cur.execute(currentStreakQuery, (self.id,))
+                currentStreak = cur.fetchone()
+            except Exception as e:
+                logger.error(f"Error executing current streak query: {str(e)}")
+                currentStreak = None
+        
+            try:
+                cur.execute(averageStepsQuery, (self.id,))
+                averageSteps = cur.fetchone()
+            except Exception as e:
+                logger.error(f"Error executing average steps query: {str(e)}")
+                averageSteps = None
+        
+            try:
+                cur.execute(stepGoalQuery, (self.id,))
+                stepGoal = cur.fetchone()
+            except Exception as e:
+                logger.error(f"Error executing step goal query: {str(e)}")
+                stepGoal = None
             
             statistics = {
                 "weekly_steps": weeklySteps[0] if weeklySteps else 0,
-                "monthly_steps": monthlySteps[1] if monthlySteps else 0,
+                "monthly_steps": monthlySteps[0] if monthlySteps else 0,
                 "current_streak": currentStreak[0] if currentStreak else 0,
-                "average_steps": averageSteps[0] if averageSteps else 0
+                "average_steps": round(float(averageSteps[0]), 2) if averageSteps else 0
             }
             
             userInfo = {'username': self.username, "step_goal": stepGoal[0] if stepGoal else 0}

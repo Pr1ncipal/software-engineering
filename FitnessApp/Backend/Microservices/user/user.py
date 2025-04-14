@@ -735,7 +735,7 @@ def step_data():
                 raise InvalidStatsDataError("Date must be in YYYY-MM-DD format")
         
         # Create user object and validate
-        logger.debug(f"Request {request_id}: Creating user stats object with key: {data["key"]}...")
+        logger.debug(f"Request {request_id}: Creating user stats object with id: {key}")
         try:
             user = userClass.UserStats(id=key)
             
@@ -772,7 +772,7 @@ def step_data():
         logger.error(f"Request {request_id}: {traceback.format_exc()}")
         raise UserServiceError(f"An unexpected error occurred while adding step data")
     
-@app.route('get_step_data', methods=['GET'])
+@app.route('/get_step_data', methods=['GET'])
 def get_step_data():
     """
     Get step data for the authenticated user.
@@ -799,9 +799,12 @@ def get_step_data():
         if user.id is None or user.id == -1:
             logger.warning(f"Request {request_id}: User not found for step data retrieval")
             raise UserNotFoundException()
+        
+        year = request.args.get('year', None)
+        month = request.args.get('month', None)
             
-        logger.debug(f"Request {request_id}: Retrieving step data for user ID: {user.id}")
-        user_info, steps, statistics = user.getStepData()
+        logger.debug(f"Request {request_id}: Retrieving step data for user ID: {user.id}, year: {year}, month: {month}")
+        user_info, statistics, steps = user.getStepData(month, year)
         if not user_info:
             logger.warning(f"Request {request_id}: No user info found for user ID: {user.id}")
             user_info = {}

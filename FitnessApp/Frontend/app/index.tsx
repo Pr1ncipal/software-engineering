@@ -1,7 +1,7 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 // Import your components
@@ -78,6 +78,12 @@ export default function AppTabs() {
             backgroundColor: '#f4511e',
           },
           headerTintColor: '#fff',
+          tabBarButton: (props) => {
+            if (route.name === 'Steps') {
+              return null;  // This hides the tab
+            }
+            return <TouchableOpacity {...props} />;
+          },
         })}
       >
         <Tab.Screen name="Register" component={RegisterForm} />
@@ -86,7 +92,13 @@ export default function AppTabs() {
         <Tab.Screen name="Profile" component={ProfilePage} />
         <Tab.Screen name="Chatbot" component={Chatbot} />
         <Tab.Screen name="Motivation" component={MotivationScreen} />
-        <Tab.Screen name="Steps" component={StepsCalendar} />
+        <Tab.Screen 
+          name="Steps" 
+          component={StepsCalendar} 
+          options={{ 
+            headerShown: false,  // Hide header since we're adding our own back button
+          }} 
+        />
         <Tab.Screen 
           name="Leaderboard" 
           component={leaderboardPage} 

@@ -154,6 +154,31 @@
       ]
     },
     {
+      "endpoint": "/api/user/get_step_data",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "backend": [
+        {
+          "url_pattern": "/get_step_data",
+          "encoding": "no-op",
+          "sd": "static",
+          "method": "GET",
+          "host": [
+            "http://user:8080"
+          ],
+          "disable_host_sanitize": false
+        }
+      ],
+      "input_query_strings": [
+        "year",
+        "month"
+      ],
+      "input_headers": [
+        "Authorization",
+        "Content-Type"
+      ]
+    },
+    {
       "endpoint": "/api/user/login",
       "method": "POST",
       "output_encoding": "no-op",

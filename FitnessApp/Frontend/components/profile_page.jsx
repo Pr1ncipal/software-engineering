@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput, Alert, Platform } from 'react-native';
-import { Link, useRouter } from 'expo-router';
 import { LineChart } from 'react-native-chart-kit';
 import { Dimensions } from 'react-native';
 import encode from 'jwt-encode';
@@ -10,6 +9,7 @@ import { Picker } from '@react-native-picker/picker';
 import ChooseExercise from './chooseExercise';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
+import { useNavigation } from '@react-navigation/native';
 
 // Create a custom input component that works better with React Native
 const CustomDatePickerInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
@@ -67,7 +67,7 @@ const CalendarPicker = ({ selected, onChange, placeholder }) => {
 };
 
 const ProfilePage = () => {
-  const router = useRouter();
+  const navigation = useNavigation();
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
 
   // State variables for user data
@@ -567,9 +567,11 @@ const ProfilePage = () => {
       
       // Navigate to login page after a short delay
       setTimeout(() => {
-        // Use router to navigate to login page
-        router.replace('/login');
-      }, 1000);
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Login' }],
+        });
+      }, 1500);
     } catch (error) {
       console.error('Error during logout:', error);
       showAlert('Error logging out. Please try again.', 'error');
@@ -788,6 +790,39 @@ const ProfilePage = () => {
       <View style={styles.heightContainer}>
         <Text style={styles.heightLabel}>Current Height:</Text>
         <Text style={styles.heightValue}>{getCurrentHeight()}</Text>
+      </View>
+
+      <View style={styles.stepsContainer}>
+        <View style={styles.stepsInfoContainer}>
+          <Text style={styles.stepsTitle}>Daily Steps</Text>
+          <View style={styles.stepsData}>
+            <Text style={styles.stepsCount}>
+              {userData.steps?.today_steps?.toLocaleString() || '0'}
+            </Text>
+            <Text style={styles.stepsUnit}>steps today</Text>
+          </View>
+          <View style={styles.stepsProgressContainer}>
+            <View style={styles.stepsProgress}>
+              <View 
+                style={[
+                  styles.stepsProgressFill, 
+                  { 
+                    width: `${Math.min(100, ((userData.steps?.today_steps || 0) / (userData.steps?.goal || 10000)) * 100)}%` 
+                  }
+                ]}
+              />
+            </View>
+            <Text style={styles.stepsGoal}>
+              Goal: {userData.steps?.goal?.toLocaleString() || '10,000'} steps
+            </Text>
+          </View>
+        </View>
+        <TouchableOpacity 
+          style={styles.viewStepsButton}
+          onPress={() => navigation.navigate('Steps')}
+        >
+          <Text style={styles.viewStepsText}>View Steps</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Button Group */}
@@ -1482,6 +1517,70 @@ const styles = StyleSheet.create({
   placeholderText: {
     color: '#aaa',
     fontSize: 16,
+  },
+  stepsContainer: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 15,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  stepsInfoContainer: {
+    marginBottom: 15,
+  },
+  stepsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+  },
+  stepsData: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  stepsCount: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#4a69bd',
+    marginRight: 5,
+  },
+  stepsUnit: {
+    fontSize: 16,
+    color: '#666',
+  },
+  stepsProgressContainer: {
+    marginTop: 10,
+  },
+  stepsProgress: {
+    height: 10,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 5,
+    overflow: 'hidden',
+    marginBottom: 5,
+  },
+  stepsProgressFill: {
+    height: '100%',
+    backgroundColor: '#4a69bd',
+  },
+  stepsGoal: {
+    fontSize: 14,
+    color: '#666',
+  },
+  viewStepsButton: {
+    backgroundColor: '#4a69bd',
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  viewStepsText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 14,
   },
 });
 
