@@ -864,15 +864,6 @@ const ProfilePage = () => {
         )}
       </View>
 
-      {/* All Activities Button */}
-      <View style={styles.buttonContainer}>
-        <Link href="/tabs/all_activities">
-          <TouchableOpacity style={styles.allActivitiesButton}>
-            <Text style={styles.buttonText}>View All Activities</Text>
-          </TouchableOpacity>
-        </Link>
-      </View>
-
       {/* Weight/Height Update Modal */}
       <Modal
         visible={modalVisible}

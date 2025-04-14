@@ -214,6 +214,7 @@ def create_goal():
                 
                 logger.info(f"Request {request_id}: Successfully created weight goal: {goal_weight}")
                 return jsonify({}), 201
+            
             case "cardio":
                 target_distance = None
                 target_time = None
@@ -247,6 +248,7 @@ def create_goal():
                 
                 logger.info(f"Request {request_id}: Successfully created cardio goal: {target_distance} km in {target_time} min")
                 return jsonify({}), 201
+            
             case "strength": #working
                 target_weight = None
                 target_reps = None
@@ -297,6 +299,29 @@ def create_goal():
                 user.createGoal(goal_type, achieve_by=data['achieve_by'], target_weight=target_weight, 
                                target_reps=target_reps, target_exercise=target_exercise)
                 logger.info(f"Request {request_id}: Successfully created strength goal: {target_weight} kg for {target_reps} reps of exercise {target_exercise}")
+                return jsonify({}), 201
+            
+            case 'steps':
+                target_steps = None
+                if 'target_steps' not in data:
+                    logger.warning(f"Request {request_id}: Missing required target_steps field")
+                    raise MissingRequiredFieldError('target_steps')
+                target_steps = data['target_steps']
+                
+                if target_steps is None:
+                    logger.warning(f"Request {request_id}: Goal steps value cannot be null")
+                    raise InvalidUserDataError("Goal steps value cannot be null")
+                if target_steps < 0:
+                    logger.warning(f"Request {request_id}: Invalid goal steps value: {target_steps} (negative)")
+                    raise InvalidUserDataError("Goal steps value must be a positive number")
+                if target_steps > 100000:
+                    logger.warning(f"Request {request_id}: Invalid goal steps value: {target_steps} (Too big)")
+                    raise InvalidUserDataError("Goal steps value is too big")
+                
+                user = userClass.UserStats(id=id)
+                user.createGoal(goal_type, achieve_by=data['achieve_by'], target_steps=target_steps)
+                
+                logger.info(f"Request {request_id}: Successfully created steps goal: {target_steps} steps")
                 return jsonify({}), 201
             case _:
                 logger.warning(f"Request {request_id}: Invalid goal type: {goal_type}")
@@ -746,6 +771,52 @@ def step_data():
         logger.error(f"Request {request_id}: Unexpected error in add_step_data: {str(e)}")
         logger.error(f"Request {request_id}: {traceback.format_exc()}")
         raise UserServiceError(f"An unexpected error occurred while adding step data")
+    
+@app.route('get_step_data', methods=['GET'])
+def get_step_data():
+    """
+    Get step data for the authenticated user.
+    
+    Returns:
+        flask.Response: JSON response with step data
+    """
+    request_id = getattr(request, 'request_id', 'unknown')
+    try:
+        logger.info(f"Request {request_id}: Processing get_step_data request")
+        key = request.headers.get('Authorization')
+        
+        if not key or not key.startswith('ApiKey '):
+            logger.warning(f"Request {request_id}: Missing or invalid Authorization header")
+            raise MissingTokenError("Authorization header is required and must start with 'ApiKey '")
+                
+        key = key.split(' ')[1]
+        
+        key = base64.b64decode(key).decode()
+        
+        logger.debug(f"Request {request_id}: Creating user stats object with key: {key[:5]}...")
+        user = userClass.UserStats(key=key)
+        
+        if user.id is None or user.id == -1:
+            logger.warning(f"Request {request_id}: User not found for step data retrieval")
+            raise UserNotFoundException()
+            
+        logger.debug(f"Request {request_id}: Retrieving step data for user ID: {user.id}")
+        steps, statistics = user.getStepData()
+        
+        if not steps:
+            logger.warning(f"Request {request_id}: No step data found for user ID: {user.id}")
+            raise StatsNotFoundException()
+            
+        logger.info(f"Request {request_id}: Successfully retrieved step data for user ID: {user.id}")
+        return jsonify({"message": "Step data retrieved successfully", "statistics": statistics, "steps_data": steps}), 200
+        
+    except UserServiceError:
+        # Let the global error handler handle these
+        raise
+    except Exception as e:
+        logger.error(f"Request {request_id}: Unexpected error in get_step_data: {str(e)}")
+        logger.error(f"Request {request_id}: {traceback.format_exc()}")
+        raise UserServiceError(f"An unexpected error occurred while retrieving step data")
     
     
 @app.route('/get_user_page', methods=['GET'])

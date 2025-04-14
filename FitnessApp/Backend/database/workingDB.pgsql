@@ -78,6 +78,10 @@ CREATE TABLE strength_goals (
     target_reps INT --Delete target sets
 ) INHERITS (user_goals);
 
+CREATE TABLE step_goals (
+    target_steps INT
+) INHERITS (user_goals);
+
 
 CREATE TABLE workouts (
     id SERIAL PRIMARY KEY,

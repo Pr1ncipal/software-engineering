@@ -15,6 +15,7 @@ import ChooseExercise from '@/components/chooseExercise';
 import leaderboardPage from '@/components/leaderboard';
 import Family from '@/components/familyPage';
 import ProfilePage from '@/components/profile_page';
+import StepsCalendar from '@/components/steps.jsx';
 
 const Tab = createBottomTabNavigator();
 
@@ -85,6 +86,7 @@ export default function AppTabs() {
         <Tab.Screen name="Profile" component={ProfilePage} />
         <Tab.Screen name="Chatbot" component={Chatbot} />
         <Tab.Screen name="Motivation" component={MotivationScreen} />
+        <Tab.Screen name="Steps" component={StepsCalendar} />
         <Tab.Screen 
           name="Leaderboard" 
           component={leaderboardPage} 

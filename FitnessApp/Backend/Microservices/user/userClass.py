@@ -1726,18 +1726,28 @@ class UserStats(User):
                         raise InvalidStatsDataError("target_weight is required for weight goal")
                     query = sql.SQL("""INSERT INTO weight_goals (user_id, goal_type, target_weight, achieve_by) VALUES (%s, 'weight'::goal_type_enum, %s, %s)""")
                     cur.execute(query, (self.id, kwargs['goal_weight'], kwargs['achieve_by']))
+                    
                 case 'strength':
                     if 'target_reps' not in kwargs or 'target_exercise' not in kwargs or 'target_weight' not in kwargs:
                         logger.warning("Cannot create strength goal - target_1rm and exercise_id are required")
                         raise InvalidStatsDataError("target_weight and target_exercise are required for strength goal")
                     query = sql.SQL("""INSERT INTO strength_goals (user_id, goal_type, target_reps, target_exercise, target_weight, achieve_by) VALUES (%s, 'strength'::goal_type_enum ,%s, %s, %s, %s)""")
                     cur.execute(query, (self.id, kwargs['target_reps'], kwargs['target_exercise'], kwargs['target_weight'], kwargs['achieve_by']))
+                    
                 case 'cardio':
                     if 'target_distance' not in kwargs or 'target_time' not in kwargs:
                         logger.warning("Cannot create cardio goal - target_distance and target_time are required")
                         raise InvalidStatsDataError("target_distance and target_time are required for cardio goal")
-                    query = sql.SQL("""INSERT INTO cardio_goals (user_id, target_distance, target_time, achieve_by) VALUES (%s, %s, %s, %s)""")
+                    query = sql.SQL("""INSERT INTO cardio_goals (user_id, goal_type, target_distance, target_time, achieve_by) VALUES (%s, 'cardio'::goal_type_enum, %s, %s, %s)""")
                     cur.execute(query, (self.id, kwargs['target_distance'], kwargs['target_time'], kwargs['achieve_by']))
+                    
+                case 'steps':
+                    if 'target_steps' not in kwargs:
+                        logger.warning("Cannot create steps goal - target_steps is required")
+                        raise InvalidStatsDataError("target_steps is required for steps goal")
+                    query = sql.SQL("""INSERT INTO steps_goals (user_id, goal_type, target_steps, achieve_by) VALUES (%s, 'steps'::goal_type_enum, %s, %s)""")
+                    cur.execute(query, (self.id, kwargs['target_steps'], kwargs['achieve_by']))
+                    
                 case _:
                     logger.warning(f"Invalid goal type: {goalType}")
                     raise InvalidGoalTypeError()
@@ -1755,6 +1765,144 @@ class UserStats(User):
                 cur.close()
             if conn:
                 conn.close()
+                
+    def getStepData(self, month, year, conn = None):
+        """
+        Gets the step data for the given month and year
+        
+        :param month: The month to get the data for
+        :param year: The year to get the data for
+        :param conn: The connection to the database
+        
+        :type month: int
+        :type year: int
+        :type conn: psycopg2.connection
+        
+        :return: The step data
+        :rtype: dict
+        """
+        logger.info(f"Getting step data for user ID {self.id} for month {month} and year {year}")
+        
+        if not conn:
+            try:
+                logger.debug("Establishing database connection")
+                conn = global_func.getConnection()
+            except Exception as e:
+                logger.error(f"Failed to connect to database: {str(e)}")
+                raise ConnectionError(str(e))
+        
+        cur = conn.cursor()
+        
+        # Define SQL query to fetch step data
+        query = sql.SQL("""SELECT date_performed, steps FROM user_steps WHERE user_id = %s AND EXTRACT(MONTH FROM date_performed) = %s AND EXTRACT(YEAR FROM date_performed) = %s""")
+        weeklyQuery = sql.SQL("""SELECT SUM(steps) AS total_steps
+                                        FROM user_steps
+                                        WHERE date_performed >= CURRENT_DATE - ((EXTRACT(DOW FROM CURRENT_DATE)::INT + 0) % 7)
+                                            AND date_performed <= CURRENT_DATE
+                                            AND user_id = %s;
+                                """)
+        monthlyStepsQuery = sql.SQL("""SELECT user_id, SUM(steps) AS total_steps
+                                            FROM user_steps
+                                            WHERE date_performed >= date_trunc('month', CURRENT_DATE)
+                                                AND date_performed <= CURRENT_DATE
+                                                AND user_id = %s;
+                                        """)
+        currentStreakQuery = sql.SQL("""WITH consecutive_dates AS (
+                                                SELECT
+                                                    date_performed,
+                                                    ROW_NUMBER() OVER (ORDER BY date_performed DESC) AS rn
+                                                FROM user_steps
+                                                WHERE steps > 0
+                                                    AND date_performed <= CURRENT_DATE
+                                                    AND user_id = %s
+                                            ),
+                                            grouped_dates AS (
+                                                SELECT
+                                                    date_performed,
+                                                    date_performed + rn * INTERVAL '1 day' AS group_id
+                                                FROM consecutive_dates
+                                            ),
+                                            streak_groups AS (
+                                                SELECT
+                                                    MIN(date_performed) AS start_date,
+                                                    MAX(date_performed) AS end_date,
+                                                    COUNT(*) AS streak_length
+                                                FROM grouped_dates
+                                                GROUP BY group_id
+                                            )
+                                            SELECT streak_length
+                                            FROM streak_groups
+                                            WHERE end_date = CURRENT_DATE;
+                                            """)
+        averageStepsQuery = sql.SQL("""SELECT AVG(steps) AS average_steps
+                                            FROM user_steps
+                                            WHERE user_id = %s;"""
+                                        )
+        
+        stepGoalQuery = sql.SQL("""SELECT target_steps
+                                    FROM steps_goals
+                                    WHERE user_id = %s
+                                    ORDER BY created_at DESC
+                                    LIMIT 1;""")
+        
+        try:
+            cur.execute(query, (self.id, month, year))
+            steps = cur.fetchall()
+            
+            if not steps:
+                logger.info(f"No step data found for user ID {self.id} for month {month} and year {year}")
+                steps = {}
+                
+            
+            cur.execute(weeklyQuery, (self.id,))
+            weeklySteps = cur.fetchone()
+            
+            
+            cur.execute(monthlyStepsQuery, (self.id,))
+            monthlySteps = cur.fetchone()
+            
+            
+            cur.execute(currentStreakQuery, (self.id,))
+            currentStreak = cur.fetchone()
+            
+            
+            cur.execute(averageStepsQuery, (self.id,))
+            averageSteps = cur.fetchone()
+            
+            cur.execute(stepGoalQuery, (self.id,))
+            stepGoal = cur.fetchone()
+            
+            statistics = {
+                "weekly_steps": weeklySteps[0] if weeklySteps else 0,
+                "monthly_steps": monthlySteps[1] if monthlySteps else 0,
+                "current_streak": currentStreak[0] if currentStreak else 0,
+                "average_steps": averageSteps[0] if averageSteps else 0
+            }
+            
+            userInfo = {'username': self.username, "step_goal": stepGoal[0] if stepGoal else 0}
+            
+            
+            
+            # Process result into a more readable format
+            step_data = []
+            for day in steps:
+                temp = {}
+                datePerformed = day[0].strftime("%Y-%m-%d")
+                stepsValue = day[1]
+                goal_percentage = round((stepsValue / userInfo['step_goal']) * 100, 2) if userInfo['step_goal'] > 0 else 0
+                
+                temp['date'] = datePerformed
+                temp['steps'] = stepsValue
+                temp['goal_percentage'] = goal_percentage
+                step_data.append(temp)
+
+            logger.info(f"Step data for user ID {self.id}: {step_data}")
+            return userInfo, statistics, step_data
+            
+        except Exception as e:
+            logger.error(f"Error fetching step data: {str(e)}")
+            logger.debug(traceback.format_exc())
+            raise QueryError(f"Error fetching step data: {str(e)}")
         
         
         

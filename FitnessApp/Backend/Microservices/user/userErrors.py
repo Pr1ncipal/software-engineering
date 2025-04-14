@@ -204,3 +204,17 @@ class InvalidGoalDataError(GoalError):
     """Raised when provided goal data is invalid."""
     error_code = "invalid_goal_data"
     message = "The provided goal data is invalid."
+
+
+class InvalidLeaderboardTypeError(UserServiceError):
+    """Raised when an invalid leaderboard type is requested."""
+    status_code = 400
+    error_code = "invalid_leaderboard_type"
+    message = "The provided leaderboard type is invalid. Valid types are 'steps', 'weight', 'deadlift', 'squat', and 'bench'."
+    
+    def __init__(self, leaderboard_type=None):
+        if leaderboard_type:
+            message = f"Invalid leaderboard type: '{leaderboard_type}'. Valid types are 'steps', 'weight', 'deadlift', 'squat', and 'bench'."
+            super().__init__(message=message)
+        else:
+            super().__init__()
