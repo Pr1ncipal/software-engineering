@@ -70,6 +70,9 @@ const ProfilePage = () => {
   const navigation = useNavigation();
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
 
+  // Add this line here
+  const screenWidth = Dimensions.get('window').width;
+
   // State variables for user data
   const [userData, setUserData] = useState({
     activities: {},
@@ -109,9 +112,16 @@ const ProfilePage = () => {
   // New: State for exercise picker modal
   const [exercisePickerVisible, setExercisePickerVisible] = useState(false);
 
+  // Add these state variables in the ProfilePage component
+  const [progressPrediction, setProgressPrediction] = useState(null);
+  const [chartData, setChartData] = useState(null);
+  const [streakCount, setStreakCount] = useState(0);
+
   useEffect(() => {
     // Fetch user profile data when component mounts
     fetchProfileData();
+    fetchPrediction();
+    fetchWeightChart();
     
     // Set default achieve by date to 3 months from now
     const threeMonthsFromNow = new Date();
@@ -591,6 +601,258 @@ const ProfilePage = () => {
     </View>
   );
 
+  // Add these functions in the ProfilePage component
+  const fetchPrediction = async () => {
+    try {
+      // Check network connectivity
+      const connected = await isNetworkAvailable();
+      if (!connected) {
+        showAlert('No internet connection. Please try again when online.', 'error');
+        return;
+      }
+
+      // Get auth token
+      const token = await secureStorage.getItem(AUTH_TOKEN_KEY);
+      if (!token) {
+        showAlert('Authentication required. Please login again.', 'error');
+        return;
+      }
+
+      const headers = await getAuthHeaders(token);
+      
+      const res = await fetch('http://localhost:5000/api/ai/progress-prediction', {
+        method: 'GET',
+        headers: headers
+      });
+      
+      const data = await res.json();
+      setProgressPrediction(data.prediction ?? null);
+    } catch (err) {
+      console.error("Failed to fetch prediction:", err);
+    }
+  };
+
+  const fetchWeightChart = async () => {
+    try {
+      // Check network connectivity
+      const connected = await isNetworkAvailable();
+      if (!connected) {
+        showAlert('No internet connection. Please try again when online.', 'error');
+        return;
+      }
+
+      // Get auth token
+      const token = await secureStorage.getItem(AUTH_TOKEN_KEY);
+      if (!token) {
+        showAlert('Authentication required. Please login again.', 'error');
+        return;
+      }
+
+      const headers = await getAuthHeaders(token);
+      
+      const res = await fetch('http://localhost:5000/api/ai/weight-chart', {
+        method: 'GET',
+        headers: headers
+      });
+      
+      const data = await res.json();
+
+      if (data.error || !data.datasets) {
+        console.warn("Chart data not available:", data.error);
+        return;
+      }
+
+      // Process the data to create confidence intervals
+      const processedData = {
+        ...data,
+        datasets: [
+          // Actual data
+          data.datasets[0],
+          // Predicted data
+          data.datasets[1],
+          // Lower confidence bound (2lbs below prediction)
+          {
+            data: data.datasets[1].data.map(val => val !== null ? Math.max(val - 2, 0) : null),
+            color: (opacity = 1) => `rgba(243, 156, 18, ${opacity * 0.2})`,
+            strokeWidth: 0,
+          },
+          // Upper confidence bound (2lbs above prediction)
+          {
+            data: data.datasets[1].data.map(val => val !== null ? val + 2 : null),
+            color: (opacity = 1) => `rgba(243, 156, 18, ${opacity * 0.2})`,
+            strokeWidth: 0,
+          }
+        ],
+        legend: ["Actual", "Predicted", "Lower Bound", "Upper Bound"]
+      };
+
+      setChartData(processedData);
+
+      // Update streak count if included in response
+      if (data.streakCount !== undefined) {
+        setStreakCount(data.streakCount);
+      }
+    } catch (err) {
+      console.error("Failed to fetch chart data:", err);
+    }
+  };
+
+  // Helper function to determine where prediction starts
+  const getPredictionStartIndex = () => {
+    if (!chartData || !chartData.datasets || chartData.datasets.length < 2) return -1;
+    
+    const actualData = chartData.datasets[0].data;
+    for (let i = 0; i < actualData.length; i++) {
+      if (actualData[i] === null) return i;
+    }
+    return actualData.length;
+  };
+
+  // Replace the existing renderWeightChart or prepareChartData function with this:
+  const renderWeightChart = () => {
+    // Fallback to basic chart if predictive data isn't available
+    if (!chartData) {
+      return (
+        <View style={styles.chartContainer}>
+          <Text style={styles.sectionTitle}>Weight Progress</Text>
+          {userData.starting_weight.length > 0 ? (
+            <LineChart
+              data={prepareChartData()} // Your original chart data function
+              width={Dimensions.get('window').width - 40}
+              height={220}
+              yAxisSuffix=" lbs"
+              chartConfig={{
+                backgroundColor: '#ffffff',
+                backgroundGradientFrom: '#ffffff',
+                backgroundGradientTo: '#ffffff',
+                decimalPlaces: 1,
+                color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                style: {
+                  borderRadius: 16,
+                },
+                propsForDots: {
+                  r: '6',
+                  strokeWidth: '2',
+                  stroke: '#ffa726'
+                }
+              }}
+              bezier
+              style={styles.chart}
+            />
+          ) : (
+            <View style={styles.noDataChart}>
+              <Text style={styles.noDataText}>No weight data available</Text>
+            </View>
+          )}
+        </View>
+      );
+    }
+
+    const predictionStartIdx = getPredictionStartIndex();
+    const hasPrediction = predictionStartIdx >= 0 && predictionStartIdx < chartData.labels.length;
+
+    return (
+      <View style={styles.chartContainer}>
+        <Text style={styles.graphTitle}>📊 Weight Progress</Text>
+        
+        <LineChart
+          data={{
+            labels: chartData.labels,
+            datasets: [
+              // Predicted weight line (dashed)
+              {
+                data: chartData.datasets[1].data,
+                color: (opacity = 1) => `rgba(243, 156, 18, ${opacity})`,
+                strokeWidth: 4,
+              },
+              // Actual weight line
+              {
+                data: chartData.datasets[0].data,
+                color: (opacity = 1) => `rgba(30, 82, 180, ${opacity})`,
+                strokeWidth: 4,
+              },
+            ],
+          }}
+          width={screenWidth - 80}
+          height={220}
+          yAxisInterval={12}
+          fromZero={false}
+          withInnerLines={true}
+          withOuterLines={true}
+          chartConfig={{
+            backgroundColor: "#fff",
+            backgroundGradientFrom: "#f8f8f8",
+            backgroundGradientTo: "#fff",
+            decimalPlaces: 1,
+            color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+            labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+            style: { borderRadius: 16 },
+            propsForDots: {
+              r: "5",
+              strokeWidth: "2",
+              stroke: "#fff",
+            },
+            propsForBackgroundLines: {
+              strokeDasharray: '',
+            },
+            // Make prediction line dashed
+            propsForLabels: {
+              fontWeight: '600',
+            },
+            useShadowColorFromDataset: true,
+          }}
+          
+          style={{ 
+            marginVertical: 10, 
+            borderRadius: 16,
+            paddingRight: 60,
+          }}
+
+          segments={5}
+          formatYLabel={(y) => `${y} lbs`}
+          verticalLabelRotation={0}
+          withShadow={true}
+          withVerticalLines={true}
+          withHorizontalLines={true}
+          withVerticalLabels={true}
+          withHorizontalLabels={true}
+          min={chartData.yAxisRange?.[0]}
+          max={chartData.yAxisRange?.[1]}
+        />
+
+        {/* Legend */}
+        <View style={styles.legend}>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendColor, { backgroundColor: '#3259A5' }]} />
+            <Text style={styles.legendText}>Actual Weight</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendColor, { backgroundColor: '#f39c12' }]} />
+            <Text style={styles.legendText}>Predicted Weight</Text>
+          </View>
+        </View>
+
+        {/* Add streak display if available */}
+        {streakCount > 0 && (
+          <View style={styles.streakBox}>
+            <Text style={styles.streakText}>🔥 {streakCount}-day streak</Text>
+          </View>
+        )}
+
+        {/* Add explanation of prediction */}
+        {hasPrediction && progressPrediction && (
+          <View style={styles.predictionInfo}>
+            <Text style={styles.progressTitle}>📈 Your Progress Forecast</Text>
+            <Text style={styles.predictionInfoText}>
+              {progressPrediction.message || "Based on your current progress, here's your predicted weight trend."}
+            </Text>
+          </View>
+        )}
+      </View>
+    );
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.container}>
       {/* Web-based alert - replaced Platform.OS check with direct web detection */}
@@ -735,39 +997,7 @@ const ProfilePage = () => {
       </View>
 
       {/* Weight Progress Chart */}
-      <View style={styles.chartContainer}>
-        <Text style={styles.sectionTitle}>Weight Progress</Text>
-        {userData.starting_weight.length > 0 ? (
-          <LineChart
-            data={prepareChartData()}
-            width={Dimensions.get('window').width - 40}
-            height={220}
-            yAxisSuffix=" lbs"
-            chartConfig={{
-              backgroundColor: '#ffffff',
-              backgroundGradientFrom: '#ffffff',
-              backgroundGradientTo: '#ffffff',
-              decimalPlaces: 1,
-              color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-              labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-              style: {
-                borderRadius: 16,
-              },
-              propsForDots: {
-                r: '6',
-                strokeWidth: '2',
-                stroke: '#ffa726'
-              }
-            }}
-            bezier
-            style={styles.chart}
-          />
-        ) : (
-          <View style={styles.noDataChart}>
-            <Text style={styles.noDataText}>No weight data available</Text>
-          </View>
-        )}
-      </View>
+      {renderWeightChart()}
 
       {/* Weight Stats Cards */}
       <View style={styles.statsRow}>
@@ -792,12 +1022,14 @@ const ProfilePage = () => {
         <Text style={styles.heightValue}>{getCurrentHeight()}</Text>
       </View>
 
+      {/* Update the stepsContainer section to use the new data structure */}
+
       <View style={styles.stepsContainer}>
         <View style={styles.stepsInfoContainer}>
           <Text style={styles.stepsTitle}>Daily Steps</Text>
           <View style={styles.stepsData}>
             <Text style={styles.stepsCount}>
-              {userData.steps?.today_steps?.toLocaleString() || '0'}
+              {userData.steps?.toLocaleString() || '0'}
             </Text>
             <Text style={styles.stepsUnit}>steps today</Text>
           </View>
@@ -807,13 +1039,13 @@ const ProfilePage = () => {
                 style={[
                   styles.stepsProgressFill, 
                   { 
-                    width: `${Math.min(100, ((userData.steps?.today_steps || 0) / (userData.steps?.goal || 10000)) * 100)}%` 
+                    width: `${Math.min(100, ((userData.steps || 0) / (userData.step_goal || 10000)) * 100)}%` 
                   }
                 ]}
               />
             </View>
             <Text style={styles.stepsGoal}>
-              Goal: {userData.steps?.goal?.toLocaleString() || '10,000'} steps
+              Goal: {userData.step_goal?.toLocaleString() || '10,000'} steps
             </Text>
           </View>
         </View>
@@ -1581,6 +1813,53 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: 'bold',
     fontSize: 14,
+  },
+  legend: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 10,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 10,
+  },
+  legendColor: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 5,
+  },
+  legendText: {
+    fontSize: 12,
+    color: '#333',
+  },
+  streakBox: {
+    marginTop: 10,
+    padding: 10,
+    backgroundColor: '#f39c12',
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  streakText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  predictionInfo: {
+    marginTop: 20,
+    padding: 15,
+    backgroundColor: '#f8f8f8',
+    borderRadius: 8,
+  },
+  progressTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    color: '#333',
+  },
+  predictionInfoText: {
+    fontSize: 14,
+    color: '#666',
   },
 });
 

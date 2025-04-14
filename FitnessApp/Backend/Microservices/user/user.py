@@ -851,6 +851,7 @@ def get_user_page():
         starting_weight = user.getUserStatsSingle(starting=True, height= user.height)
         current_weight = user.getUserStatsSingle()
         goal_weight = user.getGoal("weight", 1)
+        user_info, stats, step_data = user.getStepData()
         
         if starting_weight is None:
             starting_weight = ''
@@ -858,21 +859,46 @@ def get_user_page():
             current_weight = ''
         if goal_weight is None:
             goal_weight = ''
+        if step_data is None:
+            steps = ''
             
         activities = user.getUserActivities(verbose=True, days= -1, number= 10)
         
         if activities is None:
             activities = ''
         else:
-        
             formattedActivities = user.formatUserPage(activities)
-        
             
+        # Initialize steps variable
+        steps = 0  # Default value
+
+        for day in step_data:
+            dayDate = day['date']
+            
+            # Convert string to date object if needed
+            if isinstance(dayDate, str):
+                try:
+                    # Parse the string into a date object
+                    dayDate = datetime.datetime.strptime(dayDate, "%Y-%m-%d").date()
+                except ValueError:
+                    logger.warning(f"Request {request_id}: Invalid date format: {dayDate}")
+                    continue
+            
+            # Now compare with today's date
+            today = datetime.date.today()
+            if dayDate == today:
+                steps = day['steps']
+                logger.debug(f"Request {request_id}: Found steps for today: {steps}")
+                break
+
+        # Complete the final dictionary
         final = {
             "starting_weight": starting_weight,
             "current_weight": current_weight,
             "goal_weight": goal_weight,
-            "activities": formattedActivities
+            "activities": formattedActivities,
+            "steps": steps,
+            "step_goal": user_info["step_goal"] if user_info else 0
         }
         
         logger.info(f"Request {request_id}: Successfully retrieved user page data")

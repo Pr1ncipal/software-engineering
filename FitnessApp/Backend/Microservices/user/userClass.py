@@ -1489,6 +1489,11 @@ class UserStats(User):
                 logger.debug("Database connection closed")
                 
     def getHomePageData(self, leaderboardType = None, conn = None):
+        # Personal: Most recent workout
+        # Leaderboard I have
+        # Family: Most recent family workouts
+        
+        
         """
         Gets the user data for the home page
 
@@ -1555,7 +1560,7 @@ class UserStats(User):
         
         # get user goal progress
         
-        goal = self.getUserGoal('strength', conn)
+        familyWkouts = self.getFamilyWorkouts(conn)
         
 
     def getLeaderboardRank(self, exercise = None, conn = None):
@@ -1646,6 +1651,64 @@ class UserStats(User):
             logger.error(f"Error fetching leaderboard rank: {str(e)}")
             logger.debug(traceback.format_exc())
             raise QueryError(f"Error fetching leaderboard rank: {str(e)}")
+        
+    def getFamilyWorkouts(self, conn = None):
+        """
+        Gets the family workouts for the user
+        
+        :param conn: The connection to the database
+        
+        :type conn: psycopg2.connection
+        
+        :return: The family workouts
+        :rtype: dict
+        """
+        logger.info(f"Getting family workouts for user ID {self.id}")
+        
+        if not conn:
+            try:
+                logger.debug("Establishing database connection")
+                conn = global_func.getConnection()
+            except Exception as e:
+                logger.error(f"Failed to connect to database: {str(e)}")
+                raise ConnectionError(str(e))
+        
+        cur = conn.cursor()
+        
+        query = sql.SQL("""SELECT 
+                            u.username AS family_member,
+                            w.workout_date,
+                            array_agg(DISTINCT e.primary_muscle) AS primary_muscles_hit,
+                            array_agg(DISTINCT unnest(e.secondary_muscles)) AS secondary_muscles_hit
+                        FROM family_members fm
+                        JOIN users u ON u.id = fm.family_user_id
+                        JOIN workouts w ON w.user_id = u.id
+                        JOIN workout_exercises we ON we.workout_id = w.id
+                        JOIN exercises e ON e.id = we.exercise_id
+                        WHERE fm.user_id = %s  -- <- your logged-in user's ID
+                        GROUP BY u.username, w.id, w.workout_date
+                        ORDER BY w.workout_date DESC
+                        LIMIT 10;
+                        """) #Checking and working on this
+        
+        try:
+            cur.execute(query, (self.id,))
+            result = cur.fetchall()
+            logger.debug(f"Fetched family workouts for user ID {self.id}: {result}")
+            
+            if not result:
+                logger.info(f"No family workouts found for user ID {self.id}")
+                return {}
+            else:
+                # Process the result into a more readable format
+                keys = ("username", "workout_name", "date_performed", "type")
+                final = self.__jsonifyTuple__(result, keys)
+                logger.info(f"Family workouts data for user ID {self.id}: {final}")
+                return final
+        except Exception as e:
+            logger.error(f"Error fetching family workouts: {str(e)}")
+            logger.debug(traceback.format_exc())
+            raise QueryError(f"Error fetching family workouts: {str(e)}")
         
         
     def getUserGoal(self, goalType, exercise = None, conn = None):

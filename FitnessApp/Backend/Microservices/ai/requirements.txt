@@ -2,3 +2,5 @@ psycopg2
 flask
 flask-cors
 requests
+numpy
+scikit-learn

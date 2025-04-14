@@ -3,14 +3,16 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+// Remove NavigationContainer from here - it should only be in the root App component
+// import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 // Import your components
 import WorkoutForm from '@/components/WorkoutForm';
 import RegisterForm from '@/components/RegisterForm';
 import App from '@/components/loginApp';
-import Chatbot from '@/components/chatbot';  // Import Chatbot
+import Chatbot from '@/components/chatbot';
 import MotivationScreen from '@/components/MotivationScreen';
-
 import ChooseExercise from '@/components/chooseExercise';
 import leaderboardPage from '@/components/leaderboard';
 import Family from '@/components/familyPage';
@@ -18,8 +20,28 @@ import ProfilePage from '@/components/profile_page';
 import StepsCalendar from '@/components/steps.jsx';
 
 const Tab = createBottomTabNavigator();
+const Stack = createNativeStackNavigator();
 
+// Modify this to return a combined navigator without NavigationContainer
 export default function AppTabs() {
+  return (
+    <Stack.Navigator>
+      <Stack.Screen
+        name="MainTabs"
+        component={MainTabNavigator}
+        options={{ headerShown: false }}
+      />
+      {/* Add Steps to the stack so we can navigate to it */}
+      <Stack.Screen 
+        name="Steps" 
+        component={StepsCalendar}
+        options={{ headerShown: false }}
+      />
+    </Stack.Navigator>
+  );
+}
+
+function MainTabNavigator() {
   return (
     <>
       <StatusBar style="auto" />
@@ -70,6 +92,12 @@ export default function AppTabs() {
                 size={size} 
                 color={color} 
               />;
+            } else if (route.name === 'Profile') {
+              return <Ionicons 
+                name={focused ? 'person' : 'person-outline'} 
+                size={size} 
+                color={color} 
+              />;
             }
           },
           tabBarActiveTintColor: '#f4511e',
@@ -78,40 +106,32 @@ export default function AppTabs() {
             backgroundColor: '#f4511e',
           },
           headerTintColor: '#fff',
-          tabBarButton: (props) => {
-            if (route.name === 'Steps') {
-              return null;  // This hides the tab
-            }
-            return <TouchableOpacity {...props} />;
-          },
         })}
       >
         <Tab.Screen name="Register" component={RegisterForm} />
         <Tab.Screen name="Login" component={App} />
         <Tab.Screen name="Workout" component={WorkoutForm} />
-        <Tab.Screen name="Profile" component={ProfilePage} />
+        <Tab.Screen 
+          name="Profile" 
+          component={ProfilePage}
+        />
         <Tab.Screen name="Chatbot" component={Chatbot} />
         <Tab.Screen name="Motivation" component={MotivationScreen} />
-        <Tab.Screen 
-          name="Steps" 
-          component={StepsCalendar} 
-          options={{ 
-            headerShown: false,  // Hide header since we're adding our own back button
-          }} 
-        />
         <Tab.Screen 
           name="Leaderboard" 
           component={leaderboardPage} 
           options={{ headerShown: false }}
         />
         <Tab.Screen
-            name = "Family" component= {Family}
-            options={{ headerShown: false }}
+          name="Family" 
+          component={Family}
+          options={{ headerShown: false }}
         />
         <Tab.Screen 
           name="Choose Exercise" 
           component={() => <ChooseExercise onExerciseSelect={() => {}} />} 
         />
+        {/* Remove Steps from Tab.Navigator since it's now in the Stack */}
       </Tab.Navigator>
     </>
   );

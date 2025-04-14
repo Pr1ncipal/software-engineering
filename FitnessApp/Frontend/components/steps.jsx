@@ -513,7 +513,7 @@ const StepsCalendar = () => {
       <View style={styles.headerContainer}>
         <TouchableOpacity 
           style={styles.backButton}
-          onPress={() => navigation.goBack()} // Change from router.back()
+          onPress={() => navigation.goBack()}
         >
           <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>

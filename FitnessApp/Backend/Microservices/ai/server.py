@@ -6,6 +6,9 @@ import logging
 import time
 from datetime import datetime
 import json
+import base64
+from global_func import verify_key
+import traceback  # Add this import at the top
 
 # Configure logging
 logging.basicConfig(
@@ -23,11 +26,11 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../.
 
 from flask import Flask, request, jsonify, session
 import requests
-from getData import get_data, get_userName, build_motivation_prompt, get_user_id_by_username
+from getData import get_data, get_userName, build_motivation_prompt, get_user_id_by_username, get_actual_and_predicted_weights, format_weight_chart, predict_progress
 
 app = Flask(__name__)
 app.config["SESSION_TYPE"] = "filesystem"
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 OLLAMA_SERVER_URL_GEN = "http://10.150.200.25:5000/api/generate"
 OLLAMA_SERVER_URL_CHAT = "http://10.150.200.25:5000/api/chat"
@@ -51,6 +54,7 @@ def generate():
         return jsonify(response_json)
     except Exception as e:
         logger.error(f"Request [{request_id}]: Error in generate endpoint - {str(e)}")
+        logger.error(f"Request [{request_id}]: {traceback.format_exc()}")
         return jsonify({"error": str(e)}), 500
 
 @app.route('/api/get_user_id')
@@ -76,6 +80,7 @@ def get_user_id():
             return jsonify({"error": "User not found"}), 404
     except Exception as e:
         logger.error(f"Request [{request_id}]: Error getting user ID - {str(e)}")
+        logger.error(f"Request [{request_id}]: {traceback.format_exc()}")
         return jsonify({"error": str(e)}), 500
 
 @app.route('/user_name', methods=['POST'])
@@ -101,6 +106,7 @@ def get_username():
             return jsonify({"error": "User not found"}), 404
     except Exception as e:
         logger.error(f"Request [{request_id}]: Error retrieving username - {str(e)}")
+        logger.error(f"Request [{request_id}]: {traceback.format_exc()}")
         return jsonify({"error": str(e)}), 500
 
 def generate_llama_response(prompt):
@@ -127,6 +133,7 @@ def generate_llama_response(prompt):
             return "Couldn't generate a motivational message right now."
     except Exception as e:
         logger.error(f"Request [{request_id}]: Exception during LLaMA generation - {str(e)}")
+        logger.error(f"Request [{request_id}]: {traceback.format_exc()}")
         return "Couldn't generate a motivational message right now."
     
 @app.route("/api/motivation", methods=["GET"])
@@ -151,6 +158,7 @@ def get_dynamic_motivation():
         return jsonify({"message": message})
     except Exception as e:
         logger.error(f"Request [{request_id}]: Error generating motivation - {str(e)}")
+        logger.error(f"Request [{request_id}]: {traceback.format_exc()}")
         return jsonify({"error": str(e)}), 500
 
 
@@ -176,6 +184,7 @@ def streak_graph():
         return jsonify(data)
     except Exception as e:
         logger.error(f"Request [{request_id}]: Error retrieving streak data - {str(e)}")
+        logger.error(f"Request [{request_id}]: {traceback.format_exc()}")
         return jsonify({"error": str(e)}), 500
 
 @app.route('/chat', methods=['POST'])
@@ -283,6 +292,7 @@ def chat():
         return jsonify({"response": ai_response})
     except Exception as e:
         logger.error(f"Request [{request_id}]: Error in chat endpoint - {str(e)}")
+        logger.error(f"Request [{request_id}]: {traceback.format_exc()}")
         return jsonify({"error": str(e)}), 500
 
 @app.route('/clear_session', methods=['POST'])
@@ -296,6 +306,68 @@ def clear_session():
         return jsonify({"message": "Session cleared successfully"})
     except Exception as e:
         logger.error(f"Request [{request_id}]: Error clearing session - {str(e)}")
+        logger.error(f"Request [{request_id}]: {traceback.format_exc()}")
+        return jsonify({"error": str(e)}), 500
+    
+@app.route('/api/ai/weight-chart', methods=['GET'])
+def get_weight_chart_data():
+    request_id = datetime.now().strftime("%Y%m%d%H%M%S")
+    logger.info(f"Request [{request_id}]: Weight chart endpoint called")
+    
+    try:
+        logger.info(f"Request [{request_id}]: Processing weight chart request")
+        key = request.headers.get('Authorization')
+        
+        if not key or not key.startswith('ApiKey '):
+            logger.warning(f"Request [{request_id}]: Missing or invalid Authorization header")
+            return jsonify({"error": "Invalid or missing authorization"}), 401
+                
+        key = key.split(' ')[1]
+        
+        try:
+            key = base64.b64decode(key).decode()
+        except Exception as e:
+            logger.error(f"Request [{request_id}]: Error decoding API key - {str(e)}")
+            logger.error(f"Request [{request_id}]: {traceback.format_exc()}")
+            return jsonify({"error": "Invalid API key format"}), 401
+        
+        # This section needs implementation - verify should extract user_id from key
+        # For now, using a placeholder
+        try:
+            # Implement your verification logic here
+            user_id = verify_key(key)  # Placeholder - replace with actual verification
+            logger.debug(f"Request [{request_id}]: Authorized for user_id: {user_id}")
+        except Exception as e:
+            logger.error(f"Request [{request_id}]: Error verifying API key - {str(e)}")
+            logger.error(f"Request [{request_id}]: {traceback.format_exc()}")
+            return jsonify({"error": "Error verifying authorization"}), 401
+        
+        actual, predicted = get_actual_and_predicted_weights(user_id)
+        chart_data = format_weight_chart(actual, predicted)
+        logger.debug(f"Request [{request_id}]: Chart data generated successfully")
+        return jsonify(chart_data)
+    except Exception as e:
+        logger.error(f"Request [{request_id}]: Unexpected error in weight chart endpoint: {str(e)}")
+        logger.error(f"Request [{request_id}]: {traceback.format_exc()}")
+        return jsonify({"error": "Internal server error"}), 500
+    
+@app.route("/api/ai/progress-prediction", methods=["GET"])
+def progress_prediction():
+    request_id = datetime.now().strftime("%Y%m%d%H%M%S")
+    logger.info(f"Request [{request_id}]: Progress prediction endpoint called")
+    
+    try:
+        user_id = request.args.get("user_id", type=int)
+        if not user_id:
+            logger.warning(f"Request [{request_id}]: Missing user_id parameter")
+            return jsonify({"error": "Missing user_id"}), 400
+
+        message = predict_progress(user_id)
+        logger.info(f"Request [{request_id}]: Successfully generated prediction for user_id {user_id}")
+        return jsonify({"prediction": message})
+    except Exception as e:
+        logger.error(f"Request [{request_id}]: Error in progress prediction - {str(e)}")
+        logger.error(f"Request [{request_id}]: {traceback.format_exc()}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
