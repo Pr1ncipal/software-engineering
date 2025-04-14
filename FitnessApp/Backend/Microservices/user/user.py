@@ -801,14 +801,19 @@ def get_step_data():
             raise UserNotFoundException()
             
         logger.debug(f"Request {request_id}: Retrieving step data for user ID: {user.id}")
-        steps, statistics = user.getStepData()
-        
+        user_info, steps, statistics = user.getStepData()
+        if not user_info:
+            logger.warning(f"Request {request_id}: No user info found for user ID: {user.id}")
+            user_info = {}
+        if not statistics:
+            logger.warning(f"Request {request_id}: No statistics found for user ID: {user.id}")
+            statistics = {}
         if not steps:
             logger.warning(f"Request {request_id}: No step data found for user ID: {user.id}")
-            raise StatsNotFoundException()
+            steps = []
             
         logger.info(f"Request {request_id}: Successfully retrieved step data for user ID: {user.id}")
-        return jsonify({"message": "Step data retrieved successfully", "statistics": statistics, "steps_data": steps}), 200
+        return jsonify({"message": "Step data retrieved successfully", "user_info": user_info, "statistics": statistics, "steps_data": steps}), 200
         
     except UserServiceError:
         # Let the global error handler handle these

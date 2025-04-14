@@ -1766,7 +1766,7 @@ class UserStats(User):
             if conn:
                 conn.close()
                 
-    def getStepData(self, month, year, conn = None):
+    def getStepData(self, month = None, year = None, conn = None):
         """
         Gets the step data for the given month and year
         
@@ -1792,6 +1792,11 @@ class UserStats(User):
                 raise ConnectionError(str(e))
         
         cur = conn.cursor()
+        
+        if not month:
+            month = datetime.now().month
+        if not year:
+            year = datetime.now().year
         
         # Define SQL query to fetch step data
         query = sql.SQL("""SELECT date_performed, steps FROM user_steps WHERE user_id = %s AND EXTRACT(MONTH FROM date_performed) = %s AND EXTRACT(YEAR FROM date_performed) = %s""")
