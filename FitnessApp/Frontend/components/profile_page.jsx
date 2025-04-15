@@ -735,7 +735,11 @@ const ProfilePage = () => {
                   r: '6',
                   strokeWidth: '2',
                   stroke: '#ffa726'
-                }
+                },
+                // Skip dots for null data points
+                hidePointsAtIndex: prepareChartData().datasets[0].data
+                  .map((value, index) => value === null || value === undefined ? index : -1)
+                  .filter(index => index !== -1)
               }}
               bezier
               style={styles.chart}
@@ -752,6 +756,50 @@ const ProfilePage = () => {
     const predictionStartIdx = getPredictionStartIndex();
     const hasPrediction = predictionStartIdx >= 0 && predictionStartIdx < chartData.labels.length;
 
+    // Find indexes where data is missing (null or undefined)
+    const actualNullIndexes = chartData.datasets[0].data
+      .map((value, index) => value === null || value === undefined ? index : -1)
+      .filter(index => index !== -1);
+    
+    const predictedNullIndexes = chartData.datasets[1].data
+      .map((value, index) => value === null || value === undefined ? index : -1)
+      .filter(index => index !== -1);
+
+    // Create a merged dataset that combines actual and predicted data into one continuous line
+    const continuousData = [];
+    for (let i = 0; i < chartData.labels.length; i++) {
+      if (i < predictionStartIdx) {
+        // Use actual data for the first part
+        continuousData.push(chartData.datasets[0].data[i]);
+      } else {
+        // Use predicted data for the rest
+        continuousData.push(chartData.datasets[1].data[i]);
+      }
+    }
+
+    const goalWeight = userData.goal_weight ? parseFloat(userData.goal_weight) : null;
+    
+    // Calculate custom y-axis range with padding below the goal
+    let customYAxisRange = null;
+    if (chartData && chartData.yAxisRange) {
+      customYAxisRange = [...chartData.yAxisRange];
+
+      if (goalWeight) {
+        const rangeSize = customYAxisRange[1] - customYAxisRange[0];
+        const effectiveRangeSize = Math.max(rangeSize, 20);
+        const minPadding = Math.max(effectiveRangeSize * 0.15, 5); // 15% or at least 5 lbs
+
+        // Always set the min to be BELOW the goal weight, even if data is lower
+        customYAxisRange[0] = goalWeight - minPadding;
+
+        // Optionally, add a bit of space above the highest point or goal
+        customYAxisRange[1] = Math.max(
+          customYAxisRange[1],
+          goalWeight + effectiveRangeSize * 0.1
+        );
+      }
+    }
+    
     return (
       <View style={styles.chartContainer}>
         <Text style={styles.graphTitle}>📊 Weight Progress</Text>
@@ -760,18 +808,27 @@ const ProfilePage = () => {
           data={{
             labels: chartData.labels,
             datasets: [
-              // Predicted weight line (dashed)
               {
-                data: chartData.datasets[1].data,
-                color: (opacity = 1) => `rgba(243, 156, 18, ${opacity})`,
+                data: continuousData,
+                // This color function changes based on index position
+                color: (opacity = 1, index) => {
+                  if (index < predictionStartIdx) {
+                    return `rgba(30, 82, 180, ${opacity})`; // Blue for actual data
+                  } else {
+                    return `rgba(243, 156, 18, ${opacity})`; // Orange for predicted data
+                  }
+                },
                 strokeWidth: 4,
+                withDots: true,
               },
-              // Actual weight line
-              {
-                data: chartData.datasets[0].data,
-                color: (opacity = 1) => `rgba(30, 82, 180, ${opacity})`,
-                strokeWidth: 4,
-              },
+              // Add a horizontal line for the goal weight if it exists
+              ...(goalWeight ? [{
+                data: Array(chartData.labels.length).fill(goalWeight),
+                color: (opacity = 1) => `rgba(46, 204, 113, ${opacity})`, // Green line for goal
+                strokeWidth: 2,
+                strokeDashArray: [5, 5], // Dashed line
+                withDots: false,
+              }] : [])
             ],
           }}
           width={screenWidth - 80}
@@ -792,15 +849,17 @@ const ProfilePage = () => {
               r: "5",
               strokeWidth: "2",
               stroke: "#fff",
+              // This changes dot colors based on the index
+              color: (index) => index < predictionStartIdx 
+                ? "#3259A5" // Blue for actual data
+                : "#f39c12", // Orange for predicted data
             },
             propsForBackgroundLines: {
               strokeDasharray: '',
             },
-            // Make prediction line dashed
-            propsForLabels: {
-              fontWeight: '600',
-            },
-            useShadowColorFromDataset: true,
+            // Hide dots for null/undefined values
+            hidePointsAtIndex: [...actualNullIndexes, ...predictedNullIndexes],
+            useShadowColorFromDataset: false,
           }}
           
           style={{ 
@@ -808,7 +867,6 @@ const ProfilePage = () => {
             borderRadius: 16,
             paddingRight: 60,
           }}
-
           segments={5}
           formatYLabel={(y) => `${y} lbs`}
           verticalLabelRotation={0}
@@ -817,11 +875,16 @@ const ProfilePage = () => {
           withHorizontalLines={true}
           withVerticalLabels={true}
           withHorizontalLabels={true}
-          min={chartData.yAxisRange?.[0]}
-          max={chartData.yAxisRange?.[1]}
+          // Use our custom range with padding instead of the original rang
+          min={customYAxisRange?.[0] || chartData.yAxisRange?.[0]}
+          max={customYAxisRange?.[1] || chartData.yAxisRange?.[1]}
+          // This is important for applying the color function properly
+          getDotColor={(dataPoint, dataPointIndex) => 
+            dataPointIndex < predictionStartIdx ? "#3259A5" : "#f39c12"
+          }
         />
 
-        {/* Legend */}
+        {/* Updated legend to include goal line */}
         <View style={styles.legend}>
           <View style={styles.legendItem}>
             <View style={[styles.legendColor, { backgroundColor: '#3259A5' }]} />
@@ -831,16 +894,34 @@ const ProfilePage = () => {
             <View style={[styles.legendColor, { backgroundColor: '#f39c12' }]} />
             <Text style={styles.legendText}>Predicted Weight</Text>
           </View>
+          {goalWeight && (
+            <View style={styles.legendItem}>
+              <View style={[styles.legendColor, { 
+                backgroundColor: '#2ecc71',
+                height: 2,
+                width: 15,
+                borderRadius: 0,
+                marginTop: 5
+              }]} />
+              <Text style={styles.legendText}>Goal Weight</Text>
+            </View>
+          )}
         </View>
 
-        {/* Add streak display if available */}
+        {/* Calculate and show goal achievement date if possible */}
+        {goalWeight && hasPrediction && (
+          <View style={styles.goalAchievementContainer}>
+            {findGoalAchievementDate(continuousData, chartData.labels, goalWeight, predictionStartIdx)}
+          </View>
+        )}
+
+        {/* Rest of your component remains the same */}
         {streakCount > 0 && (
           <View style={styles.streakBox}>
             <Text style={styles.streakText}>🔥 {streakCount}-day streak</Text>
           </View>
         )}
 
-        {/* Add explanation of prediction */}
         {hasPrediction && progressPrediction && (
           <View style={styles.predictionInfo}>
             <Text style={styles.progressTitle}>📈 Your Progress Forecast</Text>
@@ -850,6 +931,37 @@ const ProfilePage = () => {
           </View>
         )}
       </View>
+    );
+  };
+
+  // Add this new function to calculate when the user will reach their goal
+  const findGoalAchievementDate = (weightData, labels, goalWeight, startPredictionIdx) => {
+    // Don't check if already at goal
+    if (weightData[startPredictionIdx - 1] <= goalWeight) {
+      return (
+        <Text style={styles.goalAchievementText}>
+          <Text style={styles.goalEmphasis}>🏆 Congratulations!</Text> You've already reached your goal weight!
+        </Text>
+      );
+    }
+    
+    // Look through predicted data points to find when weight drops below goal
+    for (let i = startPredictionIdx; i < weightData.length; i++) {
+      if (weightData[i] <= goalWeight) {
+        return (
+          <Text style={styles.goalAchievementText}>
+            <Text style={styles.goalEmphasis}>🎯 Goal achievement:</Text> You're predicted to reach your goal weight by{' '}
+            <Text style={styles.goalEmphasis}>{labels[i]}</Text>!
+          </Text>
+        );
+      }
+    }
+    
+    // Goal won't be reached in the visible prediction window
+    return (
+      <Text style={styles.goalAchievementText}>
+        <Text style={styles.goalEmphasis}>📝 Goal tracking:</Text> Your goal weight is not predicted to be reached within the current forecast period.
+      </Text>
     );
   };
 
@@ -1634,6 +1746,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
     paddingBottom: 10,
+    borderBottomColor: '#eee',
+    paddingBottom: 10,
   },
   workoutName: {
     fontSize: 16,
@@ -1860,6 +1974,21 @@ const styles = StyleSheet.create({
   predictionInfoText: {
     fontSize: 14,
     color: '#666',
+  },
+  goalAchievementContainer: {
+    marginTop: 10,
+    padding: 10,
+    backgroundColor: '#e8f5e9',
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  goalAchievementText: {
+    color: '#2ecc71',
+    fontWeight: 'bold',
+  },
+  goalEmphasis: {
+    fontWeight: 'bold',
+    color: '#2ecc71',
   },
 });
 
