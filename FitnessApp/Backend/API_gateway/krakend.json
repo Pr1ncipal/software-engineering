@@ -199,6 +199,26 @@
       ]
     },
     {
+      "endpoint": "/api/user/get_homepage",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "backend": [
+        {
+          "url_pattern": "/homepage",
+          "encoding": "no-op",
+          "sd": "static",
+          "method": "GET",
+          "host": [
+            "http://user:8080"
+          ],
+          "disable_host_sanitize": false
+        }
+      ],
+      "input_headers": [
+        "Authorization"
+      ]
+    },
+    {
       "endpoint": "/api/user/update_user",
       "method": "PUT",
       "output_encoding": "no-op",

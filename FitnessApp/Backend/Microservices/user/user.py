@@ -937,7 +937,14 @@ def homepage():
         
         user = userClass.UserStats(key=key)
         
-        data = user.getHomePageData()
+        leaderboardType = request.args.get('leaderboardType', None)
+        
+        activity, leaderboard, family = user.getHomePageData(leaderboardType)
+        
+        return jsonify({"activity": activity, "leaderboard": leaderboard, "family": family}), 200
+    except UserServiceError:
+        # Let the global error handler handle these
+        raise
     
     except Exception as e:
         pass

@@ -1503,6 +1503,8 @@ class UserStats(User):
         # most recent activity
         activities = self.getUserActivities(verbose = True, days = -1, number = 1, conn = conn)
         
+        activity = {}
+        
         if not activities:
             logger.warning("No activities found for user ID")
             activity = {}
@@ -1526,19 +1528,19 @@ class UserStats(User):
         
         # weight data
         
-        weightStats = self.getUserStats(365)
+        # weightStats = self.getUserStats(365)
         
-        if not weightStats:
-            logger.warning("No weight stats found for user ID")
-            weightStats = {}
-        else:
-            weights = []
-            for i in range(len(weightStats)):
-                weights[i] = {
-                    "weight": weightStats[i]['weight'],
-                    "date": weightStats[i]['date']
-                }
-                
+        # if not weightStats:
+        #     logger.warning("No weight stats found for user ID")
+        #     weightStats = {}
+        # else:
+        #     weights = []
+        #     for i in range(len(weightStats)):
+        #         weights[i] = {
+        #             "weight": weightStats[i]['weight'],
+        #             "date": weightStats[i]['date']
+        #         }
+            
         if leaderboardType is None:
             leaderboardType = 'steps'
         else:
@@ -1555,12 +1557,21 @@ class UserStats(User):
                 leaderboard = self.getLeaderboardRank('squat', conn)
             case 'bench':
                 leaderboard = self.getLeaderboardRank('bench', conn)
+            case 'steps':
+                leaderboard = self.getLeaderboardRank('steps', conn)
                 
-        logger.info(f"Weight stats for user ID {self.id}: {weightStats}")
+        logger.info(f"Leaderboard data for user ID {self.id}: {leaderboard}")
         
         # get user goal progress
         
         familyWkouts = self.getFamilyWorkouts(conn)
+        
+        if not familyWkouts:
+            logger.warning("No family workouts found for user ID")
+            familyWkouts = []
+
+        return activity, leaderboard, familyWkouts
+            
         
 
     def getLeaderboardRank(self, exercise = None, conn = None):
@@ -1587,9 +1598,11 @@ class UserStats(User):
                 raise ConnectionError(str(e))
             
         cur = conn.cursor()
-        
+                
         ex = {'deadlift': 523, 'squat': 716, 'bench': 273}
-        query = sql.Sql("""
+        
+        
+        query = sql.SQL("""
                         WITH latest_1rm AS (
                             SELECT DISTINCT ON (uem.user_id)
                                 uem.user_id,
@@ -1616,6 +1629,38 @@ class UserStats(User):
                         ORDER BY r.rank;
                         """)
         
+        stepsQuery = sql.SQL("""WITH ranked_users AS (
+                                    SELECT 
+                                        us.user_id,
+                                        u.username,
+                                        ROUND(AVG(us.steps)::numeric, 2) AS avg_steps,
+                                        ROW_NUMBER() OVER (ORDER BY AVG(us.steps) DESC) AS rank
+                                    FROM user_steps us
+                                    JOIN users u ON u.id = us.user_id
+                                    GROUP BY us.user_id, u.username
+                                ),
+                                target_user AS (
+                                    SELECT rank FROM ranked_users WHERE user_id = %s
+                                ),
+                                bounds AS (
+                                    SELECT 
+                                        CASE 
+                                    WHEN rank <= 3 THEN 1
+                                    WHEN rank >= (SELECT MAX(rank) FROM ranked_users) - 2 THEN GREATEST((SELECT MAX(rank) FROM ranked_users) - 4, 1)
+                                    ELSE rank - 2
+                                    END AS start_rank
+                                FROM target_user
+                                )
+                                SELECT 
+                                    ru.username,
+                                    ru.avg_steps,
+                                    ru.rank
+                                FROM ranked_users ru, bounds
+                                WHERE ru.rank BETWEEN bounds.start_rank AND bounds.start_rank + 4
+                                ORDER BY ru.rank;
+
+                            """)
+        
         if self.id is None or self.id == -1:
             logger.warning("Cannot get leaderboard rank - Invalid user ID")
             raise UserNotFoundException()
@@ -1624,7 +1669,12 @@ class UserStats(User):
             logger.warning("Cannot get leaderboard rank - Invalid exercise")
             raise InvalidLeaderboardTypeError()
         
+        logger.debug("I get here!!!!!!")
+        
         try:
+            
+            logger.debug(f"Executing query to get leaderboard rank for user ID {self.id} and exercise {exercise}")
+            
             match exercise:
                 case 'deadlift':
                     cur.execute(query, (ex['deadlift'], self.id))
@@ -1632,26 +1682,33 @@ class UserStats(User):
                     cur.execute(query, (ex['squat'], self.id))
                 case 'bench':
                     cur.execute(query, (ex['bench'], self.id))
+                case 'steps':
+                    cur.execute(stepsQuery, (self.id,))
                 case _:
                     logger.warning(f"Invalid exercise type: {exercise}")
                     raise InvalidLeaderboardTypeError()
                 
             result = cur.fetchall()
             logger.debug(f"Fetched leaderboard rank for user ID {self.id}: {result}")
+            final = []
             if not result:
                 logger.info(f"No leaderboard data found for user ID {self.id}")
-                return {}
+                return []
             else:
                 # Process the result into a more readable format
-                keys = ("user_id", "exercise_id", "calculated_1rm", "date_performed", "username", "rank")
-                final = self.__jsonifyTuple__(result, keys)
+                if exercise != 'steps':
+                    keys = ("user_id", "exercise_id", "calculated_1rm", "date_performed", "username", "rank")
+                    final = self.__jsonifyTuple__(result, keys)
+                else:
+                    keys = ("username", "avg_steps", "rank")
+                    final = self.__jsonifyTuple__(result, keys)
                 logger.info(f"Leaderboard rank data for user ID {self.id}: {final}")
                 return final
         except Exception as e:
             logger.error(f"Error fetching leaderboard rank: {str(e)}")
             logger.debug(traceback.format_exc())
             raise QueryError(f"Error fetching leaderboard rank: {str(e)}")
-        
+    
     def getFamilyWorkouts(self, conn = None):
         """
         Gets the family workouts for the user
@@ -1675,40 +1732,100 @@ class UserStats(User):
         
         cur = conn.cursor()
         
-        query = sql.SQL("""SELECT 
-                            u.username AS family_member,
-                            w.workout_date,
-                            array_agg(DISTINCT e.primary_muscle) AS primary_muscles_hit,
-                            array_agg(DISTINCT unnest(e.secondary_muscles)) AS secondary_muscles_hit
-                        FROM family_members fm
-                        JOIN users u ON u.id = fm.family_user_id
-                        JOIN workouts w ON w.user_id = u.id
-                        JOIN workout_exercises we ON we.workout_id = w.id
-                        JOIN exercises e ON e.id = we.exercise_id
-                        WHERE fm.user_id = %s  -- <- your logged-in user's ID
-                        GROUP BY u.username, w.id, w.workout_date
-                        ORDER BY w.workout_date DESC
-                        LIMIT 10;
-                        """) #Checking and working on this
+        # Modified query using LATERAL JOIN to handle unnesting properly
+        # Added condition to exclude the current user (WHERE fm.family_id = %s AND fm.user_id != %s)
+        query = sql.SQL("""WITH latest_workouts AS (
+                                SELECT DISTINCT ON (w.user_id)
+                                    w.id AS workout_id,
+                                    w.user_id,
+                                    w.workout_date
+                                FROM workouts w
+                                JOIN family_members fm ON fm.user_id = w.user_id
+                                WHERE fm.family_id = (SELECT family_id FROM family_members WHERE user_id = %s)
+                                  AND w.user_id != %s  -- Exclude the current user
+                                ORDER BY w.user_id, w.workout_date DESC
+                            )
+
+                            SELECT 
+                                u.username AS family_member,
+                                lw.workout_date,
+                                array_agg(DISTINCT e.primary_muscle) AS primary_muscles_hit,
+                                array_agg(DISTINCT sm.muscle) AS secondary_muscles_hit
+                            FROM latest_workouts lw
+                            JOIN users u ON u.id = lw.user_id
+                            JOIN workout_exercises we ON we.workout_id = lw.workout_id
+                            JOIN exercises e ON e.id = we.exercise_id
+                            LEFT JOIN LATERAL unnest(e.secondary_muscles) AS sm(muscle) ON TRUE
+                            GROUP BY u.username, lw.workout_date
+                            ORDER BY lw.workout_date DESC;
+                        """)
         
         try:
-            cur.execute(query, (self.id,))
+            # Pass the user ID twice - once to find the family_id and once to exclude self
+            cur.execute(query, (self.id, self.id))
             result = cur.fetchall()
             logger.debug(f"Fetched family workouts for user ID {self.id}: {result}")
             
             if not result:
                 logger.info(f"No family workouts found for user ID {self.id}")
-                return {}
+                return []
             else:
                 # Process the result into a more readable format
-                keys = ("username", "workout_name", "date_performed", "type")
-                final = self.__jsonifyTuple__(result, keys)
-                logger.info(f"Family workouts data for user ID {self.id}: {final}")
-                return final
+                keys = ("family_member", "workout_date", "primary_muscles_hit", "secondary_muscles_hit")
+                raw_data = self.__jsonifyTuple__(result, keys)
+                
+                # Clean up the array strings and convert to proper lists
+                clean_data = []
+                for workout in raw_data:
+                    clean_workout = workout.copy()
+                    
+                    # Clean primary muscles format - convert PostgreSQL array string to list
+                    if isinstance(workout.get('primary_muscles_hit'), str):
+                        muscles_str = workout['primary_muscles_hit']
+                        # Remove the curly braces and split by commas
+                        if muscles_str.startswith('{') and muscles_str.endswith('}'):
+                            muscles_str = muscles_str[1:-1]
+                            # Split by comma but handle quoted strings properly
+                            muscles_list = []
+                            for muscle in muscles_str.split(','):
+                                muscle = muscle.strip().strip('"')
+                                if muscle:  # Only add if not empty
+                                    # Additional cleaning - remove any remaining curly braces
+                                    if muscle.startswith('{'):
+                                        muscle = muscle[1:]
+                                    if muscle.endswith('}'):
+                                        muscle = muscle[:-1]
+                                    muscles_list.append(muscle)
+                            clean_workout['primary_muscles_hit'] = muscles_list
+                    
+                    # Clean secondary muscles format
+                    if isinstance(workout.get('secondary_muscles_hit'), str):
+                        muscles_str = workout['secondary_muscles_hit']
+                        if muscles_str.startswith('{') and muscles_str.endswith('}'):
+                            muscles_str = muscles_str[1:-1]
+                            # Split by comma but handle quoted strings properly
+                            muscles_list = []
+                            for muscle in muscles_str.split(','):
+                                muscle = muscle.strip().strip('"')
+                                if muscle:  # Only add if not empty
+                                    muscles_list.append(muscle)
+                            clean_workout['secondary_muscles_hit'] = muscles_list
+                    
+                    clean_data.append(clean_workout)
+                
+                logger.info(f"Family workouts data for user ID {self.id}: {clean_data}")
+                return clean_data
+                
         except Exception as e:
             logger.error(f"Error fetching family workouts: {str(e)}")
             logger.debug(traceback.format_exc())
             raise QueryError(f"Error fetching family workouts: {str(e)}")
+        finally:
+            if 'cur' in locals() and cur:
+                cur.close()
+            if conn:
+                conn.close()
+            logger.debug("Database connection closed")
         
         
     def getUserGoal(self, goalType, exercise = None, conn = None):

@@ -106,6 +106,7 @@ class Leaderboard():
         conn = None
         cur = None
         
+        
         try:
             try:
                 logger.debug("Establishing database connection")
@@ -116,17 +117,42 @@ class Leaderboard():
                 
             cur = conn.cursor()
             
-            get_steps_query = sql.SQL("""SELECT use.username, ROUND(AVG(us.steps),2) 
-                                      FROM user_steps us 
-                                      JOIN users use ON us.user_id = use.id 
-                                      WHERE us.date_performed >= %s AND us.date_performed <= %s 
-                                      GROUP BY us.user_id, use.username 
-                                      ORDER BY AVG(us.steps) DESC LIMIT %s""")
+            get_steps_query = sql.SQL("""WITH ranked_users AS (
+                                            SELECT 
+                                                us.user_id,
+                                                u.username,
+                                                ROUND(AVG(us.steps)::numeric, 2) AS avg_steps,
+                                                RANK() OVER (ORDER BY AVG(us.steps) DESC) AS rank
+                                            FROM user_steps us
+                                            JOIN users u ON us.user_id = u.id
+                                            WHERE us.date_performed BETWEEN %s AND %s
+                                            GROUP BY us.user_id, u.username
+                                        ),
+                                        target_user AS (
+                                            SELECT rank FROM ranked_users WHERE user_id = %s
+                                        ),
+                                        bounds AS (
+                                            SELECT 
+                                                GREATEST(target_user.rank - FLOOR(%s::int / 2), 1) AS start_rank,
+                                                (GREATEST(target_user.rank - FLOOR(%s::int / 2), 1) + %s - 1) AS end_rank
+                                            FROM target_user
+                                        )
+                                        SELECT 
+                                            ru.username,
+                                            ru.avg_steps,
+                                            ru.rank
+                                        FROM 
+                                            ranked_users ru, bounds
+                                        WHERE 
+                                            ru.rank BETWEEN bounds.start_rank AND bounds.end_rank
+                                        ORDER BY 
+                                            ru.rank;
+                                    """)
             start_date = datetime.now() - timedelta(days=self.days)
             end_date = datetime.now()
             
             logger.debug(f"Executing query with parameters: start_date={start_date}, end_date={end_date}, limit={self.number}")
-            cur.execute(get_steps_query, (start_date, end_date, self.number))
+            cur.execute(get_steps_query, (start_date, end_date, self.key, self.number, self.number, self.number))
             result = cur.fetchall()
             
             if result:
