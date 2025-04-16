@@ -73,7 +73,7 @@ const styles = StyleSheet.create({
   },
   bubble: {
     backgroundColor: '#007AFF',
-    padding: 10,
+    padding: 7,
     borderRadius: 25,
   },
 });
