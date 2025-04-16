@@ -4,6 +4,32 @@ import { Picker } from '@react-native-picker/picker';
 import CryptoJS from "crypto-js";
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
+import { secureStorage } from '@/utils/secureStorage';
+
+const showAlert = (title, message, buttons = [{ text: 'OK' }]) => {
+  if (Platform.OS === 'web') {
+    // For web, use the browser's native alert
+    // You could also use a custom modal component here
+    if (buttons.length > 1) {
+      // If there are multiple buttons, use confirm() for simple cases
+      if (window.confirm(`${title}\n\n${message}`)) {
+        // User clicked OK/first action
+        buttons[0].onPress && buttons[0].onPress();
+      } else {
+        // User clicked Cancel/second action
+        buttons[1].onPress && buttons[1].onPress();
+      }
+    } else {
+      // Simple alert with just an OK button
+      window.alert(`${title}\n\n${message}`);
+      buttons[0].onPress && buttons[0].onPress();
+    }
+  } else {
+    // For mobile, use React Native's Alert
+    Alert.alert(title, message, buttons);
+  }
+};
+
 
 export default function RegisterForm({ onLogin }) {
   const navigation = useNavigation();
@@ -67,42 +93,108 @@ export default function RegisterForm({ onLogin }) {
 
   const handleSubmit = async () => {
     if (!validateForm()) {
-      Alert.alert('Validation Error', 'Please correct the errors in the form');
+      showAlert('Validation Error', 'Please correct the errors in the form');
       return;
     }
-
+    
     try {
-      const hashedPassword = await hashPassword(formData.password);
+      const hashedPassword = hashPassword(formData.password);
+      
+      // Format DOB as YYYY-MM-DD
       const dob = `${formData.year}-${formData.month}-${formData.day}`;
-      const height = `${formData.feet.replace("'", "")}'${formData.inches.replace("\"", "")}`;
+      
+      // Calculate height in inches from feet and inches
+      const feetValue = parseInt(formData.feet.replace("'", ""));
+      const inchesValue = parseInt(formData.inches.replace("\"", ""));
+      const heightInInches = (feetValue * 12) + inchesValue;
 
       const userData = {
         first_name: formData.first_name,
         last_name: formData.last_name,
         email: formData.email,
         username: formData.username,
-        pass_hash: hashedPassword,
-        dob,
-        sex: formData.sex,
-        height,
+        password_hash: hashedPassword,
+        dob: dob,                
+        sex: formData.sex,       
+        height: heightInInches.toString(), // Convert to string for consistency
         weight: formData.weight
       };
 
-      await fetch('http://localhost:8080/api/user/create_user', {
+      console.log("Sending user data:", userData);
+      
+      const response = await fetch('http://localhost:8080/api/user/create_user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(userData)
-      }).then(res => res.json())
-        .then(data => {
-          Alert.alert('Success', 'User registered successfully!');
-          onLogin();
-        }).catch(error => {
-          console.error("Error:", error);
-          Alert.alert('Error', 'Failed to register user.');
-        });
+      });
+      
+      console.log("Response status:", response.status);
+      console.log("Response headers:", response.headers);
+      
+      if (!response.ok) {
+        let errorMessage;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || `Registration failed with status: ${response.status}`;
+        } catch (jsonError) {
+          errorMessage = `Registration failed with status: ${response.status}. Could not parse error details.`;
+        }
+        
+        console.error("Registration failed:", errorMessage);
+        showAlert('Registration Failed', errorMessage);
+        return;
+      }
+      
+      let data;
+      try {
+        data = await response.json();
+        console.log("Success response data:", data);
+      } catch (jsonError) {
+        console.error("Error parsing success response:", jsonError);
+        showAlert('Warning', 'Registration may have succeeded but we could not process the server response.');
+        return;
+      }
+      
+      if (data.token) {
+        try {
+          await secureStorage.setItem(AUTH_TOKEN_KEY, data.token);
+          console.log("Authentication token saved to SecureStore");
+        } catch (storageError) {
+          console.error("Error storing auth token:", storageError);
+          showAlert('Warning', 'Registration successful, but there was a problem saving your login token.');
+        }
+      } else {
+        console.warn("No authentication token received from registration");
+        showAlert('Note', 'Your account was created but no login token was provided. You may need to log in separately.');
+      }
+      
+      showAlert(
+        'Registration Successful', 
+        'Your account has been created successfully!',
+        [
+          { 
+            text: 'Go to Login', 
+            onPress: () => {
+              if (navigation) {
+                navigation.navigate('Login');
+              } else {
+                console.error("Navigation object is not available");
+              }
+            } 
+          },
+          {
+            text: 'Stay Here',
+            style: 'cancel'
+          }
+        ]
+      );
+      
     } catch (error) {
-      console.error(error);
-      Alert.alert('Error', 'An unexpected error occurred.');
+      console.error("Unexpected error in registration:", error);
+      showAlert(
+        'Registration Error', 
+        error.message || 'An unexpected error occurred during registration. Please try again later.'
+      );
     }
   };
 

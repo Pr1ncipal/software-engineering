@@ -1,12 +1,21 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, TextInput, StyleSheet, Text, Alert, ScrollView, TouchableOpacity, Modal, Button } from 'react-native';
+import { View, TextInput, StyleSheet, Text, ScrollView, TouchableOpacity, Modal, Button } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { secureStorage, AUTH_TOKEN_KEY } from '../utils/secureStorage';
 import ChooseExercise from './chooseExercise';
 import encode from 'jwt-encode';
-import * as NetworkUtils from '../utils/networkUtils'; // Add a new utility file for network operations
+import * as NetworkUtils from '../utils/networkUtils'; 
+import { Base64 } from 'js-base64';
+import { Snackbar, Alert as MuiAlert, IconButton } from '@mui/material'; // Added IconButton import
+import CloseIcon from '@mui/icons-material/Close'; // Added CloseIcon import
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts } from 'expo-font';
+
+
+// Alert component for web
+const Alert = React.forwardRef(function Alert(props, ref) {
+  return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
+});
 
 export default function WorkoutForm() {
   // Workout metadata state
@@ -25,6 +34,12 @@ export default function WorkoutForm() {
   
   // Loading state
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Add states for web alerts
+  const [alertOpen, setAlertOpen] = useState(false);
+  const [alertMessage, setAlertMessage] = useState('');
+  const [alertSeverity, setAlertSeverity] = useState('success');
+  const [alertAction, setAlertAction] = useState(null);
   
   // Initial exercise template
   const createEmptyExercise = useCallback(() => ({
@@ -46,6 +61,27 @@ export default function WorkoutForm() {
   const setTypes = ['Warmup', 'Normal', 'Drop', 'Failure'];
   const difficultyOptions = [1, 2, 3, 4, 5];
 
+  // Function to show web-based alerts
+  const showAlert = useCallback((title, message, severity = 'info', action = null) => {
+    setAlertMessage(`${title}: ${message}`);
+    setAlertSeverity(severity);
+    setAlertAction(action);
+    setAlertOpen(true);
+  }, []);
+
+  // Handle alert close
+  const handleAlertClose = (event, reason) => {
+    if (reason === 'clickaway') {
+      return;
+    }
+    setAlertOpen(false);
+    // Execute action if one was provided (like resetForm)
+    if (alertAction) {
+      alertAction();
+      setAlertAction(null);
+    }
+  };
+
   // Load auth token on component mount
   useEffect(() => {
     const getAuthToken = async () => {
@@ -53,7 +89,7 @@ export default function WorkoutForm() {
         // Check for network connection first
         const isConnected = await NetworkUtils.isNetworkAvailable();
         if (!isConnected) {
-          Alert.alert('No Connection', 'You are offline. Please connect to the internet and try again.');
+          showAlert('No Connection', 'You are offline. Please connect to the internet and try again.', 'error');
           setIsAuthenticated(false);
           return;
         }
@@ -68,23 +104,23 @@ export default function WorkoutForm() {
             setIsAuthenticated(true);
           } else {
             // Token exists but is invalid - user needs to log in again
-            Alert.alert('Session Expired', 'Your session has expired. Please log in again.');
+            showAlert('Session Expired', 'Your session has expired. Please log in again.', 'warning');
             secureStorage.removeItem(AUTH_TOKEN_KEY);
             setIsAuthenticated(false);
           }
         } else {
-          Alert.alert('Authentication Required', 'Please log in to continue.');
+          showAlert('Authentication Required', 'Please log in to continue.', 'warning');
           setIsAuthenticated(false);
         }
       } catch (err) {
         console.error('Error retrieving or validating auth token:', err);
-        Alert.alert('Authentication Error', 'Failed to authenticate. Please try logging in again.');
+        showAlert('Authentication Error', 'Failed to authenticate. Please try logging in again.', 'error');
         setIsAuthenticated(false);
       }
     };
     
     getAuthToken();
-  }, []);
+  }, [showAlert]);
 
   // Open exercise selection modal for a specific exercise
   const openExerciseModal = useCallback((exerciseIndex) => {
@@ -207,7 +243,7 @@ export default function WorkoutForm() {
       const exercise = updatedExercises[exerciseIndex];
       
       if (exercise.reps.length <= 1) {
-        Alert.alert('Cannot Remove', 'Each exercise must have at least one set');
+        showAlert('Cannot Remove', 'Each exercise must have at least one set', 'warning');
         return prevExercises;
       }
       
@@ -231,7 +267,7 @@ export default function WorkoutForm() {
       
       return updatedExercises;
     });
-  }, []);
+  }, [showAlert]);
 
   // Parse numeric values before submission
   const parseNumericValues = useCallback((data) => {
@@ -271,13 +307,158 @@ export default function WorkoutForm() {
     }
   };
 
+  const handleSubmitWorkout = async () => {
+    if (!isAuthenticated) {
+      showAlert('Authentication Required', 'Please log in to submit a workout.', 'warning');
+      return;
+    }
+    
+    if (isSubmitting) {
+      return; // Prevent multiple submissions
+    }
+    
+    // Validate form
+    if (!workoutName.trim()) {
+      showAlert('Missing Information', 'Please enter a workout name.', 'warning');
+      return;
+    }
+    
+    // Validate exercises
+    const validExercises = exercises.filter(ex => ex.exerciseName.trim());
+    if (validExercises.length === 0) {
+      showAlert('Missing Exercises', 'Please add at least one exercise to your workout.', 'warning');
+      return;
+    }
+    
+    try {
+      setIsSubmitting(true);
+      
+      // Check for network connectivity
+      const isConnected = await NetworkUtils.isNetworkAvailable();
+      if (!isConnected) {
+        showAlert('No Connection', 'You are offline. Please connect to the internet to submit your workout.', 'error');
+        setIsSubmitting(false);
+        return;
+      }
+      
+      // Format exercises to match the expected API format in workoutExample.json
+      const formattedExercises = exercises
+        .filter(ex => ex.exerciseName.trim())
+        .map((ex, index) => {
+          const parsedEx = parseNumericValues(ex);
+          return {
+            exerciseID: parsedEx.databaseExerciseId || parseInt(parsedEx.exerciseID),
+            superset: parsedEx.superset,
+            order_exercise: index + 1,
+            reps: parsedEx.reps,
+            setType: parsedEx.setType.map(type => type.toLowerCase()),
+            weight: parsedEx.weight,
+            percievedDifficulty: parsedEx.perceivedDifficulty, // Note: Using the misspelled version to match the example
+            notes: parsedEx.exerciseNotes
+          };
+        });
+      
+      // Construct the workout payload to match workoutExample.json format
+      const workoutData = {
+        name: workoutName.trim(),
+        workoutType: workoutType.toLowerCase(),
+        notes: notes.trim(),
+        averageHeartRate: heartRate ? parseInt(heartRate) : null,
+        exercises: formattedExercises
+      };
+      
+      console.log('Submitting workout:', JSON.stringify(workoutData, null, 2));
+      
+      // Get authentication headers
+      const headers = {
+        'Content-Type': 'application/json'
+      };
+
+      // Properly encode the token in base64 as required by the API
+      try {
+        const token = await secureStorage.getItem(AUTH_TOKEN_KEY);
+        
+        if (!token) {
+          console.error('Authorization token is missing');
+          showAlert('Authentication Error', 'No authentication token found. Please log in again.', 'error', () => setIsAuthenticated(false));
+          setIsSubmitting(false);
+          return;
+        }
+        
+        // Update the state in case it changed
+        setAuthToken(token);
+        
+        // Encode and add to headers
+        const base64Token = Base64.encode(token);
+        headers['Authorization'] = `ApiKey ${base64Token}`;
+        
+        console.log('Token successfully encoded and added to headers');
+      } catch (err) {
+        console.error('Error retrieving or processing auth token:', err);
+        showAlert('Authentication Error', 'Failed to process authentication token. Please try logging in again.', 'error');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Submit the workout with proper headers
+      const secret = await secureStorage.getItem(AUTH_TOKEN_KEY);
+      const response = await fetch('http://localhost:8080/api/workout/add_workout', {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify({"token": encode(workoutData, secret)})
+      });
+      
+      // Log response details for debugging
+      console.log('Response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Server error response:', errorText);
+        
+        let errorMessage;
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.message || `Server returned ${response.status}: ${response.statusText}`;
+        } catch {
+          errorMessage = `Server returned ${response.status}: ${response.statusText}`;
+        }
+        
+        throw new Error(errorMessage);
+      }
+      
+      const result = await response.json();
+      console.log('Workout submitted successfully:', result);
+      
+      // Show success message
+      showAlert('Workout Logged!', 'Your workout has been successfully recorded.', 'success', resetForm);
+      
+    } catch (error) {
+      console.error('Error submitting workout:', error);
+      showAlert('Submission Error', `Failed to submit workout: ${error.message}`, 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const [fontsLoaded] = useFonts({
+    'RalewayRegular': require('../assets/fonts/Raleway-Regular.ttf'),
+  });
+  
+  if (!fontsLoaded) {
+    return null; // Or show a <Text>Loading...</Text> or <ActivityIndicator />
+  }
+  
   return (
     <LinearGradient
-    colors={['#007AFF', '#ffffff']}
-    style={{ flex: 1 }}
-  >
-    <ScrollView contentContainerStyle={styles.gradientContent}>
-      <Text style={styles.title}>Log Your Workout</Text>
+      colors={['#52a447', '#007AFF', '#B3E5FC']} // black to gold
+      style={{ flex: 1 }}
+    >
+      <ScrollView contentContainerStyle={styles.container}>
+  
+      <View style={styles.titleContainer}>
+                <Text style={styles.title}>Log Your Workout</Text>
+                <View style={styles.titleUnderline} />
+            </View>
 
       {/* Workout Info Card */}
       <View style={styles.card}>
@@ -330,6 +511,47 @@ export default function WorkoutForm() {
           onChangeText={setNotes}
         />
       </View>
+
+      {/* Replace the existing Snackbar with this fixed position alert */}
+      <div 
+        style={{
+          display: alertOpen ? 'flex' : 'none',
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 9999,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        }}
+      >
+        <Alert 
+          onClose={handleAlertClose} 
+          severity={alertSeverity}
+          variant="filled"
+          elevation={24}
+          sx={{ 
+            width: { xs: '90%', sm: '70%', md: '50%' },
+            padding: 2,
+            fontSize: '1rem',
+            maxWidth: '500px',
+          }}
+          action={
+            <IconButton
+              size="small"
+              aria-label="close"
+              color="inherit"
+              onClick={handleAlertClose}
+            >
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          }
+        >
+          {alertMessage}
+        </Alert>
+      </div>
 
       {/* Exercises Section Header - Without the Add button */}
       <View style={styles.sectionHeader}>
@@ -531,9 +753,7 @@ export default function WorkoutForm() {
         
         <TouchableOpacity 
           style={[styles.submitButton, isSubmitting && styles.disabledButton]}
-          onPress={async () => {
-            // ...existing submit code...
-          }}
+          onPress={handleSubmitWorkout}
           disabled={isSubmitting}
         >
           <Text style={styles.submitButtonText}>
@@ -566,23 +786,31 @@ export default function WorkoutForm() {
       </Modal>
       </ScrollView>
   </LinearGradient>
-  );
+);
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f7fa',
     padding: 16,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
-    marginBottom: 24,
-    marginTop: 12,
-    textAlign: 'center',
+    fontSize: 60,
     fontFamily: 'RalewayRegular',
-    color: '#ffffff',
+    color: '#ffffff', // or #007AFF if you want to keep it blue
+    textAlign: 'center',
+  },
+titleContainer: {
+    alignItems: 'center',
+    marginBottom: 25,
+  },
+  
+titleUnderline: {
+    marginTop: 5,
+    width: 120,
+    height: 4,
+    backgroundColor: '#ffffff',
+    borderRadius: 2,
   },
   // Cards
   card: {
@@ -897,7 +1125,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   addExerciseButton: {
-    backgroundColor: '#4299e1',
+    backgroundColor: '#000000',
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 8,
@@ -910,7 +1138,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   addSetButton: {
-    backgroundColor: '#4299e1',
+    backgroundColor: '#000000',
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 8,

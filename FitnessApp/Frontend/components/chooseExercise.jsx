@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { secureStorage, AUTH_TOKEN_KEY } from '../utils/secureStorage';
 import { Base64 } from 'js-base64';
-//import '@/components/chooseExercise.css';
+import './chooseExercise.css';
 
 const ChooseExercise = ({ onExerciseSelect }) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -164,7 +164,7 @@ const ChooseExercise = ({ onExerciseSelect }) => {
                     name: exercise.name,
                     description: exercise.description,
                     primary_muscle: exercise.primary_muscle || [],
-                    secondarry_muscle: exercise.secondary_muscle || []
+                    secondary_muscle: exercise.secondary_muscle || []
                 }));
                 
                 const newAllExercises = currentPage === 1 
@@ -208,13 +208,13 @@ const ChooseExercise = ({ onExerciseSelect }) => {
                 formatMuscleName(exercise.primary_muscle).toLowerCase().includes(query);
             
             let secondaryMuscleMatches = false;
-            if (exercise.secondarry_muscle) {
-                if (Array.isArray(exercise.secondarry_muscle)) {
-                    secondaryMuscleMatches = exercise.secondarry_muscle.some(muscle => 
+            if (exercise.secondary_muscle) {
+                if (Array.isArray(exercise.secondary_muscle)) {
+                    secondaryMuscleMatches = exercise.secondary_muscle.some(muscle => 
                         formatMuscleName(muscle).toLowerCase().includes(query)
                     );
                 } else {
-                    secondaryMuscleMatches = formatMuscleName(exercise.secondarry_muscle)
+                    secondaryMuscleMatches = formatMuscleName(exercise.secondary_muscle)
                         .toLowerCase().includes(query);
                 }
             }
@@ -308,11 +308,11 @@ const ChooseExercise = ({ onExerciseSelect }) => {
                             : "Stretch";
                             
                         let secondaryMuscles = "";
-                        if (exercise.secondarry_muscle) {
-                            if (Array.isArray(exercise.secondarry_muscle)) {
-                                secondaryMuscles = exercise.secondarry_muscle.map(formatMuscleName).join(', ');
+                        if (exercise.secondary_muscle) {
+                            if (Array.isArray(exercise.secondary_muscle)) {
+                                secondaryMuscles = exercise.secondary_muscle.map(formatMuscleName).join(', ');
                             } else {
-                                secondaryMuscles = formatMuscleName(exercise.secondarry_muscle);
+                                secondaryMuscles = formatMuscleName(exercise.secondary_muscle);
                             }
                         }
                         

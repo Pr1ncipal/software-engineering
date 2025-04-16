@@ -42,18 +42,22 @@ const slides = [
 
 
 const Slide = ({ item }) => {
- return (
-   <View style={{ alignItems: 'center' }}>
-     <Image
-       source={item?.image}
-       style={{ height: '75%', width, resizeMode: 'contain' }}
-     />
-     <View>
-       <Text style={styles.title}>{item?.title}</Text>
-       <Text style={styles.subtitle}>{item?.subtitle}</Text>
-     </View>
-   </View>
- );
+  return (
+    <View style={{ width, height: height * 0.75, justifyContent: 'center', alignItems: 'center' }}>
+      <Image
+        source={item?.image}
+        style={{
+          height: height * 0.4,   // Adjust as needed for image size
+          width: width * 0.9,
+          resizeMode: 'contain',
+        }}
+      />
+      <View>
+        <Text style={styles.title}>{item?.title}</Text>
+        <Text style={styles.subtitle}>{item?.subtitle}</Text>
+      </View>
+    </View>
+  );
 };
 
 
@@ -176,7 +180,7 @@ const OnboardingScreen = ({ onComplete }) => {
      <FlatList
        ref={ref}
        onMomentumScrollEnd={updateCurrentSlideIndex}
-       contentContainerStyle={{ height: height * 0.75 }}
+       contentContainerStyle={{ flexGrow: 1 }}
        showsHorizontalScrollIndicator={false}
        horizontal
        data={slides}

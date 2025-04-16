@@ -18,6 +18,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Buffer } from 'buffer';
 import { LineChart, BarChart, PieChart } from 'react-native-chart-kit';
 import { secureStorage } from '@/utils/secureStorage';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useFonts } from 'expo-font';
 
 const { width } = Dimensions.get('window');
 
@@ -327,6 +329,12 @@ const LeaderboardPage = () => {
         stroke: getChartColor(activeCategory, 1)
       }
     };
+
+    const [fontsLoaded] = useFonts({
+      'RalewayRegular': require('../assets/fonts/Raleway-Regular.ttf'),
+    });
+    
+    if (!fontsLoaded) return null;
     
     // For health category we create mock data
     if (activeCategory === 'health') {
@@ -576,12 +584,14 @@ const LeaderboardPage = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#4169E1" />
+    <LinearGradient colors={['#8E2DE2','#007AFF','#B3E5FC']} style={styles.gradient}>
+      <SafeAreaView style={styles.container}>
       
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Leaderboard</Text>
-      </View>
+      <View style={styles.titleContainer}>
+  <Text style={styles.title}>Leaderboard</Text>
+  <View style={styles.titleUnderline} />
+</View>
+
       
       <View style={styles.tabContainer}>
         {['steps', '1rm', 'workouts', 'pace', 'health'].map((category) => (
@@ -603,7 +613,9 @@ const LeaderboardPage = () => {
       {activeCategory === '1rm' && <WorkoutSelector />}
 
       {renderContent()}
+      
     </SafeAreaView>
+    </LinearGradient>
   );
 };
 
@@ -611,7 +623,7 @@ const styles = StyleSheet.create({
   // Container and Basic Layout
   container: { 
     flex: 1, 
-    backgroundColor: '#f5f5f5' 
+    backgroundColor: 'transparent' 
   },
   
   // Header Styles
@@ -955,7 +967,36 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#888',
     marginTop: 2
-  }
+  },
+
+
+  //amir was here:
+
+  gradient: {
+    flex: 1,
+  },
+  
+  title: {
+    fontSize: 60,
+    fontFamily: 'RalewayRegular',
+    color: '#ffffff',
+    textAlign: 'center',
+  },
+  
+  titleContainer: {
+    alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 25,
+  },
+  
+  titleUnderline: {
+    marginTop: 5,
+    width: 120,
+    height: 4,
+    backgroundColor: '#ffffff',
+    borderRadius: 2,
+  },
+  
 });
 
 export default LeaderboardPage;

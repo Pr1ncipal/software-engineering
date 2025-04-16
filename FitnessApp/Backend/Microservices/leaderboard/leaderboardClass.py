@@ -165,7 +165,7 @@ class Leaderboard():
                 
             cur = conn.cursor()
             
-            get_workout_number_query = sql.SQL("SELECT use.username, COUNT(w.id) FROM workouts w JOIN users use ON w.user_id = use.id WHERE w.workout_date >= %s AND w.workout_date <= %s GROUP BY use.username ORDER BY COUNT(w.id) DESC LIMIT %s")
+            get_workout_number_query = sql.SQL("SELECT use.username, COUNT(w.id) FROM workouts w JOIN users use ON w.user_id = use.id WHERE w.date >= %s AND w.date <= %s GROUP BY use.username ORDER BY COUNT(w.id) DESC LIMIT %s")
             start_date = datetime.now() - timedelta(days=self.days)
             end_date = datetime.now()
             

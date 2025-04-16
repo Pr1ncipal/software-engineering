@@ -53,6 +53,9 @@ import AddIcon from '@mui/icons-material/Add';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 
+import { useFonts } from 'expo-font';
+
+
 // Import the family service
 import { familyService } from '../services/familyService';
 import { USERNAME_KEY, secureStorage } from '../utils/secureStorage';
@@ -786,21 +789,25 @@ const FamilyPage = () => {
     }
     setSnackbarOpen(false);
   };
+  const [fontsLoaded] = useFonts({
+    'RalewayRegular': require('../assets/fonts/Raleway-Regular.ttf'),
+  });
+  if (!fontsLoaded) return null;
+  
 
   const isOnlyAdmin = 
     isAdmin && 
     familyMembers.filter(member => member.isAdmin).length === 1 &&
     familyMembers.some(member => member.username === currentUsername && member.isAdmin);
 
-  return (
-    <Box 
-      sx={{ 
-        height: '100%',
-        overflow: 'auto', 
-        display: 'flex', 
-        flexDirection: 'column',
-        position: 'relative'
-      }}
+    return (
+      <Box
+        sx={{
+          minHeight: '100vh',
+          background: 'linear-gradient(to bottom, #FDA085, #007AFF, #B3E5FC)',
+          display: 'flex',
+          flexDirection: 'column'
+        }}
     >
       {/* Notifications bell */}
       <Box sx={{ position: 'absolute', top: 10, right: 20, zIndex: 1000 }}>
@@ -926,76 +933,119 @@ const FamilyPage = () => {
         )}
       </Menu>
 
-      <Container maxWidth="lg" sx={{ mt: 4, flexGrow: 1 }}>
-        <Typography variant="h3" gutterBottom component="div" align="center">
-          Family
-        </Typography>
+      <Container 
+  maxWidth="lg"
+  disableGutters
+  sx={{ 
+    mt: 4, 
+    flexGrow: 1, 
+    backgroundColor: 'transparent',
+    paddingX: { xs: 2, md: 4 }  // optional spacing tweak
+  }}
+>
+  <Box sx={{ alignItems: 'center', textAlign: 'center', mb: 4, backgroundColor: 'transparent' }}>
+    <Typography 
+      sx={{ 
+        fontSize: 60, 
+        fontFamily: 'RalewayRegular', 
+        color: '#ffffff' 
+      }}
+    >
+      Family
+    </Typography>
+    <Box 
+      sx={{
+        mt: 1,
+        width: 120,
+        height: 4,
+        backgroundColor: '#ffffff',
+        borderRadius: 2,
+        margin: '0 auto'
+      }}
+    />
+  </Box>
+
         
         {/* Family selector and create button */}
-        <Box sx={{ mb: 3 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="subtitle1">
-              Select a family or create a new one:
-            </Typography>
-            <Button
-              variant="contained"
-              color="primary"
-              startIcon={<AddIcon />}
-              onClick={handleCreateFamilyOpen}
-              disabled={isLoading}
-            >
-              {isLoading ? 'Creating...' : 'Create Family'}
-            </Button>
-          </Box>
-          {/* Family Selection Dropdown - Updated with better styling */}
-          <FormControl 
-            variant="outlined" 
-            sx={{ 
-              m: 1, 
-              minWidth: { xs: '100%', sm: 300 },  // Wider on all screens, full width on mobile
-              display: 'flex',
-              flexDirection: 'row',
-              alignItems: 'center',
-              flexGrow: 1
-            }}
-            disabled={loadingFamilies}
-          >
-            <Box sx={{ flexGrow: 1 }}>
-              <InputLabel id="family-select-label">Select Family</InputLabel>
-              <Select
-                labelId="family-select-label"
-                id="family-select"
-                value={selectedFamily}
-                onChange={handleFamilyChange}
-                label="Select Family"
-                sx={{ width: '100%' }} // Make select take full width of its container
-                MenuProps={{
-                  PaperProps: {
-                    style: {
-                      maxHeight: 300,
-                      width: 'auto',
-                      minWidth: '250px' // Ensure menu is wide enough
-                    }
-                  }
-                }}
-              >
-                <MenuItem value="">
-                  <em>None</em>
-                </MenuItem>
-                {families.map((family) => (
-                  <MenuItem key={family.id} value={family.name}>
-                    {family.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </Box>
-            {loadingFamilies && (
-              <Box sx={{ display: 'flex', alignItems: 'center', ml: 1 }}>
-                <CircularProgress size={24} />
-              </Box>
-            )}
-          </FormControl>
-        </Box>
+        <Box
+sx={{
+  backgroundColor: 'rgba(255, 255, 255, 0.95)',
+  padding: 3,
+  borderRadius: 3,
+  boxShadow: 3,
+  width: '100%',
+  maxWidth: '73vw', // wider, relative to viewport
+  margin: '0 auto',
+  mb: 4
+}}
+>
+  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+    <Typography
+      variant="subtitle1"
+      sx={{ fontFamily: 'RalewayRegular', color: '#333' }}
+    >
+      Select a family or create a new one:
+    </Typography>
+    <Button
+      variant="contained"
+      color="primary"
+      startIcon={<AddIcon />}
+      onClick={handleCreateFamilyOpen}
+      disabled={isLoading}
+    >
+      {isLoading ? 'Creating...' : 'Create Family'}
+    </Button>
+  </Box>
+
+  <FormControl 
+    variant="outlined" 
+    sx={{ 
+      m: 1, 
+      minWidth: { xs: '100%', sm: 300 },
+      display: 'flex',
+      flexDirection: 'row',
+      alignItems: 'center',
+      flexGrow: 1
+    }}
+    disabled={loadingFamilies}
+  >
+    <Box sx={{ flexGrow: 1 }}>
+      <InputLabel id="family-select-label">Select Family</InputLabel>
+      <Select
+        labelId="family-select-label"
+        id="family-select"
+        value={selectedFamily}
+        onChange={handleFamilyChange}
+        label="Select Family"
+        sx={{ width: '100%' }}
+        MenuProps={{
+          PaperProps: {
+            style: {
+              maxHeight: 300,
+              width: 'auto',
+              minWidth: '250px'
+            }
+          }
+        }}
+      >
+        <MenuItem value="">
+          <em>None</em>
+        </MenuItem>
+        {families.map((family) => (
+          <MenuItem key={family.id} value={family.name}>
+            {family.name}
+          </MenuItem>
+        ))}
+      </Select>
+    </Box>
+
+    {loadingFamilies && (
+      <Box sx={{ display: 'flex', alignItems: 'center', ml: 1 }}>
+        <CircularProgress size={24} />
+      </Box>
+    )}
+  </FormControl>
+</Box>
 
         <Divider sx={{ my: 3 }} />
         
@@ -1463,6 +1513,7 @@ const FamilyPage = () => {
         </Alert>
       </Snackbar>
     </Box>
+
   );
 };
 
