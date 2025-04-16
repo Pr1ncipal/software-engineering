@@ -125,6 +125,106 @@ def get_actual_and_predicted_weights(user_id):
     return actual_data, predicted_data
 
 
+def update_login_streak(user_id):
+    try:
+        conn = psycopg2.connect(
+            dbname="gitfitbro",
+            user="postgres",
+            password="password",
+            host="localhost",
+            port="5432"
+        )
+        cur = conn.cursor()
+
+        # Fetch existing login/streak data
+        cur.execute("""
+            SELECT last_login, day_streak
+            FROM user_engagement
+            WHERE user_id = %s
+        """, (user_id,))
+        result = cur.fetchone()
+
+        today = datetime.now().date()
+
+        if result:
+            last_login, current_streak = result
+
+            if last_login.date() < today:
+                # Increment streak
+                cur.execute("""
+                    UPDATE user_engagement
+                    SET day_streak = day_streak + 1,
+                        last_login = CURRENT_TIMESTAMP
+                    WHERE user_id = %s
+                """, (user_id,))
+                message = "Streak incremented."
+            else:
+                message = "Login already recorded today. No update."
+        else:
+            # Insert new engagement row
+            cur.execute("""
+                INSERT INTO user_engagement (user_id, day_streak, last_login)
+                VALUES (%s, 1, CURRENT_TIMESTAMP)
+            """, (user_id,))
+            message = "New user streak entry created."
+
+        conn.commit()
+        cur.close()
+        conn.close()
+        return { "status": "success", "message": message }
+
+    except Exception as e:
+        print("Error updating streak:", e)
+        return { "status": "error", "message": str(e) }
+
+# used for testing
+# ================================================
+# def update_login_streak(user_id):
+#     try:
+#         conn = psycopg2.connect(
+#             dbname="gitfitbro",
+#             user="postgres",
+#             password="password",
+#             host="localhost",
+#             port="5432"
+#         )
+#         cur = conn.cursor()
+
+#         # Fetch existing login/streak data
+#         cur.execute("""
+#             SELECT day_streak
+#             FROM user_engagement
+#             WHERE user_id = %s
+#         """, (user_id,))
+#         result = cur.fetchone()
+
+#         if result:
+#             # Always increment the streak regardless of date
+#             cur.execute("""
+#                 UPDATE user_engagement
+#                 SET day_streak = day_streak + 1,
+#                     last_login = CURRENT_TIMESTAMP
+#                 WHERE user_id = %s
+#             """, (user_id,))
+#             message = "Streak incremented (test mode)."
+#         else:
+#             # Insert new engagement row
+#             cur.execute("""
+#                 INSERT INTO user_engagement (user_id, day_streak, last_login)
+#                 VALUES (%s, 1, CURRENT_TIMESTAMP)
+#             """, (user_id,))
+#             message = "New user streak entry created."
+
+#         conn.commit()
+#         cur.close()
+#         conn.close()
+#         return { "status": "success", "message": message }
+
+#     except Exception as e:
+#         print("Error updating streak:", e)
+#         return { "status": "error", "message": str(e) }
+
+
 
 # WORKING 4/9/25
 # def get_actual_and_predicted_weights(user_id):

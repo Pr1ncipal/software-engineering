@@ -229,6 +229,31 @@ export default function LoginForm() {
       const data = await response.json();
       console.log("Login response:", data); // Log the full response
 
+      // Update streak right after successful login
+      try {
+        // Fetch user_id using username
+        const userIdRes = await fetch(`http://localhost:5000/api/get_user_id?username=${formData.username}`);
+        const userIdData = await userIdRes.json();
+
+        if (!userIdData.id) {
+          console.warn("❌ Could not retrieve user_id for streak update.");
+        } else {
+          const user_id = userIdData.id;
+          console.log("Got user_id:", user_id);
+
+          const streakRes = await fetch('http://localhost:5000/api/streak-update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id })
+          });
+          const streakData = await streakRes.json();
+          console.log("Streak update:", streakData);
+        }
+      } catch (e) {
+        console.warn("Failed to update streak:", e);
+      }
+
+
       // ALWAYS store the token for API validation during this session
       await secureStorage.setItem(AUTH_TOKEN_KEY, data.token);
 
@@ -258,6 +283,9 @@ export default function LoginForm() {
       setTimeoutMessage('');
     }
   };
+  //-----------------------------------------------------------------------------------
+
+
   //-------------------------------------------------------------------------------------
 
   // Add a logout function for later use

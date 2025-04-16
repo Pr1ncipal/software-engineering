@@ -8,7 +8,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../.
 
 from flask import Flask, request, jsonify, session
 import requests
-from AI_resources.getData import get_data, get_userName, build_motivation_prompt, get_user_id_by_username, predict_progress, generate_weight_graph_with_prediction, get_actual_and_predicted_weights, format_weight_chart
+from AI_resources.getData import get_data, get_userName, build_motivation_prompt, get_user_id_by_username, predict_progress, generate_weight_graph_with_prediction, get_actual_and_predicted_weights, format_weight_chart, update_login_streak
 
 app = Flask(__name__)
 app.config["SESSION_TYPE"] = "filesystem"
@@ -99,6 +99,17 @@ def streak_graph():
     data = get_user_streak(user_id)
     return jsonify(data)
 
+@app.route('/api/streak-update', methods=['POST'])
+def streak_update():
+    data = request.get_json()
+    user_id = data.get("user_id")
+
+    if not user_id:
+        return jsonify({ "status": "error", "message": "user_id is required" }), 400
+
+    result = update_login_streak(user_id)
+    return jsonify(result), 200 if result["status"] == "success" else 500
+
 @app.route("/api/progress-prediction", methods=["GET"])
 def progress_prediction():
     user_id = request.args.get("user_id", type=int)
@@ -122,7 +133,7 @@ def get_weight_chart_data():
         print("❌ Error fetching chart data:", e)
         return jsonify({"error": str(e)}), 500
 
- 
+
 
 @app.route('/chat', methods=['POST'])
 def chat():
