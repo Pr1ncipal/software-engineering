@@ -25,6 +25,7 @@ services:
     container_name: postgres
     build:
       context: ./database
+      context: ./database
       dockerfile: Dockerfile
     ports:
       - "5432:5432"
@@ -81,6 +82,10 @@ services:
       - private-network
 
 networks:
+  private-network:
+    driver: bridge
+    internal: true
+  public-network:
   private-network:
     driver: bridge
     internal: true

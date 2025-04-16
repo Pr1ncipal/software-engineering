@@ -9,4 +9,4 @@ db.transaction((tx) => {
   });
 
 
-const initialLoad = async () => {
+const initialLoad = async () => {}

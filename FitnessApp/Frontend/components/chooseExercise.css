@@ -1,310 +1,310 @@
 /* Overall component structure */
 .exercise-selector {
-  padding: 20px;
-  max-width: 1200px;
-  margin: 0 auto;
-  height: 100%;
-  overflow-y: auto; /* Enable vertical scrolling */
-  display: flex;
-  flex-direction: column;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
-
-/* Update the search container and input styles */
-.exercise-selector {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px;
-}
-
-.exercise-selector h1 {
-  font-size: 24px;
-  margin-bottom: 20px;
-  color: #333;
-  text-align: center;
-}
-
-/* Muscle group section */
-.muscle-group {
-  margin-bottom: 30px;
-  background-color: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-  overflow: hidden;
-}
-
-.muscle-group h2 {
-  font-size: 20px;
-  margin-bottom: 15px;
-  padding-bottom: 5px;
-  border-bottom: 2px solid #f4511e;
-  color: #333;
-}
-
-/* Grid layout for exercise tiles */
-.exercise-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 15px;
-  margin-bottom: 20px;
-}
-
-/* Exercise tile styling */
-.exercise-tile {
-  border-radius: 8px;
-  overflow: hidden;
-  background-color: #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.exercise-tile:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.exercise-tile-button {
-  display: block;
-  width: 100%;
-  padding: 15px;
-  border: none;
-  background: none;
-  text-align: left;
-  cursor: pointer;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.exercise-tile-name {
-  font-size: 18px;
-  font-weight: 600;
-  margin-bottom: 8px;
-  color: #333;
-}
-
-.exercise-tile-description {
-  font-size: 14px;
-  color: #666;
-  margin-bottom: 12px;
-  line-height: 1.4;
-  /* Ensure single line with ellipsis */
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex-grow: 1;
-}
-
-.exercise-tile-muscles {
-  margin-top: auto;
-  font-size: 13px;
-  color: #555;
-}
-
-.exercise-tile-primary {
-  margin-bottom: 4px;
-}
-
-.exercise-tile-secondary {
-  font-size: 12px;
-  color: #777;
-}
-
-.muscle-label {
-  font-weight: 600;
-}
-
-/* Loading indicator */
-.loading-indicator {
-  text-align: center;
-  margin: 20px 0;
-  color: #666;
-}
-
-.end-message {
-  text-align: center;
-  margin: 20px 0;
-  color: #999;
-  font-style: italic;
-}
-
-/* Ensure the component takes full height of its container */
-@media (min-height: 600px) {
-  .exercise-selector {
-    min-height: 500px;
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+    height: 100%;
+    overflow-y: auto; /* Enable vertical scrolling */
+    display: flex;
+    flex-direction: column;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   }
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
+  
+  /* Update the search container and input styles */
+  .exercise-selector {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+  
+  .exercise-selector h1 {
+    font-size: 24px;
+    margin-bottom: 20px;
+    color: #333;
+    text-align: center;
+  }
+  
+  /* Muscle group section */
+  .muscle-group {
+    margin-bottom: 30px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+  }
+  
+  .muscle-group h2 {
+    font-size: 20px;
+    margin-bottom: 15px;
+    padding-bottom: 5px;
+    border-bottom: 2px solid #f4511e;
+    color: #333;
+  }
+  
+  /* Grid layout for exercise tiles */
   .exercise-grid {
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+  }
+  
+  /* Exercise tile styling */
+  .exercise-tile {
+    border-radius: 8px;
+    overflow: hidden;
+    background-color: #fff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  
+  .exercise-tile:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   }
   
   .exercise-tile-button {
-    padding: 12px;
+    display: block;
+    width: 100%;
+    padding: 15px;
+    border: none;
+    background: none;
+    text-align: left;
+    cursor: pointer;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
   }
   
   .exercise-tile-name {
-    font-size: 16px;
-  }
-}
-
-@media (max-width: 480px) {
-  .exercise-grid {
-    grid-template-columns: 1fr;
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #333;
   }
   
-  .exercise-selector {
-    padding: 15px;
+  .exercise-tile-description {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 12px;
+    line-height: 1.4;
+    /* Ensure single line with ellipsis */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-grow: 1;
   }
-}
-
-/* Scroll indicator to help users know they can scroll */
-.exercise-selector::after {
-  content: "";
-  position: fixed;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background-color: #3498db;
-  opacity: 0.8;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='white' viewBox='0 0 24 24'%3E%3Cpath d='M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z'/%3E%3C/svg%3E");
-  background-size: 24px;
-  background-position: center;
-  background-repeat: no-repeat;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-  z-index: 100;
-  animation: fadeInOut 3s infinite;
-  pointer-events: none;
-}
-
-.exercise-selector.scrolled-bottom::after {
-  display: none;
-}
-
-@keyframes fadeInOut {
-  0% { opacity: 0; }
-  20% { opacity: 0.8; }
-  80% { opacity: 0.8; }
-  100% { opacity: 0; }
-}
-
-/* Add this to your component to handle the scroll indicator */
-/* Add to your useEffect:
-  const handleScroll = () => {
-    const scrolled = window.scrollY + window.innerHeight;
-    const isBottom = document.body.scrollHeight - scrolled < 50;
-    const selector = document.querySelector('.exercise-selector');
-    if (selector) {
-      if (isBottom) {
-        selector.classList.add('scrolled-bottom');
-      } else {
-        selector.classList.remove('scrolled-bottom');
-      }
+  
+  .exercise-tile-muscles {
+    margin-top: auto;
+    font-size: 13px;
+    color: #555;
+  }
+  
+  .exercise-tile-primary {
+    margin-bottom: 4px;
+  }
+  
+  .exercise-tile-secondary {
+    font-size: 12px;
+    color: #777;
+  }
+  
+  .muscle-label {
+    font-weight: 600;
+  }
+  
+  /* Loading indicator */
+  .loading-indicator {
+    text-align: center;
+    margin: 20px 0;
+    color: #666;
+  }
+  
+  .end-message {
+    text-align: center;
+    margin: 20px 0;
+    color: #999;
+    font-style: italic;
+  }
+  
+  /* Ensure the component takes full height of its container */
+  @media (min-height: 600px) {
+    .exercise-selector {
+      min-height: 500px;
     }
-  };
-  
-  window.addEventListener('scroll', handleScroll);
-  return () => window.removeEventListener('scroll', handleScroll);
-*/
-
-/* Filter container styles */
-.filter-container {
-  display: flex;
-  flex-direction: column;
-  margin-bottom: 20px;
-  max-width: 500px; /* Match the search container width */
-  margin-left: auto;
-  margin-right: auto;
-  background-color: #f8f8f8;
-  padding: 15px;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-
-.filter-container label {
-  margin-bottom: 8px;
-  font-weight: 500;
-  color: #333;
-}
-
-.muscle-group-select {
-  padding: 12px 15px;
-  border-radius: 8px;
-  border: 1px solid #ccc;
-  font-size: 16px;
-  background-color: white;
-  width: 100%;
-  color: #333;
-  cursor: pointer;
-  transition: border-color 0.2s;
-}
-
-.muscle-group-select:hover {
-  border-color: #999;
-}
-
-.muscle-group-select:focus {
-  border-color: #3498db;
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
-}
-
-.muscle-group-select:disabled {
-  background-color: #f1f1f1;
-  cursor: not-allowed;
-}
-
-.loading-small {
-  margin-left: 10px;
-  font-size: 14px;
-  color: #777;
-  font-style: italic;
-}
-
-.no-exercises {
-  text-align: center;
-  margin: 40px 0;
-  color: #666;
-  font-size: 18px;
-}
-
-/* Search container styles */
-.search-container {
-  margin-bottom: 20px;
-  width: 100%;
-  max-width: 500px; /* Limit the maximum width */
-  margin-left: auto;
-  margin-right: auto;
-}
-
-.search-input {
-  padding: 12px 15px;
-  width: 100%;
-  border-radius: 8px;
-  border: 1px solid #ccc;
-  font-size: 16px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.search-input:focus {
-  border-color: #3498db;
-  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
-  outline: none;
-}
-
-.search-input::placeholder {
-  color: #aaa;
-}
-
-/* Media queries for responsive design */
-@media (max-width: 768px) {
-  .search-container, .filter-container {
-    max-width: 100%;
   }
-}
+  
+  /* Responsive adjustments */
+  @media (max-width: 768px) {
+    .exercise-grid {
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    }
+    
+    .exercise-tile-button {
+      padding: 12px;
+    }
+    
+    .exercise-tile-name {
+      font-size: 16px;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .exercise-grid {
+      grid-template-columns: 1fr;
+    }
+    
+    .exercise-selector {
+      padding: 15px;
+    }
+  }
+  
+  /* Scroll indicator to help users know they can scroll */
+  .exercise-selector::after {
+    content: "";
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: #3498db;
+    opacity: 0.8;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='white' viewBox='0 0 24 24'%3E%3Cpath d='M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z'/%3E%3C/svg%3E");
+    background-size: 24px;
+    background-position: center;
+    background-repeat: no-repeat;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    z-index: 100;
+    animation: fadeInOut 3s infinite;
+    pointer-events: none;
+  }
+  
+  .exercise-selector.scrolled-bottom::after {
+    display: none;
+  }
+  
+  @keyframes fadeInOut {
+    0% { opacity: 0; }
+    20% { opacity: 0.8; }
+    80% { opacity: 0.8; }
+    100% { opacity: 0; }
+  }
+  
+  /* Add this to your component to handle the scroll indicator */
+  /* Add to your useEffect:
+    const handleScroll = () => {
+      const scrolled = window.scrollY + window.innerHeight;
+      const isBottom = document.body.scrollHeight - scrolled < 50;
+      const selector = document.querySelector('.exercise-selector');
+      if (selector) {
+        if (isBottom) {
+          selector.classList.add('scrolled-bottom');
+        } else {
+          selector.classList.remove('scrolled-bottom');
+        }
+      }
+    };
+    
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  */
+  
+  /* Filter container styles */
+  .filter-container {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 20px;
+    max-width: 500px; /* Match the search container width */
+    margin-left: auto;
+    margin-right: auto;
+    background-color: #f8f8f8;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  }
+  
+  .filter-container label {
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: #333;
+  }
+  
+  .muscle-group-select {
+    padding: 12px 15px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    font-size: 16px;
+    background-color: white;
+    width: 100%;
+    color: #333;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  
+  .muscle-group-select:hover {
+    border-color: #999;
+  }
+  
+  .muscle-group-select:focus {
+    border-color: #3498db;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+  }
+  
+  .muscle-group-select:disabled {
+    background-color: #f1f1f1;
+    cursor: not-allowed;
+  }
+  
+  .loading-small {
+    margin-left: 10px;
+    font-size: 14px;
+    color: #777;
+    font-style: italic;
+  }
+  
+  .no-exercises {
+    text-align: center;
+    margin: 40px 0;
+    color: #666;
+    font-size: 18px;
+  }
+  
+  /* Search container styles */
+  .search-container {
+    margin-bottom: 20px;
+    width: 100%;
+    max-width: 500px; /* Limit the maximum width */
+    margin-left: auto;
+    margin-right: auto;
+  }
+  
+  .search-input {
+    padding: 12px 15px;
+    width: 100%;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    font-size: 16px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  
+  .search-input:focus {
+    border-color: #3498db;
+    box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+    outline: none;
+  }
+  
+  .search-input::placeholder {
+    color: #aaa;
+  }
+  
+  /* Media queries for responsive design */
+  @media (max-width: 768px) {
+    .search-container, .filter-container {
+      max-width: 100%;
+    }
+  }

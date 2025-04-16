@@ -1,10 +1,3 @@
-// TO EXECUTE -- INSTALL expo-secure-store, crypto hash, navigation
-/* 
-  npm install expo-secure-store
-  npm install crypto-js
-  npm install @react-navigation/native
-*/
-
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, 
@@ -19,14 +12,16 @@ import {
   Dimensions, 
   Platform,
   ActivityIndicator,
-  Switch // To use built-in Switch instead of CheckBox atm
+  Switch 
 } from 'react-native';
 import CryptoJS from "crypto-js";
 import { useNavigation } from '@react-navigation/native';
+import { useFonts } from 'expo-font';
 // Replace AsyncStorage with SecureStore
 import { secureStorage, AUTH_TOKEN_KEY, USERNAME_KEY } from '../utils/secureStorage';
+import { LinearGradient } from 'expo-linear-gradient';
 
-export default function LoginForm() {
+export default function LoginForm({ onLogin }) {
   const navigation = useNavigation();
   // Screen dimension handling
   const [screenWidth, setScreenWidth] = useState(Dimensions.get('window').width);
@@ -74,8 +69,12 @@ export default function LoginForm() {
           const tokenValid = await validateToken(authToken);
           
           if (tokenValid) {
+            // Trigger onLogin callback if token is valid
+            if (onLogin) {
+              onLogin();
+            }
             // Auto login to home page if token is valid
-            navigation.navigate('Workout'); 
+            navigation.navigate('Home'); 
             return;
           } else {
             // If token is invalid, remove it from SecureStore
@@ -93,7 +92,7 @@ export default function LoginForm() {
       }
     };
     checkSavedCredentials();
-  }, []);
+  }, [onLogin]);
 
   // Cleanup timeouts 
   useEffect(() => {
@@ -247,9 +246,14 @@ export default function LoginForm() {
       // Reset loading state
       setLoading(false);
       
+      // Trigger onLogin callback if provided
+      if (onLogin) {
+        onLogin();
+      }
+      
       // Show success message
       Alert.alert('Success', 'Login successful!');
-            navigation.navigate('Workout');
+      navigation.navigate('Home');
       
     } catch (error) {
       console.error("Error in submission:", error);
@@ -287,23 +291,38 @@ export default function LoginForm() {
 
   // Navigation functions
   const navigateToRegister = () => {
-    navigation.navigate('Register');
+    navigation.navigate('RegisterForm');
   };
 
   const handleForgotPassword = () => {
     navigation.navigate('ForgotPassword');
   };
 
+  const [fontsLoaded] = useFonts({
+    'RalewayRegular': require('../assets/fonts/Raleway-Regular.ttf'),
+  });
+  
+  if (!fontsLoaded) {
+    return null; // Or show a <Text>Loading...</Text> or <ActivityIndicator />
+  }
+
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <LinearGradient
+      colors={['#007AFF', '#B3E5FC']}
+      style={styles.safeArea}
+    >
       <ScrollView contentContainerStyle={styles.scrollViewContent}>
         <View style={styles.outerContainer}>
           <View style={[
             styles.container, 
             isSmallScreen ? styles.containerSmall : styles.containerLarge
           ]}>
-            <Text style={styles.title}>Welcome Back!</Text>
-            
+            <View style={styles.titleContainer}>
+                <Text style={styles.title}>Sign In</Text>
+                <View style={styles.titleUnderline} />
+            </View>
+
+  
             <Text style={styles.label}>Username:</Text>
             <TextInput 
               style={[
@@ -320,7 +339,7 @@ export default function LoginForm() {
               editable={!loading}
             />
             {errors.username && <Text style={styles.errorText}>{errors.username}</Text>}
-            
+  
             <Text style={styles.label}>Password:</Text>
             <TextInput 
               style={[
@@ -337,25 +356,23 @@ export default function LoginForm() {
               editable={!loading}
             />
             {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
-            
+  
             <View style={styles.rememberForgotRow}>
               <View style={styles.rememberMeContainer}>
-                {// Using React Native's Switch instead of CheckBox
-                }
                 <Switch
                   value={rememberMe}
                   onValueChange={val => {
                     setRememberMe(val);
                     if (timeoutMessage) setTimeoutMessage('');
                   }}
-                  trackColor={{ false: "#767577", true: "#f4511e" }}
-                  thumbColor={rememberMe ? "#f4511e" : "#f4f3f4"}
+                  trackColor={{ false: "#767577", true: "#007AFF" }}
+                  thumbColor={rememberMe ? "#007AFF" : "#f4f3f4"}
                   testID="remember-me-switch"
                   disabled={loading}
                 />
                 <Text style={styles.rememberMeText}>Remember me</Text>
               </View>
-              
+  
               <TouchableOpacity 
                 onPress={handleForgotPassword}
                 style={styles.forgotPasswordContainer}
@@ -368,17 +385,17 @@ export default function LoginForm() {
                 ]}>Forgot Password?</Text>
               </TouchableOpacity>
             </View>
-
+  
             <View style={styles.buttonContainer}>
               <Button 
                 title={loading ? "Signing in..." : "Log In"} 
                 onPress={handleSubmit} 
-                color="#f4511e" 
+                color="#007AFF" 
                 disabled={loading}
                 testID="login-button"
               />
             </View>
-            
+  
             {timeoutMessage ? (
               <View style={styles.timeoutContainer}>
                 <Text style={[
@@ -389,9 +406,7 @@ export default function LoginForm() {
                 </Text>
               </View>
             ) : null}
-            
-            {// Social sign-in buttons (UI only for now - return to later)
-            }
+  
             <View style={styles.socialContainer}>
               <Text style={styles.orText}>OR</Text>
               <TouchableOpacity 
@@ -413,35 +428,35 @@ export default function LoginForm() {
                   </Text>
                 </View>
               </TouchableOpacity>
-                <TouchableOpacity 
-                  style={[
-                    styles.socialButton, 
-                    styles.appleButton,
-                    loading ? styles.buttonDisabled : null
-                  ]}
-                  onPress={handleAppleSignIn}
-                  disabled={loading}
-                  testID="apple-signin-button"
-                >
-                  <View style={styles.socialButtonContent}>
-                    <Text style={[
-                      styles.appleButtonText,
-                      loading ? styles.textDisabled : null
-                    ]}>
-                      Sign in with Apple
-                    </Text>
-                  </View>
-                </TouchableOpacity>
+              <TouchableOpacity 
+                style={[
+                  styles.socialButton, 
+                  styles.appleButton,
+                  loading ? styles.buttonDisabled : null
+                ]}
+                onPress={handleAppleSignIn}
+                disabled={loading}
+                testID="apple-signin-button"
+              >
+                <View style={styles.socialButtonContent}>
+                  <Text style={[
+                    styles.appleButtonText,
+                    loading ? styles.textDisabled : null
+                  ]}>
+                    Sign in with Apple
+                  </Text>
+                </View>
+              </TouchableOpacity>
             </View>
-            
+  
             {loading && (
               <ActivityIndicator 
                 size="large" 
-                color="#f4511e" 
+                color="#007AFF" 
                 style={styles.loadingIndicator} 
               />
             )}
-            
+  
             <View style={styles.registerContainer}>
               <Text style={styles.registerText}>Don't have an account? </Text>
               <TouchableOpacity 
@@ -458,192 +473,207 @@ export default function LoginForm() {
           </View>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 
 // Styles 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#f8f9fa',
-  },
-  scrollViewContent: {
-    flexGrow: 1,
-    paddingVertical: 20,
-  },
-  outerContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-  },
-  container: {
-    marginBottom: 20,
-    padding: 20,
-    backgroundColor: 'white',
-    borderRadius: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  containerLarge: {
-    width: '50%',
-    maxWidth: 500,
-  },
-  containerSmall: {
-    width: '90%',
-    maxWidth: 500,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-    color: '#333',
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 5,
-    color: '#555',
-  },
-  input: {
-    height: 40,
-    borderColor: '#ccc',
-    borderWidth: 1,
-    marginBottom: 15,
-    paddingHorizontal: 10,
-    backgroundColor: 'white',
-    borderRadius: 5,
-  },
-  inputSmall: {
-    height: 50,
-    fontSize: 16,
-    marginBottom: 15,
-  },
-  inputError: {
-    borderColor: '#dc3545',
-    borderWidth: 1,
-  },
-  inputDisabled: {
-    backgroundColor: '#f5f5f5',
-    color: '#888',
-  },
-  errorText: {
-    color: '#dc3545',
-    fontSize: 12,
-    marginTop: -10,
-    marginBottom: 10,
-  },
-  rememberForgotRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  rememberMeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  rememberMeText: {
-    marginLeft: 8,
-    color: '#555',
-    fontSize: 14,
-  },
-  forgotPasswordContainer: {
-    alignSelf: 'flex-end',
-  },
-  forgotPasswordText: {
-    color: '#f4511e',
-    fontSize: 14,
-  },
-  buttonContainer: {
-    marginTop: 10,
-    width: '100%',
-  },
-  socialContainer: {
-    marginTop: 20,
-    width: '100%',
-    alignItems: 'center',
-  },
-  orText: {
-    color: '#888',
-    marginVertical: 10,
-    fontWeight: '500',
-  },
-  socialButton: {
-    width: '100%',
-    height: 45,
-    borderRadius: 5,
-    marginVertical: 5,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1.5,
-    elevation: 2,
-  },
-  socialButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  googleButton: {
-    backgroundColor: 'white',
-    borderColor: '#ddd',
-    borderWidth: 1,
-  },
-  appleButton: {
-    backgroundColor: 'black',
-  },
-  googleButtonText: {
-    color: '#444',
-    fontWeight: '600',
-    marginLeft: 10,
-  },
-  appleButtonText: {
-    color: 'white',
-    fontWeight: '600',
-    marginLeft: 10,
-  },
-  registerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 20,
-  },
-  registerText: {
-    color: '#555',
-  },
-  registerLink: {
-    color: '#f4511e',
-    fontWeight: 'bold',
-  },
-  loadingIndicator: {
-    marginTop: 20,
-  },
-  textDisabled: {
-    color: '#aaa',
-  },
-  buttonDisabled: {
-    opacity: 0.7,
-  },
-  timeoutContainer: {
-    marginTop: 10,
-    alignItems: 'center',
-  },
-  timeoutMessage: {
-    color: '#e67e22',
-    fontSize: 14,
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-  timeoutError: {
-    color: '#e74c3c',
-  }
-});
+    safeArea: {
+      flex: 1,
+    },
+    scrollViewContent: {
+      flexGrow: 1,
+      paddingVertical: 20,
+    },
+    outerContainer: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '100%',
+    },
+    container: {
+      marginBottom: 20,
+      padding: 20,
+      backgroundColor: 'white',
+      borderRadius: 16,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.15,
+      shadowRadius: 6,
+      elevation: 6,
+    },
+    containerLarge: {
+      width: '50%',
+      maxWidth: 500,
+    },
+    containerSmall: {
+      width: '90%',
+      maxWidth: 500,
+    },
+    title: {
+        fontSize: 30,
+        fontFamily: 'RalewayRegular',
+        color: '#007AFF', // or #007AFF if you want to keep it blue
+        textAlign: 'center',
+      },
+    titleContainer: {
+        alignItems: 'center',
+        marginBottom: 25,
+      },
+      
+    titleUnderline: {
+        marginTop: 6,
+        width: 40,
+        height: 4,
+        backgroundColor: '#007AFF',
+        borderRadius: 2,
+      },
+            
+    label: {
+      fontSize: 14,
+      fontWeight: '500',
+      marginBottom: 5,
+      color: '#555',
+    },
+    input: {
+      height: 48,
+      borderColor: '#ccc',
+      borderWidth: 1,
+      marginBottom: 15,
+      paddingHorizontal: 12,
+      backgroundColor: '#f2f2f2',
+      borderRadius: 10,
+      fontSize: 16,
+      color: '#333',
+    },
+    inputSmall: {
+      height: 50,
+      fontSize: 16,
+      marginBottom: 15,
+    },
+    inputError: {
+      borderColor: '#dc3545',
+    },
+    inputDisabled: {
+      backgroundColor: '#f5f5f5',
+      color: '#888',
+    },
+    errorText: {
+      color: '#dc3545',
+      fontSize: 12,
+      marginTop: -10,
+      marginBottom: 10,
+    },
+    rememberForgotRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 15,
+    },
+    rememberMeContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+    },
+    rememberMeText: {
+      marginLeft: 8,
+      color: '#555',
+      fontSize: 14,
+    },
+    forgotPasswordContainer: {
+      alignSelf: 'flex-end',
+    },
+    forgotPasswordText: {
+      color: '#007AFF',
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    buttonContainer: {
+      marginTop: 10,
+      width: '100%',
+      borderRadius: 10,
+      overflow: 'hidden',
+    },
+    socialContainer: {
+      marginTop: 20,
+      width: '100%',
+      alignItems: 'center',
+    },
+    orText: {
+      color: '#888',
+      marginVertical: 10,
+      fontWeight: '500',
+    },
+    socialButton: {
+      width: '100%',
+      height: 45,
+      borderRadius: 10,
+      marginVertical: 5,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.2,
+      shadowRadius: 1.5,
+      elevation: 2,
+    },
+    socialButtonContent: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    googleButton: {
+      backgroundColor: 'black',
+      borderColor: '#ddd',
+      borderWidth: 1,
+    },
+    appleButton: {
+      backgroundColor: 'black',
+    },
+    googleButtonText: {
+      color: '#007AFF',
+      fontWeight: '600',
+      marginLeft: 10,
+    },
+    appleButtonText: {
+      color: 'white',
+      fontWeight: '600',
+      marginLeft: 10,
+    },
+    registerContainer: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      marginTop: 20,
+    },
+    registerText: {
+      color: '#555',
+    },
+    registerLink: {
+      color: '#007AFF',
+      fontWeight: 'bold',
+    },
+    loadingIndicator: {
+      marginTop: 20,
+    },
+    textDisabled: {
+      color: '#aaa',
+    },
+    buttonDisabled: {
+      opacity: 0.7,
+    },
+    timeoutContainer: {
+      marginTop: 10,
+      alignItems: 'center',
+    },
+    timeoutMessage: {
+      color: '#007AFF',
+      fontSize: 14,
+      textAlign: 'center',
+      fontWeight: '500',
+    },
+    timeoutError: {
+      color: '#e74c3c',
+    }
+  });

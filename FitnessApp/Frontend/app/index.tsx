@@ -1,145 +1,46 @@
-import React from 'react';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-// Remove NavigationContainer from here - it should only be in the root App component
-// import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import React, { useState } from 'react';
+import { createStackNavigator, CardStyleInterpolators } from '@react-navigation/stack';
 
-// Import your components
-import WorkoutForm from '@/components/WorkoutForm';
+// Import screens
 import RegisterForm from '@/components/RegisterForm';
-import App from '@/components/loginApp';
-import Chatbot from '@/components/chatbot';
-import MotivationScreen from '@/components/MotivationScreen';
-import ChooseExercise from '@/components/chooseExercise';
-import leaderboardPage from '@/components/leaderboard';
-import Family from '@/components/familyPage';
-import ProfilePage from '@/components/profile_page';
-import StepsCalendar from '@/components/steps.jsx';
+import OnboardingScreen from '@/components/OnboardingScreen';
+import Login from '@/components/Login';
+import BottomTabsNavigator from '@/components/BottomTabsNavigator';
 
-const Tab = createBottomTabNavigator();
-const Stack = createNativeStackNavigator();
+const Stack = createStackNavigator();
 
-// Modify this to return a combined navigator without NavigationContainer
-export default function AppTabs() {
+export default function AppNavigator() {
+  const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
   return (
-    <Stack.Navigator>
-      <Stack.Screen
-        name="MainTabs"
-        component={MainTabNavigator}
-        options={{ headerShown: false }}
-      />
-      {/* Add Steps to the stack so we can navigate to it */}
-      <Stack.Screen 
-        name="Steps" 
-        component={StepsCalendar}
-        options={{ headerShown: false }}
-      />
+    <Stack.Navigator
+      screenOptions={{
+        gestureEnabled: true,
+        headerShown: false,
+        transitionSpec: {
+          open: { animation: 'timing', config: { duration: 700 } },
+          close: { animation: 'timing', config: { duration: 700 } },
+        },
+        cardStyleInterpolator: CardStyleInterpolators.forFadeFromBottomAndroid,
+      }}
+    >
+      {!isOnboardingComplete ? (
+        <Stack.Screen name="Onboarding">
+          {() => <OnboardingScreen onComplete={() => setIsOnboardingComplete(true)} />}
+        </Stack.Screen>
+      ) : !isLoggedIn ? (
+        <>
+          <Stack.Screen name="Login">
+            {() => <Login onLogin={() => setIsLoggedIn(true)} />}
+          </Stack.Screen>
+          <Stack.Screen name="RegisterForm">
+            {() => <RegisterForm onLogin={() => setIsLoggedIn(true)} />}
+          </Stack.Screen>
+        </>
+      ) : (
+        <Stack.Screen name="MainTabs" component={BottomTabsNavigator} />
+      )}
     </Stack.Navigator>
   );
 }
-
-function MainTabNavigator() {
-  return (
-    <>
-      <StatusBar style="auto" />
-      <Tab.Navigator
-        screenOptions={({ route }) => ({
-          tabBarIcon: ({ focused, color, size }) => {
-            if (route.name === 'Register') {
-              return <Ionicons 
-                name={focused ? 'person-circle' : 'person-circle-outline'} 
-                size={size} 
-                color={color} 
-              />;
-            } else if (route.name === 'Workout') {
-              return <Ionicons 
-                name={focused ? 'barbell' : 'barbell-outline'} 
-                size={size} 
-                color={color} 
-              />;
-            } else if (route.name === 'Login') {
-              return <Ionicons 
-                name={focused ? 'log-in' : 'log-in-outline'} 
-                size={size} 
-                color={color} 
-              />;
-            } else if (route.name === 'Chatbot') {
-              return <Ionicons 
-                name={focused ? 'chatbubble' : 'chatbubble-outline'} 
-                size={size} 
-                color={color} 
-              />;
-            }
-            else if (route.name === 'Choose Exercise') {
-              return <Ionicons
-                name={focused ? 'fitness' : 'fitness-outline'}
-                size={size}
-                color={color}
-              />;
-            } 
-            else if (route.name === 'Leaderboard') {
-              return <Ionicons 
-                name={focused ? 'trophy' : 'trophy-outline'} 
-                size={size} 
-                color={color} 
-              />;
-            } else if (route.name === 'Family') {
-              return <Ionicons 
-                name={focused ? 'people' : 'people-outline'} 
-                size={size} 
-                color={color} 
-              />;
-            } else if (route.name === 'Profile') {
-              return <Ionicons 
-                name={focused ? 'person' : 'person-outline'} 
-                size={size} 
-                color={color} 
-              />;
-            }
-          },
-          tabBarActiveTintColor: '#f4511e',
-          tabBarInactiveTintColor: 'gray',
-          headerStyle: {
-            backgroundColor: '#f4511e',
-          },
-          headerTintColor: '#fff',
-        })}
-      >
-        <Tab.Screen name="Register" component={RegisterForm} />
-        <Tab.Screen name="Login" component={App} />
-        <Tab.Screen name="Workout" component={WorkoutForm} />
-        <Tab.Screen 
-          name="Profile" 
-          component={ProfilePage}
-        />
-        <Tab.Screen name="Chatbot" component={Chatbot} />
-        <Tab.Screen name="Motivation" component={MotivationScreen} />
-        <Tab.Screen 
-          name="Leaderboard" 
-          component={leaderboardPage} 
-          options={{ headerShown: false }}
-        />
-        <Tab.Screen
-          name="Family" 
-          component={Family}
-          options={{ headerShown: false }}
-        />
-        <Tab.Screen 
-          name="Choose Exercise" 
-          component={() => <ChooseExercise onExerciseSelect={() => {}} />} 
-        />
-        {/* Remove Steps from Tab.Navigator since it's now in the Stack */}
-      </Tab.Navigator>
-    </>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-});
