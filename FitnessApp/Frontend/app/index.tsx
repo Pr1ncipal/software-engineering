@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { createStackNavigator, CardStyleInterpolators } from '@react-navigation/stack';
 
-// Import screens
 import RegisterForm from '@/components/RegisterForm';
 import OnboardingScreen from '@/components/OnboardingScreen';
 import Login from '@/components/Login';
@@ -25,20 +24,30 @@ export default function AppNavigator() {
         cardStyleInterpolator: CardStyleInterpolators.forFadeFromBottomAndroid,
       }}
     >
-      {!isOnboardingComplete ? (
-        <Stack.Screen name="Onboarding">
-          {() => <OnboardingScreen onComplete={() => setIsOnboardingComplete(true)} />}
-        </Stack.Screen>
-      ) : !isLoggedIn ? (
-        <>
-          <Stack.Screen name="Login">
-            {() => <Login onLogin={() => setIsLoggedIn(true)} />}
-          </Stack.Screen>
-          <Stack.Screen name="RegisterForm">
-            {() => <RegisterForm onLogin={() => setIsLoggedIn(true)} />}
-          </Stack.Screen>
-        </>
-      ) : (
+      {!isOnboardingComplete && (
+        <Stack.Screen
+          name="Onboarding"
+          children={() => (
+            <OnboardingScreen onComplete={() => setIsOnboardingComplete(true)} />
+          )}
+        />
+      )}
+
+      {isOnboardingComplete && !isLoggedIn && (
+        <Stack.Screen
+          name="Login"
+          children={() => <Login onLogin={() => setIsLoggedIn(true)} />}
+        />
+      )}
+
+      {isOnboardingComplete && !isLoggedIn && (
+        <Stack.Screen
+          name="RegisterForm"
+          children={() => <RegisterForm onLogin={() => setIsLoggedIn(true)} />}
+        />
+      )}
+
+      {isOnboardingComplete && isLoggedIn && (
         <Stack.Screen name="MainTabs" component={BottomTabsNavigator} />
       )}
     </Stack.Navigator>

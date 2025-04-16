@@ -25,6 +25,8 @@
       "input_headers": [
         "Authorization",
         "Content-Type"
+        "Authorization",
+        "Content-Type"
       ]
     },
     {
@@ -51,6 +53,8 @@
       "input_headers": [
         "Authorization",
         "Content-Type"
+        "Authorization",
+        "Content-Type"
       ]
     },
 
@@ -73,6 +77,8 @@
       "input_headers": [
         "Authorization",
         "Content-Type"
+        "Authorization",
+        "Content-Type"
       ]
     },
     {
@@ -81,6 +87,8 @@
       "output_encoding": "no-op",
       "input_query_strings": [],
       "input_headers": [
+        "Authorization",
+        "Content-Type"
         "Authorization",
         "Content-Type"
       ],
@@ -225,6 +233,8 @@
       "input_headers": [
         "Authorization",
         "Content-Type"
+        "Authorization",
+        "Content-Type"
       ],
       "backend": [
         {
@@ -341,15 +351,43 @@
       "input_headers": [
         "Authorization",
         "Content-Type"
+        "Authorization",
+        "Content-Type"
       ]
     },
     {
       "endpoint": "/api/family/create_family",
       "method": "POST",
       "output_encoding": "no-op",
+      "output_encoding": "no-op",
       "backend": [
         {
           "url_pattern": "/create_family",
+          "encoding": "no-op",
+          "encoding": "no-op",
+          "sd": "static",
+          "method": "POST",
+          "host": [
+            "http://family:8080"
+          ],
+          "disable_host_sanitize": false
+        }
+      ],
+      "input_headers": [
+        "Authorization",
+        "Content-Type"
+        "Authorization",
+        "Content-Type"
+      ]
+    },
+    {
+      "endpoint": "/api/family/create_family_request",
+      "method": "POST",
+      "output_encoding": "no-op",
+      "output_encoding": "no-op",
+      "backend": [
+        {
+          "url_pattern": "/create_family_request",
           "encoding": "no-op",
           "sd": "static",
           "method": "POST",
@@ -365,12 +403,13 @@
       ]
     },
     {
-      "endpoint": "/api/family/create_family_request",
-      "method": "POST",
+      "endpoint": "/api/family/get_requests",
+      "method": "GET",
       "output_encoding": "no-op",
       "backend": [
         {
-          "url_pattern": "/create_family_request",
+          "url_pattern": "/get_family_requests",
+          "encoding": "no-op",
           "encoding": "no-op",
           "sd": "static",
           "method": "POST",
@@ -409,9 +448,11 @@
       "endpoint": "/api/family/accept_family_request",
       "method": "PUT",
       "output_encoding": "no-op",
+      "output_encoding": "no-op",
       "backend": [
         {
           "url_pattern": "/accept_family_request",
+          "encoding": "no-op",
           "encoding": "no-op",
           "sd": "static",
           "method": "PUT",
@@ -424,15 +465,43 @@
       "input_headers": [
         "Authorization",
         "Content-Type"
+        "Authorization",
+        "Content-Type"
       ]
     },
     {
       "endpoint": "/api/family/delete_family",
       "method": "DELETE",
       "output_encoding": "no-op",
+      "output_encoding": "no-op",
       "backend": [
         {
           "url_pattern": "/delete_family",
+          "encoding": "no-op",
+          "sd": "static",
+          "method": "DELETE",
+          "host": [
+            "http://family:8080"
+          ],
+          "disable_host_sanitize": false
+        }
+      ],
+      "input_query_strings": [
+        "username",
+        "family_name"
+      ],
+      "input_headers": [
+        "Authorization"
+      ]
+    },
+    {
+      "endpoint":"/api/family/leave",
+      "method": "DELETE",
+      "output_encoding": "no-op",
+      "backend": [
+        {
+          "url_pattern": "/leave_family",
+          "encoding": "no-op",
           "encoding": "no-op",
           "sd": "static",
           "method": "DELETE",
@@ -470,6 +539,10 @@
         "username",
         "family_name"
       ],
+      "input_query_strings": [
+        "username",
+        "family_name"
+      ],
       "input_headers": [
         "Authorization"
       ]
@@ -478,9 +551,11 @@
       "endpoint": "/api/family/get_family_members",
       "method": "GET",
       "output_encoding": "no-op",
+      "output_encoding": "no-op",
       "backend": [
         {
           "url_pattern": "/get_family_members",
+          "encoding": "no-op",
           "encoding": "no-op",
           "sd": "static",
           "method": "GET",
@@ -502,9 +577,11 @@
       "endpoint": "/api/family/remove_family_member",
       "method": "DELETE",
       "output_encoding": "no-op",
+      "output_encoding": "no-op",
       "backend": [
         {
           "url_pattern": "/remove_family_member",
+          "encoding": "no-op",
           "encoding": "no-op",
           "sd": "static",
           "method": "DELETE",
@@ -516,6 +593,7 @@
       ],
       "input_query_strings": [
         "username",
+        "username",
         "family_name"
       ],
       "input_headers": [
@@ -524,14 +602,39 @@
     },
     {
       "endpoint": "/api/family/change_admin",
+      "endpoint": "/api/family/change_admin",
       "method": "PUT",
+      "output_encoding": "no-op",
       "output_encoding": "no-op",
       "backend": [
         {
           "url_pattern": "/change_admin",
           "encoding": "no-op",
+          "url_pattern": "/change_admin",
+          "encoding": "no-op",
           "sd": "static",
           "method": "PUT",
+          "host": [
+            "http://family:8080"
+          ],
+          "disable_host_sanitize": false
+        }
+      ],
+      "input_headers": [
+        "Authorization",
+        "Content-Type"
+      ]
+    },
+    {
+      "endpoint": "/api/family/get_families",
+      "method": "GET",
+      "output_encoding": "no-op",
+      "backend": [
+        {
+          "url_pattern": "/get_families",
+          "encoding": "no-op",
+          "sd": "static",
+          "method": "GET",
           "host": [
             "http://family:8080"
           ],
@@ -576,6 +679,9 @@
       "allow_methods": [
         "GET",
         "HEAD",
+        "POST",
+        "PUT",
+        "DELETE"
         "POST",
         "PUT",
         "DELETE"
