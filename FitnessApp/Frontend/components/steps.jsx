@@ -522,7 +522,7 @@ const StepsCalendar = () => {
       </View>
       
       <Text style={styles.title}>Steps Tracker</Text>
-      
+
       {/* Goal Setting Button and Progress */}
       <View style={styles.goalContainer}>
         <View style={styles.goalHeader}>
@@ -575,6 +575,13 @@ const StepsCalendar = () => {
           <Text style={styles.statsValue}>{streakDays}</Text>
           <Text style={styles.statsUnit}>days</Text>
         </View>
+      </View>
+      
+      {/* Instruction above calendar */}
+      <View style={styles.calendarInstructionContainer}>
+        <Text style={styles.calendarInstruction}>
+          <Text style={{ fontWeight: 'bold', color: '#4a69bd' }}>Tip:</Text> Tap any day on the calendar below to edit your steps.
+        </Text>
       </View>
       
       {/* Calendar - More compact version */}
@@ -1367,6 +1374,25 @@ const styles = StyleSheet.create({
   },
   placeholderView: {
     width: 80, // Same width as back button to center the title
+  },
+  calendarInstruction: {
+    fontSize: 14,
+    color: '#718096',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  calendarInstructionContainer: {
+    backgroundColor: '#e6f0fa',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 10,
+    marginHorizontal: 4,
+  },
+  calendarInstruction: {
+    fontSize: 15,
+    color: '#4a69bd',
+    textAlign: 'center',
+    fontWeight: '500',
   },
 });
 

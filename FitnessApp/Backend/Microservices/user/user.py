@@ -24,7 +24,6 @@ import datetime
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG,
-logging.basicConfig(level=logging.DEBUG,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     handlers=[
                         logging.FileHandler("user_api.log"),
@@ -958,5 +957,4 @@ def homepage():
         
 if __name__ == '__main__':
     logger.info("Starting user microservice on port 8080")
-    app.run(host='0.0.0.0', port=8080, debug=True)
     app.run(host='0.0.0.0', port=8080, debug=True)

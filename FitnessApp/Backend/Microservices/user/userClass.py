@@ -725,6 +725,8 @@ class UserStats(User):
             cur.execute(findStatsQuery, (self.id,))
             result = cur.fetchone()
             
+            logger.debug(f"Query result: {result}")
+            
             if result:
                 if self.height is None:
                     self.height = result[0]
@@ -796,7 +798,6 @@ class UserStats(User):
             logger.debug("Database connection closed")
     
     def getUserStats(self, days = 30, conn = None):
-    def getUserStats(self, days = 30, conn = None):
         """
         Gets the user stats from the database
         
@@ -861,10 +862,8 @@ class UserStats(User):
             raise UserNotFoundException()
         if starting:
             logger.debug("Fetching starting stats")
-            logger.debug("Fetching starting stats")
             getUserStatsQuery = sql.SQL("""SELECT height, weight, created_at FROM user_stats WHERE user_id = %s and height = %s ORDER BY created_at ASC LIMIT 1""")
         else:
-            logger.debug("Fetching latest stats")
             logger.debug("Fetching latest stats")
             getUserStatsQuery = sql.SQL("""SELECT height, weight, created_at FROM user_stats WHERE user_id = %s ORDER BY created_at DESC LIMIT 1""")
         try:
@@ -882,7 +881,6 @@ class UserStats(User):
                 cur.execute(getUserStatsQuery, (self.id, height))
             else:
                 cur.execute(getUserStatsQuery, (self.id,))
-            result = cur.fetchall()
             result = cur.fetchall()
             
             if result:
@@ -1004,14 +1002,11 @@ class UserStats(User):
         if verbose:
             logger.debug("Preparing detailed workout queries")
             getWorkoutDetailsQueryStrength = sql.SQL("""SELECT e.id, e.name, e.single_sided, (we.sets).reps, (we.sets).percieved_difficulty, (we.sets).weight, (we.sets).type_set 
-            getWorkoutDetailsQueryStrength = sql.SQL("""SELECT e.id, e.name, e.single_sided, (we.sets).reps, (we.sets).percieved_difficulty, (we.sets).weight, (we.sets).type_set 
                                                      FROM workout_exercises we
                                                      JOIN exercises e ON e.id = we.exercise_id 
                                                      WHERE we.workout_id = %s
                                                      ORDER BY e.name""")
-                                                     JOIN exercises e ON e.id = we.exercise_id 
-                                                     WHERE we.workout_id = %s
-                                                     ORDER BY e.name""")
+
             getWorkoutDetailsQueryCardio = sql.SQL("""SELECT duration, distance, percieved_difficulty 
                                                    FROM workout_cardio 
                                                    WHERE workout_id = %s""")
@@ -1147,200 +1142,6 @@ class UserStats(User):
         calories_burned = met * weight_kg * duration_hours
         return {"calories_burned": round(calories_burned, 2)}
     
-    def formatUserPage(self, activities, conn=None):
-        """
-        Format workout activities data for user dashboard display.
-        
-        Args:
-            activities (dict): Dictionary containing workout activity data
-            conn (psycopg2.connection, optional): Database connection to reuse
-            
-        Returns:
-            dict: Formatted workout data with calculated metrics
-            
-        Raises:
-            InvalidStatsDataError: When activity data is invalid or malformed
-            ConnectionError: When database connection fails
-            QueryError: When there's an error executing database queries
-        """
-        logger.info(f"Formatting dashboard data for user ID {self.id} with {len(activities) if activities else 0} activities")
-        
-        if not activities:
-            logger.debug("No activities provided to format")
-            return {}
-            
-        final1 = {}
-        should_close_conn = False
-        
-        try:
-            # Establish database connection if not provided
-            if not conn:
-                try:
-                    logger.debug("Opening new database connection for muscle group queries")
-                    conn = global_func.getConnection()
-                    should_close_conn = True
-                except Exception as e:
-                    logger.error(f"Failed to connect to database: {str(e)}")
-                    raise ConnectionError(str(e))
-            
-            # Process each activity
-            for activity_key, activity in activities.items():
-                try:
-                    if 'type' not in activity:
-                        logger.warning(f"Activity missing 'type' field: {activity_key}")
-                        continue
-                        
-                    if 'details' not in activity:
-                        logger.warning(f"Activity missing 'details' field: {activity_key}")
-                        continue
-                        
-                    activity_type = activity['type']
-                    logger.debug(f"Processing {activity_type} activity: {activity['name']}")
-                    
-                    if activity_type == 'strength':
-                        # Process strength workout
-                        final = {
-                            "Total Weight Lifted": 0, 
-                            "Total Sets": 0, 
-                            "Muscle Groups": [], 
-                            "Date Performed": activity['date'] if 'date' in activity else 'Unknown date'
-                        }
-                        
-                        for exercise in activity['details']:
-                            if not isinstance(exercise, dict):
-                                logger.warning(f"Invalid exercise data format: {exercise}")
-                                continue
-                                
-                            # Validate required exercise fields
-                            required_fields = ['exercise_name', 'type_set', 'weight', 'reps']
-                            missing_fields = [field for field in required_fields if field not in exercise]
-                            
-                            if missing_fields:
-                                logger.warning(f"Exercise missing required fields: {missing_fields}")
-                                continue
-                                
-                            # Calculate total weight lifted and sets
-                            totalWeightLifted = 0
-                            totalSets = 0
-                            
-                            # Find muscle groups in a separate thread
-                            q = queue.Queue()
-                            muscle_thread = threading.Thread(
-                                target=self.__findMuscles__, 
-                                args=(exercise['exercise_id'], q, conn)
-                            )
-                            muscle_thread.start()
-                            
-                            # Process each set in the exercise
-                            try:
-                                for i in range(len(exercise['type_set'])):
-                                    if i >= len(exercise['reps']) or i >= len(exercise['weight']):
-                                        logger.warning(f"Index mismatch in exercise set data for {exercise['exercise_name']}")
-                                        continue
-                                        
-                                    # Calculate weight based on whether it's single sided or not
-                                    if exercise.get("single_sided", False):
-                                        totalWeightLifted += exercise['weight'][i] * 2 * exercise['reps'][i]
-                                    else:
-                                        totalWeightLifted += exercise['weight'][i] * exercise['reps'][i]
-                                    totalSets += 1
-                            except (TypeError, ValueError) as e:
-                                logger.error(f"Error calculating weight for {exercise['exercise_name']}: {str(e)}")
-                            
-                            # Wait for muscle thread to complete
-                            muscle_thread.join()
-                            final["Total Weight Lifted"] += totalWeightLifted
-                            final["Total Sets"] += totalSets
-                            
-                            # Get muscle groups from the thread
-                            try:
-                                muscle = q.get(block=False)
-                                if muscle:
-                                    for m in muscle:
-                                        if m not in final["Muscle Groups"]:
-                                            final["Muscle Groups"].append(m)
-                            except queue.Empty:
-                                logger.warning(f"No muscle data returned for {exercise['exercise_name']}")
-                        
-                        # Add formatted activity to results
-                        final1[activity['name']] = final
-                        logger.debug(f"Processed strength workout: {activity['name']} - {final['Total Sets']} sets, {final['Total Weight Lifted']} total weight")
-                        
-                    elif activity_type == 'cardio':
-                        # Process cardio workout
-                        final = {
-                            "Total Distance": 0, 
-                            "Total Time": 0, 
-                            "Calories Burned": 0, 
-                            "Date Performed": activity.get('date', 'Unknown date')
-                        }
-                        
-                        # Validate cardio activity has details
-                        if not activity['details'] or len(activity['details']) == 0:
-                            logger.warning(f"Cardio activity has no details: {activity['name']}")
-                            continue
-                        
-                        details = activity['details'][0]
-                        
-                        # Validate required fields
-                        if 'distance' not in details or 'duration' not in details:
-                            logger.warning(f"Cardio activity missing distance or duration: {activity['name']}")
-                            continue
-                            
-                        try:
-                            # Set activity metrics
-                            final["Total Distance"] = details['distance']
-                            final["Total Time"] = details['duration']
-                            
-                            # Calculate calories burned
-                            if self.weight is None:
-                                logger.warning(f"Cannot calculate calories - user weight not available")
-                                final["Calories Burned"] = 0
-                            else:
-                                try:
-                                    avg_pace = float(details['distance'] / details['duration'])
-                                    calories = self.__calculate_calories__(
-                                        "running", round(avg_pace, 1), self.weight, details['duration']
-                                    )
-                                    final["Calories Burned"] = calories['calories_burned']
-                                except (ZeroDivisionError, ValueError) as e:
-                                    logger.error(f"Error calculating calories: {str(e)}")
-                                    final["Calories Burned"] = 0
-                        except Exception as e:
-                            logger.error(f"Error processing cardio data: {str(e)}")
-                            logger.debug(traceback.format_exc())
-                        
-                        # Add formatted activity to results
-                        final1[activity['name']] = final
-                        logger.debug(f"Processed cardio workout: {activity['name']} - {final['Calories Burned']} calories burned")
-                    else:
-                        logger.warning(f"Unknown activity type: {activity_type}")
-                        
-                except Exception as e:
-                    logger.error(f"Error processing activity {activity_key}: {str(e)}")
-                    logger.debug(traceback.format_exc())
-                    # Continue processing other activities
-                    
-            logger.info(f"Successfully formatted {len(final1)} activities for user dashboard")
-            return final1
-            
-        except (ConnectionError, QueryError):
-            # Re-raise these specific exceptions
-            logger.debug("Re-raising specific exception")
-            raise
-        except Exception as e:
-            logger.error(f"Unexpected error in formatUserPage: {str(e)}")
-            logger.debug(traceback.format_exc())
-            raise QueryError(f"Error formatting user page: {str(e)}")
-        finally:
-            # Close connection only if we opened it
-            if should_close_conn and conn:
-                conn.close()
-                logger.debug("Closed database connection")
-                
-    
-    def __findMuscles__(self, exercise, q, conn=None):
-        findMusclesQuery = sql.SQL("""SELECT name, primary_muscle, secondary_muscles FROM exercises WHERE id = %s""")
     def formatUserPage(self, activities, conn=None):
         """
         Format workout activities data for user dashboard display.
@@ -2205,7 +2006,7 @@ class UserStats(User):
                     if 'target_steps' not in kwargs:
                         logger.warning("Cannot create steps goal - target_steps is required")
                         raise InvalidStatsDataError("target_steps is required for steps goal")
-                    query = sql.SQL("""INSERT INTO steps_goals (user_id, goal_type, target_steps, achieve_by) VALUES (%s, 'steps'::goal_type_enum, %s, %s)""")
+                    query = sql.SQL("""INSERT INTO step_goals (user_id, goal_type, target_steps, achieve_by) VALUES (%s, 'steps'::goal_type_enum, %s, %s)""")
                     cur.execute(query, (self.id, kwargs['target_steps'], kwargs['achieve_by']))
                     
                 case _:
@@ -2309,7 +2110,7 @@ class UserStats(User):
                                         )
         
         stepGoalQuery = sql.SQL("""SELECT target_steps
-                                    FROM steps_goals
+                                    FROM step_goals
                                     WHERE user_id = %s
                                     ORDER BY created_at DESC
                                     LIMIT 1;""")

@@ -357,7 +357,16 @@ def progress_prediction():
     logger.info(f"Request [{request_id}]: Progress prediction endpoint called")
     
     try:
-        user_id = request.args.get("user_id", type=int)
+        key = request.headers.get('Authorization')
+        if not key or not key.startswith('ApiKey '):
+            logger.warning(f"Request {request_id}: Missing or invalid Authorization header")
+            return jsonify({"error": "Invalid or missing authorization"}), 401
+                
+        key = key.split(' ')[1]
+        
+        key = base64.b64decode(key).decode()
+        
+        user_id = verify_key(key)
         if not user_id:
             logger.warning(f"Request [{request_id}]: Missing user_id parameter")
             return jsonify({"error": "Missing user_id"}), 400

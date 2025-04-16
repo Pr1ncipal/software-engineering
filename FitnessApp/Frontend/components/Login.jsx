@@ -129,7 +129,7 @@ export default function LoginForm({ onLogin }) {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000); // 5-second timeout
       
-      const response = await fetch('http://10.28.4.234:8080/api/user/validate-token', {
+      const response = await fetch('http://localhost:8080/api/user/validate-token', {
         method: 'GET',
         headers: { 
           'Authorization': `ApiKey ${token}`,
