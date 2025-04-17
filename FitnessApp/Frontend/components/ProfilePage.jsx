@@ -10,6 +10,9 @@ import ChooseExercise from './chooseExercise';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { useNavigation } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useFonts } from 'expo-font';
+
 
 // Create a custom input component that works better with React Native
 const CustomDatePickerInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
@@ -708,6 +711,12 @@ const ProfilePage = () => {
     return actualData.length;
   };
 
+  const [fontsLoaded] = useFonts({
+    'RalewayRegular': require('../assets/fonts/Raleway-Regular.ttf'),
+  });
+  if (!fontsLoaded) return null;
+  
+
   // Replace the existing renderWeightChart or prepareChartData function with this:
   const renderWeightChart = () => {
     // Fallback to basic chart if predictive data isn't available
@@ -966,7 +975,11 @@ const ProfilePage = () => {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <LinearGradient
+      colors={['#007AFF', '#B3E5FC',]}
+      style={{ flex: 1 }}
+    >
+      <ScrollView contentContainerStyle={styles.container}>
       {/* Web-based alert - replaced Platform.OS check with direct web detection */}
       {typeof document !== 'undefined' && alertOpen && (
         <div
@@ -1093,6 +1106,11 @@ const ProfilePage = () => {
 
       {/* Profile Header Section */}
       <View style={styles.profileHeader}>
+      <View style={styles.titleContainer}>
+      <Text style={styles.title}>Profile</Text>
+     <View style={styles.titleUnderline} />
+    </View>
+
         <Image
           source={{ uri: 'https://picsum.photos/id/73/400' }}
           style={styles.profilePicture}
@@ -1433,12 +1451,34 @@ const ProfilePage = () => {
           <ChooseExercise onExerciseSelect={handleExerciseSelect} />
         </View>
       </Modal>
-    </ScrollView>
+      </ScrollView>
+  </LinearGradient>
   );
 };
 
 // Add calendar-specific styles
 const styles = StyleSheet.create({
+  titleContainer: {
+    alignItems: 'center',
+    marginBottom: 25,
+    marginTop: 0,
+  },
+  title: {
+    fontSize: 60,
+    fontFamily: 'RalewayRegular',
+    color: '#ffffff',
+    textAlign: 'center',
+  },
+  titleUnderline: {
+    marginTop: 10,
+    width: 120,
+    height: 4,
+    backgroundColor: '#ffffff',
+    borderRadius: 2,
+  },
+  
+
+
   // Update these specific styles
   calendarContainer: {
     marginBottom: 16,
@@ -1468,6 +1508,7 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: 'bold',
     marginBottom: 5,
+    color: '#ffffff',
   },
   username: {
     fontSize: 16,
@@ -1477,7 +1518,7 @@ const styles = StyleSheet.create({
   bio: {
     fontSize: 16,
     textAlign: 'center',
-    color: '#666',
+    color: '#000000',
     marginBottom: 10,
     maxWidth: '80%',
   },
