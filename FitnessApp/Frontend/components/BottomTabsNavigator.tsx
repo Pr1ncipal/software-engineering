@@ -18,7 +18,8 @@ export default function BottomTabsNavigator() {
     <View style={{ flex: 1 }}>
       <Tab.Navigator
         screenOptions={({ route }) => ({
-          tabBarIcon: ({ focused, color, size }) => {
+          tabBarShowLabel: false,
+          tabBarIcon: ({ focused, color, size }) => {        
             let iconName = '';
 
             switch (route.name) {
@@ -41,12 +42,12 @@ export default function BottomTabsNavigator() {
 
             return (
               <View style={focused ? styles.bubble : null}>
-                <Ionicons name={iconName as any} size={size} color={focused ? '#fff' : color} />
+                <Ionicons name={iconName as any} size={30} color="#ffffff" />
               </View>
             );
           },
-          tabBarActiveTintColor: '#fff',
-          tabBarInactiveTintColor: '#aaa',
+          tabBarActiveTintColor: '#ffffff',
+          tabBarInactiveTintColor: '#ffffff',
           tabBarStyle: styles.tabBar,
           headerShown: false,
         })}
