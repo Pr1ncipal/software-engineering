@@ -4,9 +4,12 @@ import { secureStorage, AUTH_TOKEN_KEY } from '../utils/secureStorage';
 import { isNetworkAvailable, getAuthHeaders } from '../utils/networkUtils';
 import { useNavigation } from '@react-navigation/native';
 import encode from 'jwt-encode';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useFonts } from 'expo-font';
+
 
 const StepsCalendar = () => {
-  const navigation = useNavigation(); // Replace router with navigation
+  const navigation = useNavigation(); // Replace router with navigationx
 
   // Existing states
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -507,8 +510,20 @@ const StepsCalendar = () => {
     return percentage;
   };
 
+  const [fontsLoaded] = useFonts({
+    'RalewayRegular': require('../assets/fonts/Raleway-Regular.ttf'),
+  });
+  
+  if (!fontsLoaded) return null;
+  
+
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <LinearGradient
+      colors={['#000080', '#007AFF']}
+      style={{ flex: 1 }}
+    >
+      <ScrollView contentContainerStyle={styles.container}>
+  
       {/* Back button */}
       <View style={styles.headerContainer}>
         <TouchableOpacity 
@@ -517,11 +532,13 @@ const StepsCalendar = () => {
         >
           <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Steps Tracker</Text>
+        <View style={styles.titleContainer}>
+  <Text style={styles.title}>Steps Tracker</Text>
+  <View style={styles.titleUnderline} />
+</View>
+
         <View style={styles.placeholderView} />
       </View>
-      
-      <Text style={styles.title}>Steps Tracker</Text>
 
       {/* Goal Setting Button and Progress */}
       <View style={styles.goalContainer}>
@@ -892,21 +909,36 @@ const StepsCalendar = () => {
           {alertMessage}
         </div>
       )}
-    </ScrollView>
+        </ScrollView>
+  </LinearGradient>
+
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     padding: 16,
-    backgroundColor: '#f8fafc',
+    backgroundColor: 'transparent',
   },
+  titleContainer: {
+    alignItems: 'center',
+    marginBottom: 15,
+    marginTop: 10,
+  },
+  
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 16,
+    fontSize: 60,
+    fontFamily: 'RalewayRegular',
+    color: '#ffffff',
     textAlign: 'center',
-    color: '#2d3748',
+  },
+  
+  titleUnderline: {
+    marginTop: 8,
+    width: 120,
+    height: 4,
+    backgroundColor: '#ffffff',
+    borderRadius: 2,
   },
   
   // Goal Container Styles

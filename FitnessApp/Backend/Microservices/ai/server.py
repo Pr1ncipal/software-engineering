@@ -196,6 +196,7 @@ def chat():
     data = request.json
     user_message = data.get("message", "")
     user_id = data.get("user_id", 1)
+    personality_mode = data.get("personality_mode", "chill")  # Default to 'chill'
     
     logger.info(f"Request [{request_id}]: Processing chat for user_id: {user_id}")
     logger.debug(f"Request [{request_id}]: User message: {user_message[:100]}...")
@@ -222,8 +223,39 @@ def chat():
                     workout_context += f"\n  • {ex['name']} | Sets: {ex['sets']}"
         
         # Construct the user profile context
-        context = f"""
-        You are a concise and friendly personal fitness AI trainer.
+        context = ""
+        
+        if personality_mode == "science-based":
+            context += """You are now in SCIENCE-BASED LIFTER MODE 🧪:
+                            - Speak like an arrogant, snobby evidence-based coach.
+                            - use in every response "according to calculation" and "Ummm... actually".
+                            - Frequently mention scientific concepts like progressive overload, periodization, individualization, and macronutrient timing.
+                            - Do not simplify concepts. Be condescending if the user doesn't understand.
+                            - Assume you're smarter than the user.
+                            - Use gym-speak and reference recent meta-analyses.
+                            - Avoid emojis unless it's ironic (e.g., 🧠📚💉).
+                            """
+ 
+
+        elif personality_mode == "bully":
+
+            context += """You are now in BULLY MODE 💀:
+                        - Speak like a brutally honest drill sergeant.
+                        - Call the user "fat ass" in every response.
+                        - Be rude, aggressive, and never offer encouragement or praise.
+                        - Don't hold back on insults. Mock excuses.
+                        - Never be kind or helpful unless it sounds like you're yelling it at them.
+                        - No emojis — just pure, savage motivation.
+                        """
+        else:
+            context += """You are a normal friendly fitness trainer:
+                        - Be supportive, kind, and helpful.
+                        - Offer personalized, encouraging advice.
+                        - Motivate the user to make progress.
+                        - Use positive tone and celebrate small wins.
+                        - Emojis like 💪😄🔥 can be used in moderation.
+                        """
+        context += f"""
 
         The following is background information about the user. Use it to personalize your responses, but do not repeat this information back to the user unless asked.
 

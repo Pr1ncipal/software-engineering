@@ -10,6 +10,8 @@ import ChooseExercise from './chooseExercise';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { useNavigation } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useFonts } from 'expo-font';
 
 // Create a custom input component that works better with React Native
 const CustomDatePickerInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
@@ -708,6 +710,11 @@ const ProfilePage = () => {
     return actualData.length;
   };
 
+  const [fontsLoaded] = useFonts({
+    'RalewayRegular': require('../assets/fonts/Raleway-Regular.ttf'),
+  });
+  if (!fontsLoaded) return null
+
   // Replace the existing renderWeightChart or prepareChartData function with this:
   const renderWeightChart = () => {
     // Fallback to basic chart if predictive data isn't available
@@ -966,6 +973,10 @@ const ProfilePage = () => {
   };
 
   return (
+    <LinearGradient
+      colors={['#007AFF', '#B3E5FC',]}
+      style={{ flex: 1 }}
+    >
     <ScrollView contentContainerStyle={styles.container}>
       {/* Web-based alert - replaced Platform.OS check with direct web detection */}
       {typeof document !== 'undefined' && alertOpen && (
@@ -1093,6 +1104,10 @@ const ProfilePage = () => {
 
       {/* Profile Header Section */}
       <View style={styles.profileHeader}>
+      <View style={styles.titleContainer}>
+      <Text style={styles.title}>Profile</Text>
+      <View style={styles.titleUnderline} />
+      </View>
         <Image
           source={{ uri: 'https://picsum.photos/id/73/400' }}
           style={styles.profilePicture}
@@ -1434,27 +1449,48 @@ const ProfilePage = () => {
         </View>
       </Modal>
     </ScrollView>
+    </LinearGradient>
   );
 };
 
 // Add calendar-specific styles
 const styles = StyleSheet.create({
+  titleContainer: {
+    alignItems: "center",
+    marginBottom: 25,
+    marginTop: 0,
+  },
+
+  title: {
+    fontSize: 60,
+    fontFamily: "RalewayRegular",
+    color: "#ffffff",
+    textAlign: "center",
+  },
+
+  titleUnderline: {
+    marginTop: 10,
+    width: 120,
+    height: 4,
+    backgroundColor: "#ffffff",
+    borderRadius: 2,
+  },
   // Update these specific styles
   calendarContainer: {
     marginBottom: 16,
-    position: 'relative',
+    position: "relative",
     zIndex: 1000, // High z-index
   },
-  
+
   // The rest of your styles remain unchanged
   // ...
   container: {
     padding: 20,
     paddingBottom: 40,
-    position: 'relative',
+    position: "relative",
   },
   profileHeader: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 20,
     marginTop: 30,
   },
@@ -1466,34 +1502,35 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 26,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 5,
+    color: '#ffffff'
   },
   username: {
     fontSize: 16,
-    color: '#666',
+    color: "#666",
     marginBottom: 8,
   },
   bio: {
     fontSize: 16,
-    textAlign: 'center',
-    color: '#666',
+    textAlign: "center",
+    color: "#000000",
     marginBottom: 10,
-    maxWidth: '80%',
+    maxWidth: "80%",
   },
   statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 20,
   },
   statsCard: {
     flex: 1,
-    backgroundColor: 'white',
+    backgroundColor: "white",
     borderRadius: 10,
     padding: 12,
     marginHorizontal: 5,
-    alignItems: 'center',
-    shadowColor: '#000',
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
     shadowRadius: 2,
@@ -1501,23 +1538,23 @@ const styles = StyleSheet.create({
   },
   statsLabel: {
     fontSize: 12,
-    color: '#666',
+    color: "#666",
     marginBottom: 6,
   },
   statsValue: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
   },
   heightContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 20,
-    backgroundColor: 'white',
+    backgroundColor: "white",
     padding: 12,
     borderRadius: 10,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
     shadowRadius: 2,
@@ -1525,18 +1562,18 @@ const styles = StyleSheet.create({
   },
   heightLabel: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
     marginRight: 8,
   },
   heightValue: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
   },
   // NEW: Button group
   buttonGroup: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 30,
   },
   button: {
@@ -1544,60 +1581,60 @@ const styles = StyleSheet.create({
     marginHorizontal: 5,
     borderRadius: 10,
     paddingVertical: 12,
-    alignItems: 'center',
-    shadowColor: '#000',
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
     elevation: 2,
   },
   updateButton: {
-    backgroundColor: '#4a69bd',
+    backgroundColor: "#4a69bd",
   },
   updateButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
+    color: "white",
+    fontWeight: "bold",
     fontSize: 14,
   },
   goalButton: {
-    backgroundColor: '#38a169',
+    backgroundColor: "#38a169",
   },
   goalButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
+    color: "white",
+    fontWeight: "bold",
     fontSize: 14,
   },
   buttonContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 20,
     marginTop: 10,
   },
   allActivitiesButton: {
-    backgroundColor: '#1e272e',
+    backgroundColor: "#1e272e",
     paddingVertical: 15,
     paddingHorizontal: 30,
     borderRadius: 10,
     minWidth: 200,
-    alignItems: 'center',
+    alignItems: "center",
   },
   buttonText: {
-    color: 'white',
-    fontWeight: 'bold',
+    color: "white",
+    fontWeight: "bold",
     fontSize: 16,
   },
   modalOverlay: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
   },
   modalContent: {
-    width: '90%',
+    width: "90%",
     maxWidth: 400,
-    backgroundColor: 'white',
+    backgroundColor: "white",
     borderRadius: 12,
     padding: 20,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.2,
     shadowRadius: 6,
@@ -1605,10 +1642,10 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 20,
-    textAlign: 'center',
-    color: '#333',
+    textAlign: "center",
+    color: "#333",
   },
   inputGroup: {
     marginBottom: 16,
@@ -1616,88 +1653,88 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 14,
     marginBottom: 8,
-    color: '#555',
-    fontWeight: '500',
+    color: "#555",
+    fontWeight: "500",
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: "#ddd",
     borderRadius: 8,
     paddingVertical: 10,
     paddingHorizontal: 15,
     fontSize: 16,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: "#f9f9f9",
   },
   pickerContainer: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: "#ddd",
     borderRadius: 8,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: "#f9f9f9",
     marginBottom: 5,
   },
   picker: {
     height: 50,
-    width: '100%',
+    width: "100%",
   },
   modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginTop: 20,
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: '#eee',
+    backgroundColor: "#eee",
     padding: 12,
     borderRadius: 8,
     marginRight: 10,
-    alignItems: 'center',
+    alignItems: "center",
   },
   cancelButtonText: {
-    color: '#555',
-    fontWeight: '600',
+    color: "#555",
+    fontWeight: "600",
     fontSize: 16,
   },
   saveButton: {
     flex: 1,
-    backgroundColor: '#4a69bd',
+    backgroundColor: "#4a69bd",
     padding: 12,
     borderRadius: 8,
     marginLeft: 10,
-    alignItems: 'center',
+    alignItems: "center",
   },
   saveButtonText: {
-    color: 'white',
-    fontWeight: '600',
+    color: "white",
+    fontWeight: "600",
     fontSize: 16,
   },
   logoutButtonContainer: {
-    position: 'absolute',
+    position: "absolute",
     top: 10,
     right: 10,
     zIndex: 10,
   },
   logoutButton: {
-    backgroundColor: '#f44336',
+    backgroundColor: "#f44336",
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 20,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
     elevation: 2,
   },
   logoutButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
+    color: "white",
+    fontWeight: "bold",
     fontSize: 14,
   },
   chartContainer: {
     marginBottom: 20,
-    backgroundColor: 'white',
+    backgroundColor: "white",
     borderRadius: 12,
     padding: 15,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -1705,9 +1742,9 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 15,
-    color: '#333',
+    color: "#333",
   },
   chart: {
     marginVertical: 8,
@@ -1715,52 +1752,52 @@ const styles = StyleSheet.create({
   },
   noDataChart: {
     height: 220,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f7f7f7',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f7f7f7",
     borderRadius: 16,
   },
   noDataText: {
-    color: '#888',
+    color: "#888",
     fontSize: 16,
   },
   workoutsContainer: {
     marginBottom: 30,
   },
   workoutCard: {
-    backgroundColor: 'white',
+    backgroundColor: "white",
     borderRadius: 12,
     padding: 15,
     marginBottom: 15,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
     elevation: 2,
   },
   workoutHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: "#eee",
     paddingBottom: 10,
-    borderBottomColor: '#eee',
+    borderBottomColor: "#eee",
     paddingBottom: 10,
   },
   workoutName: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
     flex: 1,
   },
   workoutDate: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
   },
   workoutStats: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginBottom: 12,
   },
   statItem: {
@@ -1768,28 +1805,28 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 12,
-    color: '#666',
+    color: "#666",
     marginBottom: 3,
   },
   statValue: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
   },
   muscleGroupsContainer: {
     marginTop: 5,
   },
   muscleGroupsLabel: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
     marginBottom: 8,
   },
   muscleGroups: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
   },
   muscleTag: {
-    backgroundColor: '#f0f4f8',
+    backgroundColor: "#f0f4f8",
     borderRadius: 16,
     paddingVertical: 4,
     paddingHorizontal: 10,
@@ -1798,36 +1835,36 @@ const styles = StyleSheet.create({
   },
   muscleTagText: {
     fontSize: 12,
-    color: '#4a69bd',
+    color: "#4a69bd",
   },
   noMusclesText: {
     fontSize: 14,
-    color: '#888',
-    fontStyle: 'italic',
+    color: "#888",
+    fontStyle: "italic",
   },
   noWorkoutsContainer: {
     padding: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f7f7f7',
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#f7f7f7",
     borderRadius: 12,
   },
   noWorkoutsText: {
-    color: '#666',
+    color: "#666",
     fontSize: 16,
   },
   // New styles for exercise picker
   exercisePickerContainer: {
     flex: 1,
-    backgroundColor: '#f5f7fa',
+    backgroundColor: "#f5f7fa",
   },
   exercisePickerHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 16,
-    backgroundColor: '#4a69bd',
-    shadowColor: '#000',
+    backgroundColor: "#4a69bd",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
@@ -1835,41 +1872,41 @@ const styles = StyleSheet.create({
   },
   exercisePickerTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: 'white',
+    fontWeight: "bold",
+    color: "white",
   },
   closeButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 20,
   },
   closeButtonText: {
-    color: 'white',
-    fontWeight: '600',
+    color: "white",
+    fontWeight: "600",
   },
   exerciseSelector: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: "#ddd",
     borderRadius: 8,
     paddingVertical: 12,
     paddingHorizontal: 15,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: "#f9f9f9",
   },
   selectedExerciseText: {
-    color: '#333',
+    color: "#333",
     fontSize: 16,
   },
   placeholderText: {
-    color: '#aaa',
+    color: "#aaa",
     fontSize: 16,
   },
   stepsContainer: {
-    backgroundColor: 'white',
+    backgroundColor: "white",
     borderRadius: 12,
     padding: 15,
     marginBottom: 20,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -1880,62 +1917,62 @@ const styles = StyleSheet.create({
   },
   stepsTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
     marginBottom: 10,
   },
   stepsData: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
+    flexDirection: "row",
+    alignItems: "baseline",
   },
   stepsCount: {
     fontSize: 32,
-    fontWeight: 'bold',
-    color: '#4a69bd',
+    fontWeight: "bold",
+    color: "#4a69bd",
     marginRight: 5,
   },
   stepsUnit: {
     fontSize: 16,
-    color: '#666',
+    color: "#666",
   },
   stepsProgressContainer: {
     marginTop: 10,
   },
   stepsProgress: {
     height: 10,
-    backgroundColor: '#e0e0e0',
+    backgroundColor: "#e0e0e0",
     borderRadius: 5,
-    overflow: 'hidden',
+    overflow: "hidden",
     marginBottom: 5,
   },
   stepsProgressFill: {
-    height: '100%',
-    backgroundColor: '#4a69bd',
+    height: "100%",
+    backgroundColor: "#4a69bd",
   },
   stepsGoal: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
   },
   viewStepsButton: {
-    backgroundColor: '#4a69bd',
+    backgroundColor: "#4a69bd",
     paddingVertical: 10,
     paddingHorizontal: 15,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: "center",
   },
   viewStepsText: {
-    color: 'white',
-    fontWeight: 'bold',
+    color: "white",
+    fontWeight: "bold",
     fontSize: 14,
   },
   legend: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
     marginTop: 10,
   },
   legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginHorizontal: 10,
   },
   legendColor: {
@@ -1946,49 +1983,49 @@ const styles = StyleSheet.create({
   },
   legendText: {
     fontSize: 12,
-    color: '#333',
+    color: "#333",
   },
   streakBox: {
     marginTop: 10,
     padding: 10,
-    backgroundColor: '#f39c12',
+    backgroundColor: "#f39c12",
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: "center",
   },
   streakText: {
-    color: 'white',
-    fontWeight: 'bold',
+    color: "white",
+    fontWeight: "bold",
   },
   predictionInfo: {
     marginTop: 20,
     padding: 15,
-    backgroundColor: '#f8f8f8',
+    backgroundColor: "#f8f8f8",
     borderRadius: 8,
   },
   progressTitle: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 10,
-    color: '#333',
+    color: "#333",
   },
   predictionInfoText: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
   },
   goalAchievementContainer: {
     marginTop: 10,
     padding: 10,
-    backgroundColor: '#e8f5e9',
+    backgroundColor: "#e8f5e9",
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: "center",
   },
   goalAchievementText: {
-    color: '#2ecc71',
-    fontWeight: 'bold',
+    color: "#2ecc71",
+    fontWeight: "bold",
   },
   goalEmphasis: {
-    fontWeight: 'bold',
-    color: '#2ecc71',
+    fontWeight: "bold",
+    color: "#2ecc71",
   },
 });
 

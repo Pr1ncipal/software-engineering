@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { getUserId } from "../utils/getUserId"; // adjust path if needed
+import { secureStorage } from "../utils/secureStorage"; // Make sure this import is correct
 
 const App = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -15,6 +16,7 @@ const App = () => {
   const messagesEndRef = useRef(null);
   const recognitionRef = useRef(null);
   const speechSynthesisRef = useRef(window.speechSynthesis);
+  const [personalityMode, setPersonalityMode] = useState("chill");
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -35,29 +37,21 @@ const App = () => {
 
   useEffect(() => {
     const loadGreeting = async () => {
-      const username = getUsernameFromStorage();
-      const userId = username ? await getUserId(username) : null;
-      if (!userId) {
-        setMessages([{ sender: "bot", text: "Hi 👋 How can I help you with your fitness journey today?" }]);
-        return;
+      // Use secureStorage to get the username
+      const username = await secureStorage.getItem("savedUsername");
+      let name = null;
+      if (username) {
+        try {
+          // If username is a JSON string, parse it, otherwise use as is
+          name = typeof username === "string" ? username : String(username);
+        } catch {
+          name = username;
+        }
       }
-      fetch("http://localhost:5000/user_name", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: userId })
-      })
-        .then(res => res.json())
-        .then(data => {
-          const name = data.first_name;
-          setUserName(name);
-          setMessages([
-            { sender: "bot", text: `Hi ${name} 👋 How can I help you with your fitness journey today?` }
-          ]);
-        })
-        .catch(err => {
-          console.error("Name fetch error:", err);
-          setMessages([{ sender: "bot", text: "Hi 👋 How can I help you with your fitness journey today?" }]);
-        });
+      setUserName(name);
+      setMessages([
+        { sender: "bot", text: `Hi${name ? ` ${name}` : ""} 👋 How can I help you with your fitness journey today?` }
+      ]);
     };
     if (isOpen && messages.length === 0) {
       loadGreeting();
@@ -125,7 +119,9 @@ const App = () => {
       const response = await fetch("http://localhost:5000/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: input, user_id: userId }),
+        body: JSON.stringify({ message: input, 
+                              user_id: userId,
+                              personality_mode: personalityMode }),
       });
       const data = await response.json();
       const botMessage = { sender: "bot", text: data.response };
