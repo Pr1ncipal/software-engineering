@@ -1792,10 +1792,9 @@ class UserStats(User):
     
     def getFamilyWorkouts(self, conn = None):
         """
-        Gets the family workouts for the user
+        Gets the family workouts for the user across all families they belong to
         
         :param conn: The connection to the database
-        
         :type conn: psycopg2.connection
         
         :return: The family workouts
@@ -1813,36 +1812,47 @@ class UserStats(User):
         
         cur = conn.cursor()
         
-        # Modified query using LATERAL JOIN to handle unnesting properly
-        # Added condition to exclude the current user (WHERE fm.family_id = %s AND fm.user_id != %s)
-        query = sql.SQL("""WITH latest_workouts AS (
-                                SELECT DISTINCT ON (w.user_id)
-                                    w.id AS workout_id,
-                                    w.user_id,
-                                    w.workout_date
-                                FROM workouts w
-                                JOIN family_members fm ON fm.user_id = w.user_id
-                                WHERE fm.family_id = (SELECT family_id FROM family_members WHERE user_id = %s)
-                                  AND w.user_id != %s  -- Exclude the current user
-                                ORDER BY w.user_id, w.workout_date DESC
-                            )
+        # Modified query to include family name
+        query = sql.SQL("""WITH user_families AS (
+                            SELECT fm.family_id, f.family_name AS family_name
+                            FROM family_members fm
+                            JOIN family f ON fm.family_id = f.id
+                            WHERE fm.user_id = %s
+                        ),
+                        family_members_in_user_families AS (
+                            SELECT fm.user_id, uf.family_name
+                            FROM family_members fm
+                            JOIN user_families uf ON fm.family_id = uf.family_id
+                            WHERE fm.user_id != %s  -- Exclude the current user
+                        ),
+                        latest_workouts AS (
+                            SELECT DISTINCT ON (w.user_id)
+                                w.id AS workout_id,
+                                w.user_id,
+                                w.workout_date,
+                                fmu.family_name
+                            FROM workouts w
+                            JOIN family_members_in_user_families fmu ON fmu.user_id = w.user_id
+                            ORDER BY w.user_id, w.workout_date DESC
+                        )
 
-                            SELECT 
-                                u.username AS family_member,
-                                lw.workout_date,
-                                array_agg(DISTINCT e.primary_muscle) AS primary_muscles_hit,
-                                array_agg(DISTINCT sm.muscle) AS secondary_muscles_hit
-                            FROM latest_workouts lw
-                            JOIN users u ON u.id = lw.user_id
-                            JOIN workout_exercises we ON we.workout_id = lw.workout_id
-                            JOIN exercises e ON e.id = we.exercise_id
-                            LEFT JOIN LATERAL unnest(e.secondary_muscles) AS sm(muscle) ON TRUE
-                            GROUP BY u.username, lw.workout_date
-                            ORDER BY lw.workout_date DESC;
-                        """)
+                        SELECT 
+                            u.username AS family_member,
+                            lw.workout_date,
+                            array_agg(DISTINCT e.primary_muscle) AS primary_muscles_hit,
+                            array_agg(DISTINCT sm.muscle) AS secondary_muscles_hit,
+                            lw.family_name
+                        FROM latest_workouts lw
+                        JOIN users u ON u.id = lw.user_id
+                        JOIN workout_exercises we ON we.workout_id = lw.workout_id
+                        JOIN exercises e ON e.id = we.exercise_id
+                        LEFT JOIN LATERAL unnest(e.secondary_muscles) AS sm(muscle) ON TRUE
+                        GROUP BY u.username, lw.workout_date, lw.family_name
+                        ORDER BY lw.workout_date DESC;
+                    """)
         
         try:
-            # Pass the user ID twice - once to find the family_id and once to exclude self
+            # Pass the user ID twice - once to find all families and once to exclude self
             cur.execute(query, (self.id, self.id))
             result = cur.fetchall()
             logger.debug(f"Fetched family workouts for user ID {self.id}: {result}")
@@ -1852,7 +1862,7 @@ class UserStats(User):
                 return []
             else:
                 # Process the result into a more readable format
-                keys = ("family_member", "workout_date", "primary_muscles_hit", "secondary_muscles_hit")
+                keys = ("family_member", "workout_date", "primary_muscles_hit", "secondary_muscles_hit", "family_name")
                 raw_data = self.__jsonifyTuple__(result, keys)
                 
                 # Clean up the array strings and convert to proper lists
