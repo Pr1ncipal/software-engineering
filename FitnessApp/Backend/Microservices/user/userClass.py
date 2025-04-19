@@ -2177,11 +2177,13 @@ class UserStats(User):
                 logger.error(f"Error executing step goal query: {str(e)}")
                 stepGoal = None
             
+            
+            
             statistics = {
                 "weekly_steps": weeklySteps[0] if weeklySteps else 0,
                 "monthly_steps": monthlySteps[0] if monthlySteps else 0,
                 "current_streak": currentStreak[0] if currentStreak else 0,
-                "average_steps": round(float(averageSteps[0]), 2) if averageSteps else 0
+                "average_steps": round(float(averageSteps[0]), 2) if averageSteps[0] is not None else 0
             }
             
             userInfo = {'username': self.username, "step_goal": stepGoal[0] if stepGoal else 0}

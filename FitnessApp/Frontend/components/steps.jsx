@@ -342,15 +342,20 @@ const StepsCalendar = () => {
       
       // Create JWT token
       const jwt = encode(payload, token);
+
+      const authheaders = getAuthHeaders(token);
       
       // Send data to API
+
+      console.log('Headers: ', authheaders);
+
       const url = 'http://localhost:8080/api/user/add_step_data';
       const response = await fetch(url, {
         method: 'POST',
         headers: {
-          'Authorization': `ApiKey ${jwt}`,
-          'Content-Type': 'application/json'
-        }
+          ...authheaders,
+        },
+        body: JSON.stringify({token: jwt})
       });
       
       if (!response.ok) {

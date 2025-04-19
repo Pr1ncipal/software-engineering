@@ -9,7 +9,7 @@ import { Picker } from '@react-native-picker/picker';
 import ChooseExercise from './chooseExercise';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, CommonActions } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts } from 'expo-font';
 
@@ -571,19 +571,50 @@ const ProfilePage = () => {
       setIsLoading(true);
       // Clear the auth token from secure storage
       await secureStorage.removeItem(AUTH_TOKEN_KEY);
+      await secureStorage.removeItem('username'); // Clear any other auth-related items
       
       showAlert('Logged out successfully!', 'success');
       
       // Close the dialog
       setLogoutDialogOpen(false);
       
-      // Navigate to login page after a short delay
+      // For web-only implementation: reload the application
+      if (typeof window !== 'undefined') {
+        // Set the authentication flag to false
+        await secureStorage.setItem('isAuthenticated', 'false');
+        
+        // Reload the app to force a complete reset of navigation state
+        window.location.href = '/'; // Navigate to the root URL
+        return; // Exit early for web
+      }
+      
+      // For React Native, try to go back to the login screen
+      // This assumes your navigation structure has 'Login' at the root level
       setTimeout(() => {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Login' }],
-        });
-      }, 1500);
+        try {
+          // Try to access the root navigation
+          const rootNav = navigation.getParent()?.getParent();
+          if (rootNav) {
+            // Reset the root navigator to show only the Login screen
+            rootNav.reset({
+              index: 0,
+              routes: [{ name: 'Login' }]
+            });
+          } else {
+            // If we can't get the root navigator, try other approaches
+            navigation.reset({
+              index: 0,
+              routes: [{ name: 'Login' }]
+            });
+          }
+        } catch (navError) {
+          console.error('Navigation error:', navError);
+          // Last resort: reload the app
+          if (typeof window !== 'undefined') {
+            window.location.reload();
+          }
+        }
+      }, 1000);
     } catch (error) {
       console.error('Error during logout:', error);
       showAlert('Error logging out. Please try again.', 'error');

@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createStackNavigator, CardStyleInterpolators } from '@react-navigation/stack';
+import { secureStorage, AUTH_TOKEN_KEY } from '@/utils/secureStorage';
 
 import RegisterForm from '@/components/RegisterForm';
 import OnboardingScreen from '@/components/OnboardingScreen';
@@ -11,6 +12,16 @@ const Stack = createStackNavigator();
 export default function AppNavigator() {
   const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  
+  // Check if user is logged in on startup
+  useEffect(() => {
+    const checkLoginStatus = async () => {
+      const token = await secureStorage.getItem(AUTH_TOKEN_KEY);
+      setIsLoggedIn(!!token);
+    };
+    
+    checkLoginStatus();
+  }, []);
 
   return (
     <Stack.Navigator
@@ -24,31 +35,26 @@ export default function AppNavigator() {
         cardStyleInterpolator: CardStyleInterpolators.forFadeFromBottomAndroid,
       }}
     >
-      {!isOnboardingComplete && (
+      {!isOnboardingComplete ? (
         <Stack.Screen
           name="Onboarding"
           children={() => (
             <OnboardingScreen onComplete={() => setIsOnboardingComplete(true)} />
           )}
         />
-      )}
-
-      {isOnboardingComplete && !isLoggedIn && (
-        <Stack.Screen
-          name="Login"
-          children={() => <Login onLogin={() => setIsLoggedIn(true)} />}
-        />
-      )}
-
-      {isOnboardingComplete && !isLoggedIn && (
-        <Stack.Screen
-          name="RegisterForm"
-          children={() => <RegisterForm onLogin={() => setIsLoggedIn(true)} />}
-        />
-      )}
-
-      {isOnboardingComplete && isLoggedIn && (
+      ) : isLoggedIn ? (
         <Stack.Screen name="MainTabs" component={BottomTabsNavigator} />
+      ) : (
+        <>
+          <Stack.Screen
+            name="Login"
+            children={() => <Login onLogin={() => setIsLoggedIn(true)} />}
+          />
+          <Stack.Screen
+            name="RegisterForm"
+            children={() => <RegisterForm onLogin={() => setIsLoggedIn(true)} />}
+          />
+        </>
       )}
     </Stack.Navigator>
   );

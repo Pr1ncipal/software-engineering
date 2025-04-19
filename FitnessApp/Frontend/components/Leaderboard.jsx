@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, 
@@ -20,12 +18,13 @@ import { LineChart, BarChart, PieChart } from 'react-native-chart-kit';
 import { secureStorage } from '@/utils/secureStorage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts } from 'expo-font';
+import { isNetworkAvailable, getAuthHeaders } from '../utils/networkUtils';
+import { AUTH_TOKEN_KEY } from '../utils/secureStorage';
 
 const { width } = Dimensions.get('window');
 
 const API_URL = 'http://127.0.0.1:8080/api/leaderboard/get_leaderboard';
 //const apiKey = 'TVhFMXpWLSFhVkkreDVxU1BfVCNmMkUqKU1uRThWNFd0TFVGKV49PF98M1wpX0tkfm4zYkBiR1wueG1rfGotLg==';
-const AUTH_TOKEN_KEY = 'authToken';
 
 // Workout ID mapping
 const WORKOUT_IDS = {
@@ -38,11 +37,13 @@ const LeaderboardPage = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [activeCategory, setActiveCategory] = useState('steps');
-  const [currentWorkout, setCurrentWorkout] = useState('273'); // Default to bench press ID
+  const [currentWorkout, setCurrentWorkout] = useState(WORKOUT_IDS.bench); // Default to bench press ID
+  const [selectedDays, setSelectedDays] = useState(7);
   const [error, setError] = useState(null);
   const [categoryErrors, setCategoryErrors] = useState({});
   const [chartData, setChartData] = useState(null);
   const [showChart, setShowChart] = useState(false);
+  const [healthData, setHealthData] = useState({ overall: 0, components: [] });
   
   // Ref to track mounted state
   const isMounted = useRef(true);
@@ -53,112 +54,171 @@ const LeaderboardPage = () => {
     };
   }, []);
 
-  const fetchLeaderboard = async (category, workout = '') => {
-    if (isMounted.current) {
-      setLoading(true);
-      setError(null);
+  const getAuthHeaders = async () => {
+    try {
+      const storedApiKey = await secureStorage.getItem(AUTH_TOKEN_KEY);
+      if (!storedApiKey) throw new Error('API key is missing. Please log in again');
+      
+      const encodedKey = Buffer.from(storedApiKey).toString('base64');
+      return { 
+        'Authorization': `ApiKey ${encodedKey}`,
+        'Content-Type': 'application/json'
+      };
+    } catch (error) {
+      console.error('Error getting auth headers:', error);
+      throw error;
     }
+  };
+
+  const fetchLeaderboard = async (category, workout = '') => {
+    if (!isMounted.current) return;
     
-    // For health category, we don't need to fetch from API
+    setLoading(true);
+    setError(null);
+    
+    // For health category, calculate health score instead of fetching from API
     if (category === 'health') {
+      await fetchHealthScore();
       if (isMounted.current) {
-        setLoading(false);
-        setData([]);
         setShowChart(true);
+        setLoading(false);
       }
       return;
     }
     
     try {
-
-      const storedApiKey = await secureStorage.getItem(AUTH_TOKEN_KEY)
-      
-      const encodedKey = Buffer.from(storedApiKey).toString('base64');
-      if (!storedApiKey){
-        throw new Error('API key is missing. Please log in again')
-      }
-      const queryParams = new URLSearchParams({
-        category, 
-        days: '7',
+      const headers = await getAuthHeaders();
+      const params = new URLSearchParams({
+        category,
+        days: selectedDays.toString(),
         scope: 'global',
         workout: category === '1rm' ? workout : '',
-        number: '10'
+        number: '10',
       }).toString();
-  
-      const response = await fetch(`${API_URL}?${queryParams}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `ApiKey ${encodedKey}`
-        }
+      
+      const response = await fetch(`${API_URL}?${params}`, { 
+        method: 'GET', 
+        headers 
       });
       
-      const responseText = await response.text();
-      console.log(`${category} API Response:`, response.status, responseText);
-  
+      const text = await response.text();
+      
       if (!response.ok) {
-        // Store error status for this specific category
+        console.warn(`Leaderboard fetch error for ${category}:`, text);
         if (isMounted.current) {
-          setCategoryErrors(prev => ({
-            ...prev, 
-            [category]: response.status
-          }));
-          
-          if (response.status === 500) {
-            setError(`Server error occurred for ${category}`);
-            setData([]);
-          } else {
-            try {
-              const errorData = JSON.parse(responseText);
-              if (errorData.error === 'no_leaderboard_data') {
-                setError('No leaderboard data available');
-                setData([]);
-              } else {
-                setError(`Error: ${errorData.error || 'Unknown error'}`);
-              }
-            } catch (e) {
-              setError('Failed to parse error response');
-            }
-          }
-          setLoading(false);
-        }
-        return;
-      }
-  
-      // Clear error for this category if it was successful
-      if (isMounted.current) {
-        setCategoryErrors(prev => {
-          const newErrors = {...prev};
-          delete newErrors[category];
-          return newErrors;
-        });
-      }
-      
-      let result;
-      try {
-        result = JSON.parse(responseText);
-      } catch (e) {
-        if (isMounted.current) {
-          setError('Failed to parse leaderboard data');
+          setData([]);
+          setError('No leaderboard data available.');
           setLoading(false);
         }
         return;
       }
       
+      const { leaderboard } = JSON.parse(text);
+      
       if (isMounted.current) {
-        setData(result.leaderboard);
-        generateChartData(result.leaderboard, category);
+        setData(leaderboard);
+        generateChartData(leaderboard, category);
+        setShowChart(true);
         setError(null);
       }
     } catch (error) {
       console.error('Error fetching leaderboard:', error);
       if (isMounted.current) {
-        setError('Failed to fetch leaderboard');
+        setError('Failed to fetch leaderboard data.');
+        setData([]);
+      }
+    } finally {
+      if (isMounted.current) {
+        setLoading(false);
       }
     }
-    if (isMounted.current) {
-      setLoading(false);
+  };
+  
+  const fetchLeaderboardData = async (category, workout = '') => {
+    try {
+      const headers = await getAuthHeaders();
+      const params = new URLSearchParams({
+        category,
+        days: selectedDays.toString(),
+        scope: 'global',
+        workout: category === '1rm' ? workout : '',
+        number: '100',
+      }).toString();
+      
+      const res = await fetch(`${API_URL}?${params}`, { 
+        method: 'GET', 
+        headers 
+      });
+      
+      const text = await res.text();
+      if (!res.ok) throw new Error('Failed to fetch leaderboard data');
+      
+      const { leaderboard } = JSON.parse(text);
+      return leaderboard;
+    } catch (error) {
+      console.error('Error fetching leaderboard data:', error);
+      return [];
     }
+  };
+
+  const fetchHealthScore = async () => {
+    if (!isMounted.current) return;
+    
+    setLoading(true);
+    try {
+      const username = await secureStorage.getItem('username');
+      const [stepsData, benchData, squatData, deadliftData, workoutsData] = await Promise.allSettled([
+        fetchLeaderboardData('steps'),
+        fetchLeaderboardData('1rm', WORKOUT_IDS.bench),
+        fetchLeaderboardData('1rm', WORKOUT_IDS.squat),
+        fetchLeaderboardData('1rm', WORKOUT_IDS.deadlift),
+        fetchLeaderboardData('workouts'),
+      ]);
+
+      const stepsScore = stepsData.status === 'fulfilled' ? calculateUserScore(stepsData.value, username, 15000) : 0;
+      const benchScore = benchData.status === 'fulfilled' ? calculateUserScore(benchData.value, username, 225) : 0;
+      const squatScore = squatData.status === 'fulfilled' ? calculateUserScore(squatData.value, username, 315) : 0;
+      const deadliftScore = deadliftData.status === 'fulfilled' ? calculateUserScore(deadliftData.value, username, 425) : 0;
+      const workoutsScore = workoutsData.status === 'fulfilled' ? calculateWorkoutScore(workoutsData.value, username) : 0;
+
+      const strengthScore = Math.round((benchScore + squatScore + deadliftScore) / 3);
+      const overallScore = Math.round((stepsScore * 0.35) + (strengthScore * 0.40) + (workoutsScore * 0.25));
+
+      if (isMounted.current) {
+        setHealthData({
+          overall: overallScore,
+          components: [
+            { name: 'Steps', value: stepsScore, color: '#4169E1', legendFontColor: '#7F7F7F', legendFontSize: 12 },
+            { name: 'Strength', value: strengthScore, color: '#5856D6', legendFontColor: '#7F7F7F', legendFontSize: 12 },
+            { name: 'Workouts', value: workoutsScore, color: '#FF9500', legendFontColor: '#7F7F7F', legendFontSize: 12 },
+          ],
+        });
+      }
+    } catch (error) {
+      console.error('Error calculating health score', error);
+    } finally {
+      if (isMounted.current) {
+        setLoading(false);
+      }
+    }
+  };
+
+  const calculateUserScore = (leaderboard, username, goal) => {
+    if (!leaderboard) return 0;
+    const user = leaderboard.find(u => u.username === username);
+    if (!user) return 0;
+    return Math.min(100, Math.round((parseFloat(user.value) / goal) * 100));
+  };
+
+  const calculateWorkoutScore = (leaderboard, username) => {
+    if (!leaderboard) return 0;
+    const user = leaderboard.find(u => u.username === username);
+    if (!user) return 0;
+    const count = parseInt(user.value, 10);
+    if (count >= 3) return 100;
+    if (count === 2) return 66;
+    if (count === 1) return 33;
+    return 0;
   };
 
   // Generate chart data based on leaderboard data
@@ -343,12 +403,7 @@ const LeaderboardPage = () => {
           <Text style={styles.chartTitle}>Family Health Score</Text>
           <View style={styles.chartWrapper}>
             <PieChart
-              data={[
-                { name: 'Steps', value: 85, color: '#4169E1', legendFontColor: '#7F7F7F', legendFontSize: 12 },
-                { name: 'Strength', value: 75, color: '#5856D6', legendFontColor: '#7F7F7F', legendFontSize: 12 },
-                { name: 'Workouts', value: 90, color: '#FF9500', legendFontColor: '#7F7F7F', legendFontSize: 12 },
-                { name: 'Pace', value: 80, color: '#4CD964', legendFontColor: '#7F7F7F', legendFontSize: 12 },
-              ]}
+              data={healthData.components}
               width={width - 40}
               height={220}
               chartConfig={chartConfig}
@@ -360,41 +415,22 @@ const LeaderboardPage = () => {
           </View>
           <View style={styles.healthScoreCircleContainer}>
             <View style={styles.healthScoreCircle}>
-              <Text style={styles.healthScoreText}>83</Text>
+              <Text style={styles.healthScoreText}>{healthData.overall}</Text>
               <Text style={styles.healthScoreLabel}>OVERALL SCORE</Text>
             </View>
           </View>
           <View style={styles.chartDivider} />
           <Text style={styles.chartSubtitle}>Score Breakdown</Text>
           <View style={styles.scoreBreakdown}>
-            <View style={styles.breakdownItem}>
-              <Text style={styles.breakdownLabel}>Steps</Text>
-              <View style={styles.progressBarContainer}>
-                <View style={[styles.progressBar, { width: '85%', backgroundColor: '#4169E1' }]} />
+            {healthData.components.map((item, index) => (
+              <View key={index} style={styles.breakdownItem}>
+                <Text style={styles.breakdownLabel}>{item.name}</Text>
+                <View style={styles.progressBarContainer}>
+                  <View style={[styles.progressBar, { width: `${item.value}%`, backgroundColor: item.color }]} />
+                </View>
+                <Text style={styles.breakdownValue}>{item.value}%</Text>
               </View>
-              <Text style={styles.breakdownValue}>85%</Text>
-            </View>
-            <View style={styles.breakdownItem}>
-              <Text style={styles.breakdownLabel}>Strength</Text>
-              <View style={styles.progressBarContainer}>
-                <View style={[styles.progressBar, { width: '75%', backgroundColor: '#5856D6' }]} />
-              </View>
-              <Text style={styles.breakdownValue}>75%</Text>
-            </View>
-            <View style={styles.breakdownItem}>
-              <Text style={styles.breakdownLabel}>Workouts</Text>
-              <View style={styles.progressBarContainer}>
-                <View style={[styles.progressBar, { width: '90%', backgroundColor: '#FF9500' }]} />
-              </View>
-              <Text style={styles.breakdownValue}>90%</Text>
-            </View>
-            <View style={styles.breakdownItem}>
-              <Text style={styles.breakdownLabel}>Pace</Text>
-              <View style={styles.progressBarContainer}>
-                <View style={[styles.progressBar, { width: '80%', backgroundColor: '#4CD964' }]} />
-              </View>
-              <Text style={styles.breakdownValue}>80%</Text>
-            </View>
+            ))}
           </View>
           <View style={styles.chartDivider} />
           <View style={styles.insightsContainer}>
@@ -405,11 +441,15 @@ const LeaderboardPage = () => {
             </View>
             <View style={styles.insightRow}>
               <Ionicons name="star" size={24} color="#FFCC00" />
-              <Text style={styles.insightText}>Workouts are your strongest category</Text>
+              <Text style={styles.insightText}>
+                {healthData.components.sort((a, b) => b.value - a.value)[0]?.name || 'Workouts'} is your strongest category
+              </Text>
             </View>
             <View style={styles.insightRow}>
               <Ionicons name="fitness" size={24} color="#FF9500" />
-              <Text style={styles.insightText}>Suggested focus: Increase strength training</Text>
+              <Text style={styles.insightText}>
+                Suggested focus: Increase {healthData.components.sort((a, b) => a.value - b.value)[0]?.name || 'Strength'} training
+              </Text>
             </View>
           </View>
         </View>
@@ -585,36 +625,43 @@ const LeaderboardPage = () => {
 
   return (
     <LinearGradient colors={['#8E2DE2','#007AFF','#B3E5FC']} style={styles.gradient}>
-      <SafeAreaView style={styles.container}>
-      
-      <View style={styles.titleContainer}>
-  <Text style={styles.title}>Leaderboard</Text>
-  <View style={styles.titleUnderline} />
-</View>
+      <SafeAreaView style={styles.safeArea}>
+        <ScrollView 
+          style={styles.mainScrollContainer}
+          contentContainerStyle={styles.mainScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.titleContainer}>
+            <Text style={styles.title}>Leaderboard</Text>
+            <View style={styles.titleUnderline} />
+          </View>
+          
+          <View style={styles.tabContainer}>
+            {['steps', '1rm', 'workouts', 'pace', 'health'].map((category) => (
+              <TouchableOpacity
+                key={category}
+                style={[styles.tab, activeCategory === category && styles.activeTab]}
+                onPress={() => handleCategoryChange(category)}
+              >
+                <View style={styles.tabContentWrapper}>
+                  <Text style={[styles.tabText, activeCategory === category && styles.activeTabText]}>
+                    {category === 'health' ? 'OVERALL' : category.toUpperCase()}
+                  </Text>
+                  <CategoryStatusIndicator category={category} />
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
 
-      
-      <View style={styles.tabContainer}>
-        {['steps', '1rm', 'workouts', 'pace', 'health'].map((category) => (
-          <TouchableOpacity
-            key={category}
-            style={[styles.tab, activeCategory === category && styles.activeTab]}
-            onPress={() => handleCategoryChange(category)}
-          >
-            <View style={styles.tabContentWrapper}>
-              <Text style={[styles.tabText, activeCategory === category && styles.activeTabText]}>
-                {category === 'health' ? 'OVERALL' : category.toUpperCase()}
-              </Text>
-              <CategoryStatusIndicator category={category} />
-            </View>
-          </TouchableOpacity>
-        ))}
-      </View>
+          {activeCategory === '1rm' && <WorkoutSelector />}
 
-      {activeCategory === '1rm' && <WorkoutSelector />}
-
-      {renderContent()}
-      
-    </SafeAreaView>
+          {/* This is where we render the content */}
+          {renderContent()}
+          
+          {/* Add padding at the bottom for better scrolling experience */}
+          <View style={styles.bottomPadding} />
+        </ScrollView>
+      </SafeAreaView>
     </LinearGradient>
   );
 };
@@ -997,6 +1044,19 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   
+  // New styles for the updated return statement
+  safeArea: {
+    flex: 1,
+  },
+  mainScrollContainer: {
+    flex: 1,
+  },
+  mainScrollContent: {
+    paddingBottom: 20,
+  },
+  bottomPadding: {
+    height: 20,
+  },
 });
 
 export default LeaderboardPage;
