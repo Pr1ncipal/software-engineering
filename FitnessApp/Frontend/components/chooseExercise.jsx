@@ -9,7 +9,7 @@ const ChooseExercise = ({ onExerciseSelect }) => {
     const [filteredExercises, setFilteredExercises] = useState([]); // Displayed exercises
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [currentPage, setCurrentPage] = useState(1);
+    const [currentPage, setCurrentPage] = useState(0);
     const [hasMore, setHasMore] = useState(true);
     const [authToken, setAuthToken] = useState(null);
     const [muscleGroups, setMuscleGroups] = useState([]);

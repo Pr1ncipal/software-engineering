@@ -502,8 +502,6 @@ def getExercises():
             if exercise_count > 0:
                 logger.debug(f"Request {request_id}: First few exercise names: {', '.join([ex.get('name', 'unnamed') for ex in exercises[:3]])}...")
                 
-            with open("sentJson.json", "w") as f:
-                f.write(json.dumps({"exercises": exercises, "page": next_page}))
                 
             return jsonify({"exercises": exercises, "page": next_page}), 200
             

@@ -881,103 +881,60 @@ class Workout():
             if should_close_conn and 'conn' in locals() and conn:
                 conn.close()
     
-    def get_exercises(self, number = 50, muscle_group = None, page = 0, search_query = None):
-        """
-        Get exercises from the database.
-        
-        Parameters:
-        -----------
-        number : int, optional
-            Number of exercises to return (default: 50)
-        muscle_group : str, optional
-            Muscle group to filter by
-        search_query : str, optional
-            Search query to filter exercises by name or description
-        page : int, optional
-            Page number for pagination
-            
-        Returns:
-        --------
-        list
-            List of exercise dictionaries
-            
-        Raises:
-        -------
-        ConnectionError : If database connection fails
-        QueryError : If database query fails
-        """
+    def get_exercises(self, number=50, muscle_group=None, page=0, search_query=None):
+        """Get exercises from the database."""
         try:
             conn = global_func.getConnection()
             cur = conn.cursor()
             
-            # SQL query modification to include search
-            if muscle_group is None and search_query is None:
-                # Original query with no filters
-                getExercisesQueryNoFilter = sql.SQL("""
-                    SELECT id, name, primary_muscle, secondary_muscles, description
-                    FROM exercises
-                    WHERE is_deleted = FALSE
-                    AND (createdby IS NULL OR createdby = %s)
-                    ORDER BY name
-                    OFFSET %s
-                    LIMIT %s
-                """)
-                cur.execute(getExercisesQueryNoFilter, (self.user_id, page*number, number))
-                
-            elif search_query is None:
-                # Only muscle group filter
-                getExercisesQueryMuscle = sql.SQL("""
-                    SELECT id, name, primary_muscle, secondary_muscles, description
-                    FROM exercises
-                    WHERE is_deleted = FALSE
-                    AND (createdby IS NULL OR createdby = %s)
-                    AND %s = ANY(primary_muscle)
-                    ORDER BY name
-                    OFFSET %s
-                    LIMIT %s
-                """)
-                cur.execute(getExercisesQueryMuscle, (self.user_id, muscle_group, page*number, number))
-                
-            elif muscle_group is None:
-                # Only search filter
-                getExercisesQuerySearch = sql.SQL("""
-                    SELECT id, name, primary_muscle, secondary_muscles, description
-                    FROM exercises
-                    WHERE is_deleted = FALSE
-                    AND (createdby IS NULL OR createdby = %s)
-                    AND name ILIKE %s
-                    ORDER BY name
-                    OFFSET %s
-                    LIMIT %s
-                """)
-                search_pattern = f"%{search_query}%"
-                cur.execute(getExercisesQuerySearch, (self.user_id, search_pattern, page*number, number))
-                
-            else:
-                # Both muscle group and search filters
-                getExercisesQueryBoth = sql.SQL("""
-                    SELECT id, name, primary_muscle, secondary_muscles, description
-                    FROM exercises
-                    WHERE is_deleted = FALSE
-                    AND (createdby IS NULL OR createdby = %s)
-                    AND %s = ANY(primary_muscle)
-                    AND name ILIKE %s
-                    ORDER BY name
-                    OFFSET %s
-                    LIMIT %s
-                """)
-                search_pattern = f"%{search_query}%"
-                cur.execute(getExercisesQueryBoth, (self.user_id, muscle_group, search_pattern, page*number, number))
+            # Base query parts
+            select_part = """
+                SELECT id, name, primary_muscle, secondary_muscles, description
+                FROM exercises
+                WHERE is_deleted = FALSE
+            """
             
+            # Parameters for the query
+            params = []
+            
+            # Add user filter
+            user_filter = "AND (createdby IS NULL OR createdby = %s)"
+            params.append(self.user_id)
+            
+            # Add search filter if provided
+            search_filter = ""
+            if search_query:
+                search_query = search_query.strip().lower()  # Normalize search query
+                search_pattern = f"%{search_query}%"
+                search_filter = "AND (LOWER(name) LIKE %s OR LOWER(description) LIKE %s)"
+                params.extend([search_pattern, search_pattern])
+            
+            # Add muscle group filter if provided
+            muscle_filter = ""
+            if muscle_group:
+                # More flexible muscle group matching
+                muscle_filter = "AND (LOWER(%s) = ANY(LOWER(primary_muscle)) OR LOWER(%s) = ANY(LOWER(secondary_muscles)))"
+                params.extend([muscle_group.lower(), muscle_group.lower()])
+            
+            # Complete query
+            query = f"""{select_part} {user_filter} {search_filter} {muscle_filter}
+                       ORDER BY name
+                       LIMIT %s OFFSET %s"""
+            params.extend([number, page * number])
+            
+            # Execute query
+            cur.execute(sql.SQL(query), params)
+            
+            # Process results
             exercises = []
-            
             for row in cur.fetchall():
                 # Convert primary_muscle to array format for frontend
                 primary = row[2]
                 if primary and isinstance(primary, str):
                     # Handle string format like '{muscle}' by extracting 'muscle'
                     if primary.startswith('{') and primary.endswith('}'):
-                        primary = [primary[1:-1].replace('"', '').replace("'", "")]
+                        primary = primary[1:-1].split(',')
+                        primary = [p.strip().replace('"', '').replace("'", "") for p in primary]
                     else:
                         primary = [primary]
                 elif primary is None:
@@ -986,7 +943,6 @@ class Workout():
                 # Convert secondary_muscle to array format for frontend
                 secondary = row[3]
                 if secondary and isinstance(secondary, str):
-                    # Handle string format like '{muscle1,muscle2}' by extracting and splitting
                     if secondary.startswith('{') and secondary.endswith('}'):
                         secondary = secondary[1:-1].split(',')
                         secondary = [s.strip().replace('"', '').replace("'", "") for s in secondary]
@@ -1006,12 +962,9 @@ class Workout():
             logger.info(f"Retrieved {len(exercises)} exercises")
             return exercises, page+1
             
-        except psycopg2.Error as e:
-            logger.error(f"Database error: {str(e)}")
-            raise QueryError(f"Error retrieving exercises: {str(e)}")
         except Exception as e:
-            logger.error(f"Unexpected error in get_exercises: {str(e)}")
-            raise WorkoutException(f"Error retrieving exercises: {str(e)}")
+            logger.error(f"Error in get_exercises: {str(e)}")
+            raise
         finally:
             if 'cur' in locals() and cur:
                 cur.close()

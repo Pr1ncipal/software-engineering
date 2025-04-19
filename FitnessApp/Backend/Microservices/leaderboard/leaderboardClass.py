@@ -183,8 +183,12 @@ class Leaderboard():
 
         try:
             logger.debug("Establishing database connection")
-            conn = getConnection()
-            cur = conn.cursor()
+            try:
+                conn = getConnection()
+                cur = conn.cursor()
+            except Exception as e:
+                logger.error(f"Failed to connect to database: {str(e)}")
+                raise ConnectionError(str(e))
 
             # 🛠 NO WHERE CLAUSE on workout_date
             get_workout_number_query = sql.SQL("""
