@@ -39,7 +39,8 @@ ALTER TYPE public.challenge_metric OWNER TO postgres;
 CREATE TYPE public.goal_type_enum AS ENUM (
     'weight',
     'cardio',
-    'strength'
+    'strength',
+    'steps'
 );
 
 
@@ -225,6 +226,93 @@ ALTER SEQUENCE public.exercises_id_seq OWNED BY public.exercises.id;
 
 
 --
+-- Name: family; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.family (
+    id integer NOT NULL,
+    family_name character varying(50) NOT NULL,
+    family_admin integer,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+ALTER TABLE public.family OWNER TO postgres;
+
+--
+-- Name: family_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.family_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.family_id_seq OWNER TO postgres;
+
+--
+-- Name: family_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.family_id_seq OWNED BY public.family.id;
+
+
+--
+-- Name: family_members; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.family_members (
+    family_id integer NOT NULL,
+    user_id integer NOT NULL,
+    joined_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+ALTER TABLE public.family_members OWNER TO postgres;
+
+--
+-- Name: family_requests; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.family_requests (
+    id integer NOT NULL,
+    family_id integer,
+    sender_id integer,
+    receiver_id integer,
+    status boolean,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+ALTER TABLE public.family_requests OWNER TO postgres;
+
+--
+-- Name: family_requests_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.family_requests_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.family_requests_id_seq OWNER TO postgres;
+
+--
+-- Name: family_requests_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.family_requests_id_seq OWNED BY public.family_requests.id;
+
+
+--
 -- Name: motivational_messages; Type: TABLE; Schema: public; Owner: postgres
 --
 
@@ -310,13 +398,25 @@ ALTER SEQUENCE public.predictiveanalysis_id_seq OWNED BY public.predictiveanalys
 
 
 --
+-- Name: step_goals; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.step_goals (
+    target_steps integer
+)
+INHERITS (public.user_goals);
+
+
+ALTER TABLE public.step_goals OWNER TO postgres;
+
+--
 -- Name: strength_goals; Type: TABLE; Schema: public; Owner: postgres
 --
 
 CREATE TABLE public.strength_goals (
     target_weight numeric(8,2),
     target_reps integer,
-    target_sets integer
+    target_exercise integer
 )
 INHERITS (public.user_goals);
 
@@ -671,6 +771,20 @@ ALTER TABLE ONLY public.exercises ALTER COLUMN id SET DEFAULT nextval('public.ex
 
 
 --
+-- Name: family id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.family ALTER COLUMN id SET DEFAULT nextval('public.family_id_seq'::regclass);
+
+
+--
+-- Name: family_requests id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.family_requests ALTER COLUMN id SET DEFAULT nextval('public.family_requests_id_seq'::regclass);
+
+
+--
 -- Name: motivational_messages id; Type: DEFAULT; Schema: public; Owner: postgres
 --
 
@@ -682,6 +796,27 @@ ALTER TABLE ONLY public.motivational_messages ALTER COLUMN id SET DEFAULT nextva
 --
 
 ALTER TABLE ONLY public.predictiveanalysis ALTER COLUMN id SET DEFAULT nextval('public.predictiveanalysis_id_seq'::regclass);
+
+
+--
+-- Name: step_goals id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.step_goals ALTER COLUMN id SET DEFAULT nextval('public.user_goals_id_seq'::regclass);
+
+
+--
+-- Name: step_goals created_at; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.step_goals ALTER COLUMN created_at SET DEFAULT CURRENT_TIMESTAMP;
+
+
+--
+-- Name: step_goals achieved; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.step_goals ALTER COLUMN achieved SET DEFAULT false;
 
 
 --
@@ -1672,6 +1807,42 @@ COPY public.exercises (id, name, equipment, description, single_sided, primary_m
 
 
 --
+-- Data for Name: family; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.family (id, family_name, family_admin, created_at) FROM stdin;
+5	testFamily3	53	2025-04-07 20:54:31.662417
+7	testFamily2	53	2025-04-08 13:49:26.359557
+8	MyFamily	54	2025-04-09 18:53:13.696497
+9	testFamily	51	2025-04-14 19:04:25.760313
+\.
+
+
+--
+-- Data for Name: family_members; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.family_members (family_id, user_id, joined_at) FROM stdin;
+5	53	2025-04-07 20:54:31.662417
+7	53	2025-04-08 13:49:26.359557
+8	54	2025-04-09 18:53:13.696497
+9	51	2025-04-14 19:04:25.760313
+9	53	2025-04-15 18:19:39.254504
+\.
+
+
+--
+-- Data for Name: family_requests; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.family_requests (id, family_id, sender_id, receiver_id, status, created_at) FROM stdin;
+7	5	53	51	t	2025-04-07 20:58:29.162723
+9	7	53	51	t	2025-04-08 13:49:35.120737
+10	8	54	51	t	2025-04-09 18:53:26.236873
+\.
+
+
+--
 -- Data for Name: motivational_messages; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
@@ -1696,10 +1867,19 @@ COPY public.predictiveanalysis (id, user_id, predictive, predictive_value, confi
 
 
 --
+-- Data for Name: step_goals; Type: TABLE DATA; Schema: public; Owner: postgres
+--
+
+COPY public.step_goals (id, user_id, goal_type, created_at, achieve_by, achieved, achieved_at, notes, target_steps) FROM stdin;
+\.
+
+
+--
 -- Data for Name: strength_goals; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.strength_goals (id, user_id, goal_type, created_at, achieve_by, achieved, achieved_at, notes, target_weight, target_reps, target_sets) FROM stdin;
+COPY public.strength_goals (id, user_id, goal_type, created_at, achieve_by, achieved, achieved_at, notes, target_weight, target_reps, target_exercise) FROM stdin;
+3	51	strength	2025-04-12 18:41:13.24599	2025-11-23	f	\N	\N	225.00	1	273
 \.
 
 
@@ -1708,6 +1888,71 @@ COPY public.strength_goals (id, user_id, goal_type, created_at, achieve_by, achi
 --
 
 COPY public.user_engagement (id, user_id, last_login, day_streak, last_workout) FROM stdin;
+1	1	2025-04-11 15:14:02.871319	61	\N
+2	1	2025-04-11 15:26:16.895712	62	\N
+3	1	2025-04-11 18:11:49.698854	53	\N
+4	1	2025-04-12 19:30:24.695407	51	\N
+5	1	2025-04-12 19:30:54.023993	51	\N
+6	1	2025-04-12 19:47:13.859427	51	\N
+7	1	2025-04-13 14:30:08.972978	51	\N
+8	1	2025-04-13 14:40:51.784133	51	\N
+9	1	2025-04-13 14:46:21.26259	51	\N
+10	1	2025-04-13 16:51:28.033469	51	\N
+11	1	2025-04-14 13:49:28.586144	51	\N
+12	1	2025-04-14 18:00:12.588496	51	\N
+13	1	2025-04-14 19:04:06.859426	51	\N
+14	1	2025-04-14 19:09:20.038864	51	\N
+15	1	2025-04-14 19:09:26.413321	51	\N
+16	1	2025-04-14 19:32:48.149986	51	\N
+17	1	2025-04-14 19:48:06.176257	51	\N
+18	1	2025-04-14 19:52:07.33774	51	\N
+19	1	2025-04-14 19:56:27.708882	51	\N
+20	1	2025-04-14 19:58:38.803742	51	\N
+21	1	2025-04-14 20:01:31.496324	51	\N
+22	1	2025-04-14 20:16:51.938771	51	\N
+23	1	2025-04-14 20:24:56.853468	51	\N
+24	1	2025-04-14 20:39:08.948767	51	\N
+25	1	2025-04-14 20:41:46.09534	51	\N
+26	1	2025-04-14 21:06:06.882115	51	\N
+27	1	2025-04-15 18:47:18.139538	51	\N
+28	1	2025-04-15 19:07:25.155938	51	\N
+29	1	2025-04-15 19:13:20.962095	51	\N
+30	1	2025-04-15 19:18:47.953359	51	\N
+31	1	2025-04-15 19:33:52.567194	51	\N
+32	1	2025-04-16 17:24:30.879527	51	\N
+33	1	2025-04-16 17:48:36.942464	51	\N
+34	1	2025-04-16 17:58:24.053306	51	\N
+35	1	2025-04-16 18:06:56.905725	51	\N
+36	1	2025-04-16 18:16:36.546741	51	\N
+37	1	2025-04-16 18:19:03.58586	51	\N
+38	1	2025-04-16 18:22:20.953181	51	\N
+39	1	2025-04-16 18:40:02.234309	51	\N
+40	1	2025-04-17 18:30:22.967694	51	\N
+41	1	2025-04-17 18:57:32.180511	51	\N
+42	1	2025-04-17 18:59:30.425319	51	\N
+43	1	2025-04-17 19:10:05.955511	51	\N
+44	1	2025-04-17 19:12:14.734042	53	\N
+45	1	2025-04-17 19:13:58.355082	53	\N
+46	1	2025-04-17 19:15:49.331055	51	\N
+47	1	2025-04-18 19:48:54.246089	53	\N
+48	1	2025-04-18 23:24:29.326347	53	\N
+49	1	2025-04-18 23:29:22.626484	53	\N
+50	1	2025-04-18 23:30:50.215315	53	\N
+51	1	2025-04-19 00:11:18.093156	53	\N
+52	1	2025-04-19 00:17:20.15461	53	\N
+53	1	2025-04-19 00:21:38.142511	53	\N
+54	1	2025-04-19 00:22:51.099757	53	\N
+55	1	2025-04-19 00:26:23.968559	53	\N
+56	1	2025-04-19 00:27:22.207302	53	\N
+57	1	2025-04-19 00:33:36.962067	53	\N
+58	1	2025-04-19 00:41:16.455443	53	\N
+59	1	2025-04-19 00:45:54.700651	53	\N
+60	1	2025-04-19 00:49:54.390899	53	\N
+61	1	2025-04-19 00:51:09.560021	53	\N
+62	1	2025-04-19 00:51:51.10807	53	\N
+63	1	2025-04-19 00:56:55.833541	53	\N
+64	1	2025-04-19 01:31:37.624518	51	\N
+65	1	2025-04-19 01:34:08.884884	51	\N
 \.
 
 
@@ -1919,6 +2164,14 @@ COPY public.user_exercise_max (id, user_id, exercise_id, calculated_1rm, weight_
 201	50	5	172.36	140.00	8	2025-03-23 19:45:56.155041
 202	50	8	172.36	140.00	8	2025-03-23 19:45:56.159316
 203	50	5	172.36	140.00	8	2025-03-23 19:45:56.165658
+204	51	600	277.01	225.00	8	2025-04-01 15:04:49.018107
+205	51	857	116.96	95.00	8	2025-04-01 15:04:49.032732
+206	51	273	300.00	300.00	1	2025-04-01 18:28:39.421657
+207	51	716	415.00	415.00	1	2025-04-01 18:31:47.026805
+208	53	716	315.00	315.00	1	2025-04-09 18:44:34.64554
+209	54	273	405.00	405.00	1	2025-04-09 18:47:33.474194
+210	51	273	305.00	305.00	1	2025-04-09 19:03:54.802845
+211	53	273	250.00	250.00	1	2025-04-09 20:32:22.391127
 \.
 
 
@@ -1990,6 +2243,10 @@ COPY public.user_stats (id, user_id, height, weight, created_at) FROM stdin;
 53	54	74	250.00	2025-03-30 14:24:07.851873
 54	55	74	250.00	2025-03-30 14:32:50.070251
 55	56	74	250.00	2025-03-30 15:04:16.196541
+56	61	74	215.00	2025-04-11 15:14:02.891484
+57	62	66	150.00	2025-04-11 15:26:16.908772
+58	51	74	245.00	2025-04-12 19:23:24.139417
+59	51	74	240.00	2025-04-12 19:25:41.175583
 \.
 
 
@@ -2995,6 +3252,10 @@ COPY public.user_steps (user_id, date_performed, steps) FROM stdin;
 46	2021-10-07	8034
 48	2021-01-21	10531
 45	2022-10-29	14870
+51	2025-04-13	9500
+51	2025-04-14	10000
+51	2025-04-12	4500
+53	2025-04-18	10000
 \.
 
 
@@ -3058,6 +3319,11 @@ COPY public.users (id, email, username, fname, lname, password_hash, dob, sex, b
 54	testuser2@example.com	testuser2	test2	user	5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8	2002-11-23	M	\N	xhvaqkI{kXWXX!z2tShUt_re1OSEe\\LXCAS`madA#I~k5jgm2y9WT\\ZpuYHqB>h`	2025-03-30 14:24:07.655789
 55	testuser3@example.com	testuser3	test	user	5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8	2002-11-23	M	\N	yV}}<MG.,5cN?}d.3$]lak4$4:T,wqNo5(kkw_smZ|@G@iL[@+t4rjEv>.P{K,@^	2025-03-30 14:32:49.829952
 56	testuser5@example.com	testuser5	test	user	5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8	2002-11-23	M	\N	U3Ev7f8U|aj5c?=Ia[aK:F9R2KF1#XMERo6!PqYCbzpoq=6n&`a.q]].QNNDD\\ZJ	2025-03-30 15:04:16.003074
+57	example3@example.com	example4	John	Doe	5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8	2002-11-23	M	\N	K3rI=o!b[e?ZuNk~vu@H0k51{_H@TK{wanlr\\M(IvP?witVw]p8P)YN?IjBmn,Cg	2025-04-11 14:59:01.120902
+59	example4@example.com	example5	John	Doe	5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8	2002-11-23	M	\N	#?^=r]2dkrLp3ICIh+<];Um7^<`8+/x/XPMxJ96i*`l:F*7VTbwc2o2R8_iJTBPD	2025-04-11 14:59:20.705811
+60	example@example.com	example	John	Doe	5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8	2002-11-23	M	\N	.u;xH`U1k>BQ48=S^a8H}s$W^,+5`fo,Ow&L\\{%`FFf7XXn!ciOBXH7Qtc~fdF.|	2025-04-11 15:04:20.22295
+61	example1@example.com	example1	John	Doe	5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8	2002-11-23	M	\N	a<rqr>rA=bo#PLJNE*R=r@C@P]X4hby;YkH&j,VQxPqg^9rd0n3s@,O^3e.z)uIi	2025-04-11 15:14:02.863523
+62	testuser6@test.com	testuser6	test	user6	5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8	2025-01-01	M	\N	0}254c.L10Cu&\\2B;a)e;To>./?Bh35s=F00YJv*52|}6tCK8Jufl`$)9J}ex2z{	2025-04-11 15:26:16.887637
 \.
 
 
@@ -3066,6 +3332,7 @@ COPY public.users (id, email, username, fname, lname, password_hash, dob, sex, b
 --
 
 COPY public.weight_goals (id, user_id, goal_type, created_at, achieve_by, achieved, achieved_at, notes, target_weight) FROM stdin;
+1	51	weight	2025-04-12 18:26:24.428153	2025-11-23	f	\N	\N	215.00
 \.
 
 
@@ -3082,414 +3349,14 @@ COPY public.workout_cardio (id, workout_id, duration, distance, percieved_diffic
 --
 
 COPY public.workout_exercises (id, workout_id, exercise_id, order_exercise, notes, date_performed, sets) FROM stdin;
-1	1	3	1	This is a note	2025-03-23 19:25:47.318329	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-2	2	3	1	This is a note	2025-03-23 19:29:08.788713	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-3	2	5	2	This is a note	2025-03-23 19:29:08.796308	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-4	2	8	3	This is a note	2025-03-23 19:29:08.79923	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-5	2	5	4	This is a note	2025-03-23 19:29:08.802497	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-6	3	3	1	This is a note	2025-03-23 19:29:08.837404	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-7	3	5	2	This is a note	2025-03-23 19:29:08.842358	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-8	3	8	3	This is a note	2025-03-23 19:29:08.845529	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-9	3	5	4	This is a note	2025-03-23 19:29:08.848469	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-10	4	3	1	This is a note	2025-03-23 19:29:08.887445	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-11	4	5	2	This is a note	2025-03-23 19:29:08.891815	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-12	4	8	3	This is a note	2025-03-23 19:29:08.895057	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-13	4	5	4	This is a note	2025-03-23 19:29:08.898187	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-14	5	3	1	This is a note	2025-03-23 19:29:08.930922	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-15	5	5	2	This is a note	2025-03-23 19:29:08.935106	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-16	5	8	3	This is a note	2025-03-23 19:29:08.938651	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-17	5	5	4	This is a note	2025-03-23 19:29:08.942072	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-18	6	3	1	This is a note	2025-03-23 19:29:08.977778	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-19	6	5	2	This is a note	2025-03-23 19:29:08.982199	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-20	6	8	3	This is a note	2025-03-23 19:29:08.985545	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-21	6	5	4	This is a note	2025-03-23 19:29:08.988509	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-22	7	3	1	This is a note	2025-03-23 19:29:09.022212	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-23	7	5	2	This is a note	2025-03-23 19:29:09.025797	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-24	7	8	3	This is a note	2025-03-23 19:29:09.029915	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-25	7	5	4	This is a note	2025-03-23 19:29:09.033378	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-26	8	3	1	This is a note	2025-03-23 19:29:09.066294	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-27	8	5	2	This is a note	2025-03-23 19:29:09.069352	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-28	8	8	3	This is a note	2025-03-23 19:29:09.072299	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-29	8	5	4	This is a note	2025-03-23 19:29:09.07659	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-30	9	3	1	This is a note	2025-03-23 19:29:09.111715	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-31	9	5	2	This is a note	2025-03-23 19:29:09.115069	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-32	9	8	3	This is a note	2025-03-23 19:29:09.118153	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-33	9	5	4	This is a note	2025-03-23 19:29:09.121566	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-34	10	3	1	This is a note	2025-03-23 19:29:09.15634	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-35	10	5	2	This is a note	2025-03-23 19:29:09.15988	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-36	10	8	3	This is a note	2025-03-23 19:29:09.163226	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-37	10	5	4	This is a note	2025-03-23 19:29:09.166296	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-38	11	3	1	This is a note	2025-03-23 19:29:09.200497	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-39	11	5	2	This is a note	2025-03-23 19:29:09.204829	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-40	11	8	3	This is a note	2025-03-23 19:29:09.208069	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-41	11	5	4	This is a note	2025-03-23 19:29:09.21096	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-42	12	3	1	This is a note	2025-03-23 19:29:09.242418	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-43	12	5	2	This is a note	2025-03-23 19:29:09.245959	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-44	12	8	3	This is a note	2025-03-23 19:29:09.249578	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-45	12	5	4	This is a note	2025-03-23 19:29:09.25351	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-46	13	3	1	This is a note	2025-03-23 19:29:09.292424	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-47	13	5	2	This is a note	2025-03-23 19:29:09.296733	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-48	13	8	3	This is a note	2025-03-23 19:29:09.300649	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-49	13	5	4	This is a note	2025-03-23 19:29:09.304729	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-50	14	3	1	This is a note	2025-03-23 19:29:09.341785	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-51	14	5	2	This is a note	2025-03-23 19:29:09.345707	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-52	14	8	3	This is a note	2025-03-23 19:29:09.349108	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-53	14	5	4	This is a note	2025-03-23 19:29:09.352898	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-54	15	3	1	This is a note	2025-03-23 19:29:09.390001	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-55	15	5	2	This is a note	2025-03-23 19:29:09.39364	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-56	15	8	3	This is a note	2025-03-23 19:29:09.397169	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-57	15	5	4	This is a note	2025-03-23 19:29:09.401078	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-58	16	3	1	This is a note	2025-03-23 19:29:09.440915	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-59	16	5	2	This is a note	2025-03-23 19:29:09.446215	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-60	16	8	3	This is a note	2025-03-23 19:29:09.449683	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-61	16	5	4	This is a note	2025-03-23 19:29:09.453778	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-62	17	3	1	This is a note	2025-03-23 19:29:09.498028	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-63	17	5	2	This is a note	2025-03-23 19:29:09.502726	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-64	17	8	3	This is a note	2025-03-23 19:29:09.506284	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-65	17	5	4	This is a note	2025-03-23 19:29:09.509717	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-66	18	3	1	This is a note	2025-03-23 19:29:09.548731	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-67	18	5	2	This is a note	2025-03-23 19:29:09.552619	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-68	18	8	3	This is a note	2025-03-23 19:29:09.555988	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-69	18	5	4	This is a note	2025-03-23 19:29:09.559162	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-70	19	3	1	This is a note	2025-03-23 19:29:09.595746	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-71	19	5	2	This is a note	2025-03-23 19:29:09.599138	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-72	19	8	3	This is a note	2025-03-23 19:29:09.602538	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-73	19	5	4	This is a note	2025-03-23 19:29:09.60598	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-74	20	3	1	This is a note	2025-03-23 19:29:09.63856	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-75	20	5	2	This is a note	2025-03-23 19:29:09.642657	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-76	20	8	3	This is a note	2025-03-23 19:29:09.646112	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-77	20	5	4	This is a note	2025-03-23 19:29:09.649257	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-78	21	3	1	This is a note	2025-03-23 19:29:09.689644	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-79	21	5	2	This is a note	2025-03-23 19:29:09.694132	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-80	21	8	3	This is a note	2025-03-23 19:29:09.698208	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-81	21	5	4	This is a note	2025-03-23 19:29:09.701819	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-82	22	3	1	This is a note	2025-03-23 19:29:09.740799	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-83	22	5	2	This is a note	2025-03-23 19:29:09.744972	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-84	22	8	3	This is a note	2025-03-23 19:29:09.748369	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-85	22	5	4	This is a note	2025-03-23 19:29:09.752319	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-86	23	3	1	This is a note	2025-03-23 19:29:09.788245	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-87	23	5	2	This is a note	2025-03-23 19:29:09.791581	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-88	23	8	3	This is a note	2025-03-23 19:29:09.79484	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-89	23	5	4	This is a note	2025-03-23 19:29:09.798856	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-90	24	3	1	This is a note	2025-03-23 19:29:09.835307	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-91	24	5	2	This is a note	2025-03-23 19:29:09.838607	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-92	24	8	3	This is a note	2025-03-23 19:29:09.841457	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-93	24	5	4	This is a note	2025-03-23 19:29:09.844286	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-94	25	3	1	This is a note	2025-03-23 19:29:09.876643	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-95	25	5	2	This is a note	2025-03-23 19:29:09.880886	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-96	25	8	3	This is a note	2025-03-23 19:29:09.88478	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-97	25	5	4	This is a note	2025-03-23 19:29:09.887927	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-98	26	3	1	This is a note	2025-03-23 19:29:09.92013	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-99	26	5	2	This is a note	2025-03-23 19:29:09.925022	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-100	26	8	3	This is a note	2025-03-23 19:29:09.931577	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-101	26	5	4	This is a note	2025-03-23 19:29:09.937456	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-102	27	3	1	This is a note	2025-03-23 19:29:09.991601	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-103	27	5	2	This is a note	2025-03-23 19:29:09.995251	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-104	27	8	3	This is a note	2025-03-23 19:29:09.998737	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-105	27	5	4	This is a note	2025-03-23 19:29:10.00218	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-106	28	3	1	This is a note	2025-03-23 19:29:10.036792	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-107	28	5	2	This is a note	2025-03-23 19:29:10.040392	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-108	28	8	3	This is a note	2025-03-23 19:29:10.043571	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-109	28	5	4	This is a note	2025-03-23 19:29:10.046562	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-110	29	3	1	This is a note	2025-03-23 19:29:10.08031	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-111	29	5	2	This is a note	2025-03-23 19:29:10.084415	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-112	29	8	3	This is a note	2025-03-23 19:29:10.088087	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-113	29	5	4	This is a note	2025-03-23 19:29:10.091205	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-114	30	3	1	This is a note	2025-03-23 19:29:10.125784	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-115	30	5	2	This is a note	2025-03-23 19:29:10.129563	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-116	30	8	3	This is a note	2025-03-23 19:29:10.133706	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-117	30	5	4	This is a note	2025-03-23 19:29:10.136908	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-118	31	3	1	This is a note	2025-03-23 19:29:10.169601	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-119	31	5	2	This is a note	2025-03-23 19:29:10.172946	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-120	31	8	3	This is a note	2025-03-23 19:29:10.176896	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-121	31	5	4	This is a note	2025-03-23 19:29:10.180845	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-122	32	3	1	This is a note	2025-03-23 19:29:10.215527	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-123	32	5	2	This is a note	2025-03-23 19:29:10.219126	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-124	32	8	3	This is a note	2025-03-23 19:29:10.222549	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-125	32	5	4	This is a note	2025-03-23 19:29:10.226682	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-126	33	3	1	This is a note	2025-03-23 19:29:10.261406	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-127	33	5	2	This is a note	2025-03-23 19:29:10.265205	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-128	33	8	3	This is a note	2025-03-23 19:29:10.268817	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-129	33	5	4	This is a note	2025-03-23 19:29:10.273103	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-130	34	3	1	This is a note	2025-03-23 19:29:10.309911	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-131	34	5	2	This is a note	2025-03-23 19:29:10.313199	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-132	34	8	3	This is a note	2025-03-23 19:29:10.316832	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-133	34	5	4	This is a note	2025-03-23 19:29:10.320596	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-134	35	3	1	This is a note	2025-03-23 19:29:10.355096	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-135	35	5	2	This is a note	2025-03-23 19:29:10.358369	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-136	35	8	3	This is a note	2025-03-23 19:29:10.361439	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-137	35	5	4	This is a note	2025-03-23 19:29:10.364657	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-138	36	3	1	This is a note	2025-03-23 19:29:10.397135	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-139	36	5	2	This is a note	2025-03-23 19:29:10.401147	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-140	36	8	3	This is a note	2025-03-23 19:29:10.40454	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-141	36	5	4	This is a note	2025-03-23 19:29:10.407731	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-142	37	3	1	This is a note	2025-03-23 19:29:10.442808	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-143	37	5	2	This is a note	2025-03-23 19:29:10.446886	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-144	37	8	3	This is a note	2025-03-23 19:29:10.450315	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-145	37	5	4	This is a note	2025-03-23 19:29:10.45327	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-146	38	3	1	This is a note	2025-03-23 19:29:10.488144	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-147	38	5	2	This is a note	2025-03-23 19:29:10.492137	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-148	38	8	3	This is a note	2025-03-23 19:29:10.495359	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-149	38	5	4	This is a note	2025-03-23 19:29:10.49811	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-150	39	3	1	This is a note	2025-03-23 19:29:10.534937	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-151	39	5	2	This is a note	2025-03-23 19:29:10.539007	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-152	39	8	3	This is a note	2025-03-23 19:29:10.54229	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-153	39	5	4	This is a note	2025-03-23 19:29:10.545526	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-154	40	3	1	This is a note	2025-03-23 19:29:10.579116	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-155	40	5	2	This is a note	2025-03-23 19:29:10.582252	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-156	40	8	3	This is a note	2025-03-23 19:29:10.586004	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-157	40	5	4	This is a note	2025-03-23 19:29:10.589688	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-158	41	3	1	This is a note	2025-03-23 19:29:10.624586	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-159	41	5	2	This is a note	2025-03-23 19:29:10.627881	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-160	41	8	3	This is a note	2025-03-23 19:29:10.630914	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-161	41	5	4	This is a note	2025-03-23 19:29:10.634835	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-162	42	3	1	This is a note	2025-03-23 19:29:10.671478	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-163	42	5	2	This is a note	2025-03-23 19:29:10.674918	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-164	42	8	3	This is a note	2025-03-23 19:29:10.678342	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-165	42	5	4	This is a note	2025-03-23 19:29:10.682381	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-166	43	3	1	This is a note	2025-03-23 19:29:10.716009	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-167	43	5	2	This is a note	2025-03-23 19:29:10.720041	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-168	43	8	3	This is a note	2025-03-23 19:29:10.723206	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-169	43	5	4	This is a note	2025-03-23 19:29:10.726606	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-170	44	3	1	This is a note	2025-03-23 19:29:10.762391	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-171	44	5	2	This is a note	2025-03-23 19:29:10.766388	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-172	44	8	3	This is a note	2025-03-23 19:29:10.770069	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-173	44	5	4	This is a note	2025-03-23 19:29:10.77311	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-174	45	3	1	This is a note	2025-03-23 19:29:10.81019	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-175	45	5	2	This is a note	2025-03-23 19:29:10.813955	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-176	45	8	3	This is a note	2025-03-23 19:29:10.817086	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-177	45	5	4	This is a note	2025-03-23 19:29:10.820225	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-178	46	3	1	This is a note	2025-03-23 19:29:10.857364	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-179	46	5	2	This is a note	2025-03-23 19:29:10.861186	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-180	46	8	3	This is a note	2025-03-23 19:29:10.864248	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-181	46	5	4	This is a note	2025-03-23 19:29:10.867609	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-182	47	3	1	This is a note	2025-03-23 19:29:10.903392	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-183	47	5	2	This is a note	2025-03-23 19:29:10.906812	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-184	47	8	3	This is a note	2025-03-23 19:29:10.91037	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-185	47	5	4	This is a note	2025-03-23 19:29:10.913548	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-186	48	3	1	This is a note	2025-03-23 19:29:10.947826	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-187	48	5	2	This is a note	2025-03-23 19:29:10.951361	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-188	48	8	3	This is a note	2025-03-23 19:29:10.95447	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-189	48	5	4	This is a note	2025-03-23 19:29:10.957471	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-190	49	3	1	This is a note	2025-03-23 19:29:10.994914	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-191	49	5	2	This is a note	2025-03-23 19:29:10.999192	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-192	49	8	3	This is a note	2025-03-23 19:29:11.002744	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-193	49	5	4	This is a note	2025-03-23 19:29:11.006018	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-194	50	3	1	This is a note	2025-03-23 19:29:11.039476	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-195	50	5	2	This is a note	2025-03-23 19:29:11.043929	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-196	50	8	3	This is a note	2025-03-23 19:29:11.047458	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-197	50	5	4	This is a note	2025-03-23 19:29:11.050687	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-198	51	3	1	This is a note	2025-03-23 19:29:11.085405	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-199	51	5	2	This is a note	2025-03-23 19:29:11.089041	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-200	51	8	3	This is a note	2025-03-23 19:29:11.093132	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-201	51	5	4	This is a note	2025-03-23 19:29:11.097035	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-202	52	3	1	This is a note	2025-03-23 19:30:31.712366	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-203	53	3	1	This is a note	2025-03-23 19:32:15.884572	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-204	53	5	2	This is a note	2025-03-23 19:32:15.894445	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-205	53	8	3	This is a note	2025-03-23 19:32:15.900867	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-206	53	5	4	This is a note	2025-03-23 19:32:15.906321	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-207	54	3	1	This is a note	2025-03-23 19:36:11.05755	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-208	55	3	1	This is a note	2025-03-23 19:41:26.178653	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-209	56	3	1	This is a note	2025-03-23 19:45:53.685409	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-210	56	5	2	This is a note	2025-03-23 19:45:53.695242	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-211	56	8	3	This is a note	2025-03-23 19:45:53.699859	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-212	56	5	4	This is a note	2025-03-23 19:45:53.705189	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-213	57	3	1	This is a note	2025-03-23 19:45:53.740029	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-214	57	5	2	This is a note	2025-03-23 19:45:53.745714	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-215	57	8	3	This is a note	2025-03-23 19:45:53.751715	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-216	57	5	4	This is a note	2025-03-23 19:45:53.756584	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-217	58	3	1	This is a note	2025-03-23 19:45:53.790109	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-218	58	5	2	This is a note	2025-03-23 19:45:53.796491	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-219	58	8	3	This is a note	2025-03-23 19:45:53.802234	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-220	58	5	4	This is a note	2025-03-23 19:45:53.807899	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-221	59	3	1	This is a note	2025-03-23 19:45:53.841564	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-222	59	5	2	This is a note	2025-03-23 19:45:53.848936	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-223	59	8	3	This is a note	2025-03-23 19:45:53.85332	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-224	59	5	4	This is a note	2025-03-23 19:45:53.858228	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-225	60	3	1	This is a note	2025-03-23 19:45:53.892061	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-226	60	5	2	This is a note	2025-03-23 19:45:53.898977	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-227	60	8	3	This is a note	2025-03-23 19:45:53.903494	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-228	60	5	4	This is a note	2025-03-23 19:45:53.908787	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-229	61	3	1	This is a note	2025-03-23 19:45:53.947003	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-230	61	5	2	This is a note	2025-03-23 19:45:53.953599	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-231	61	8	3	This is a note	2025-03-23 19:45:53.957832	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-232	61	5	4	This is a note	2025-03-23 19:45:53.962245	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-233	62	3	1	This is a note	2025-03-23 19:45:53.994666	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-234	62	5	2	This is a note	2025-03-23 19:45:54.001142	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-235	62	8	3	This is a note	2025-03-23 19:45:54.006251	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-236	62	5	4	This is a note	2025-03-23 19:45:54.012033	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-237	63	3	1	This is a note	2025-03-23 19:45:54.103522	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-238	63	5	2	This is a note	2025-03-23 19:45:54.110517	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-239	63	8	3	This is a note	2025-03-23 19:45:54.114824	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-240	63	5	4	This is a note	2025-03-23 19:45:54.120225	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-241	64	3	1	This is a note	2025-03-23 19:45:54.156033	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-242	64	5	2	This is a note	2025-03-23 19:45:54.163101	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-243	64	8	3	This is a note	2025-03-23 19:45:54.167653	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-244	64	5	4	This is a note	2025-03-23 19:45:54.173664	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-245	65	3	1	This is a note	2025-03-23 19:45:54.206569	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-246	65	5	2	This is a note	2025-03-23 19:45:54.212874	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-247	65	8	3	This is a note	2025-03-23 19:45:54.2185	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-248	65	5	4	This is a note	2025-03-23 19:45:54.223251	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-249	66	3	1	This is a note	2025-03-23 19:45:54.258385	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-250	66	5	2	This is a note	2025-03-23 19:45:54.264688	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-251	66	8	3	This is a note	2025-03-23 19:45:54.26926	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-252	66	5	4	This is a note	2025-03-23 19:45:54.273809	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-253	67	3	1	This is a note	2025-03-23 19:45:54.307903	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-254	67	5	2	This is a note	2025-03-23 19:45:54.314294	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-255	67	8	3	This is a note	2025-03-23 19:45:54.319352	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-256	67	5	4	This is a note	2025-03-23 19:45:54.323999	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-257	68	3	1	This is a note	2025-03-23 19:45:54.35762	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-258	68	5	2	This is a note	2025-03-23 19:45:54.363485	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-259	68	8	3	This is a note	2025-03-23 19:45:54.367846	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-260	68	5	4	This is a note	2025-03-23 19:45:54.373379	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-261	69	3	1	This is a note	2025-03-23 19:45:54.409477	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-262	69	5	2	This is a note	2025-03-23 19:45:54.41631	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-263	69	8	3	This is a note	2025-03-23 19:45:54.422172	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-264	69	5	4	This is a note	2025-03-23 19:45:54.426812	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-265	70	3	1	This is a note	2025-03-23 19:45:54.461305	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-266	70	5	2	This is a note	2025-03-23 19:45:54.467294	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-267	70	8	3	This is a note	2025-03-23 19:45:54.472035	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-268	70	5	4	This is a note	2025-03-23 19:45:54.476598	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-269	71	3	1	This is a note	2025-03-23 19:45:54.508046	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-270	71	5	2	This is a note	2025-03-23 19:45:54.513826	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-271	71	8	3	This is a note	2025-03-23 19:45:54.518174	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-272	71	5	4	This is a note	2025-03-23 19:45:54.522464	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-273	72	3	1	This is a note	2025-03-23 19:45:54.555083	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-274	72	5	2	This is a note	2025-03-23 19:45:54.561043	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-275	72	8	3	This is a note	2025-03-23 19:45:54.565782	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-276	72	5	4	This is a note	2025-03-23 19:45:54.5704	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-277	73	3	1	This is a note	2025-03-23 19:45:54.603175	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-278	73	5	2	This is a note	2025-03-23 19:45:54.609459	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-279	73	8	3	This is a note	2025-03-23 19:45:54.613887	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-280	73	5	4	This is a note	2025-03-23 19:45:54.618319	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-281	74	3	1	This is a note	2025-03-23 19:45:54.652976	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-282	74	5	2	This is a note	2025-03-23 19:45:54.659455	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-283	74	8	3	This is a note	2025-03-23 19:45:54.664498	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-284	74	5	4	This is a note	2025-03-23 19:45:54.669957	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-285	75	3	1	This is a note	2025-03-23 19:45:54.702941	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-286	75	5	2	This is a note	2025-03-23 19:45:54.708669	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-287	75	8	3	This is a note	2025-03-23 19:45:54.713281	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-288	75	5	4	This is a note	2025-03-23 19:45:54.71907	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-289	76	3	1	This is a note	2025-03-23 19:45:54.750087	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-290	76	5	2	This is a note	2025-03-23 19:45:54.756245	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-291	76	8	3	This is a note	2025-03-23 19:45:54.761373	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-292	76	5	4	This is a note	2025-03-23 19:45:54.766679	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-293	77	3	1	This is a note	2025-03-23 19:45:54.797017	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-294	77	5	2	This is a note	2025-03-23 19:45:54.801888	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-295	77	8	3	This is a note	2025-03-23 19:45:54.806933	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-296	77	5	4	This is a note	2025-03-23 19:45:54.811963	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-297	78	3	1	This is a note	2025-03-23 19:45:54.844334	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-298	78	5	2	This is a note	2025-03-23 19:45:54.85022	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-299	78	8	3	This is a note	2025-03-23 19:45:54.855898	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-300	78	5	4	This is a note	2025-03-23 19:45:54.861113	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-301	79	3	1	This is a note	2025-03-23 19:45:54.895549	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-302	79	5	2	This is a note	2025-03-23 19:45:54.902326	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-303	79	8	3	This is a note	2025-03-23 19:45:54.907728	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-304	79	5	4	This is a note	2025-03-23 19:45:54.912099	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-305	80	3	1	This is a note	2025-03-23 19:45:54.945202	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-306	80	5	2	This is a note	2025-03-23 19:45:54.951404	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-307	80	8	3	This is a note	2025-03-23 19:45:54.956033	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-308	80	5	4	This is a note	2025-03-23 19:45:54.960769	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-309	81	3	1	This is a note	2025-03-23 19:45:54.992988	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-310	81	5	2	This is a note	2025-03-23 19:45:54.998924	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-311	81	8	3	This is a note	2025-03-23 19:45:55.003486	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-312	81	5	4	This is a note	2025-03-23 19:45:55.008046	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-313	82	3	1	This is a note	2025-03-23 19:45:55.040262	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-314	82	5	2	This is a note	2025-03-23 19:45:55.046631	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-315	82	8	3	This is a note	2025-03-23 19:45:55.051207	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-316	82	5	4	This is a note	2025-03-23 19:45:55.056005	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-317	83	3	1	This is a note	2025-03-23 19:45:55.089625	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-318	83	5	2	This is a note	2025-03-23 19:45:55.09552	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-319	83	8	3	This is a note	2025-03-23 19:45:55.100612	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-320	83	5	4	This is a note	2025-03-23 19:45:55.10581	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-321	84	3	1	This is a note	2025-03-23 19:45:55.139152	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-322	84	5	2	This is a note	2025-03-23 19:45:55.144733	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-323	84	8	3	This is a note	2025-03-23 19:45:55.150427	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-324	84	5	4	This is a note	2025-03-23 19:45:55.155971	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-325	85	3	1	This is a note	2025-03-23 19:45:55.189929	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-326	85	5	2	This is a note	2025-03-23 19:45:55.195811	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-327	85	8	3	This is a note	2025-03-23 19:45:55.201319	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-328	85	5	4	This is a note	2025-03-23 19:45:55.205901	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-329	86	3	1	This is a note	2025-03-23 19:45:55.238044	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-330	86	5	2	This is a note	2025-03-23 19:45:55.244074	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-331	86	8	3	This is a note	2025-03-23 19:45:55.248424	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-332	86	5	4	This is a note	2025-03-23 19:45:55.252636	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-333	87	3	1	This is a note	2025-03-23 19:45:55.284883	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-334	87	5	2	This is a note	2025-03-23 19:45:55.290337	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-335	87	8	3	This is a note	2025-03-23 19:45:55.296358	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-336	87	5	4	This is a note	2025-03-23 19:45:55.30068	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-337	88	3	1	This is a note	2025-03-23 19:45:55.334773	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-338	88	5	2	This is a note	2025-03-23 19:45:55.341954	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-339	88	8	3	This is a note	2025-03-23 19:45:55.346674	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-340	88	5	4	This is a note	2025-03-23 19:45:55.352768	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-341	89	3	1	This is a note	2025-03-23 19:45:55.386011	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-342	89	5	2	This is a note	2025-03-23 19:45:55.391512	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-343	89	8	3	This is a note	2025-03-23 19:45:55.396736	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-344	89	5	4	This is a note	2025-03-23 19:45:55.402194	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-345	90	3	1	This is a note	2025-03-23 19:45:55.434754	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-346	90	5	2	This is a note	2025-03-23 19:45:55.440027	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-347	90	8	3	This is a note	2025-03-23 19:45:55.445284	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-348	90	5	4	This is a note	2025-03-23 19:45:55.451493	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-349	91	3	1	This is a note	2025-03-23 19:45:55.483024	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-350	91	5	2	This is a note	2025-03-23 19:45:55.488032	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-351	91	8	3	This is a note	2025-03-23 19:45:55.493051	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-352	91	5	4	This is a note	2025-03-23 19:45:55.498003	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-353	92	3	1	This is a note	2025-03-23 19:45:55.529918	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-354	92	5	2	This is a note	2025-03-23 19:45:55.535898	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-355	92	8	3	This is a note	2025-03-23 19:45:55.541318	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-356	92	5	4	This is a note	2025-03-23 19:45:55.545927	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-357	93	3	1	This is a note	2025-03-23 19:45:55.580459	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-358	93	5	2	This is a note	2025-03-23 19:45:55.586003	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-359	93	8	3	This is a note	2025-03-23 19:45:55.591424	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-360	93	5	4	This is a note	2025-03-23 19:45:55.595912	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-361	94	3	1	This is a note	2025-03-23 19:45:55.628005	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-362	94	5	2	This is a note	2025-03-23 19:45:55.63402	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-363	94	8	3	This is a note	2025-03-23 19:45:55.638211	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-364	94	5	4	This is a note	2025-03-23 19:45:55.642732	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-365	95	3	1	This is a note	2025-03-23 19:45:55.674785	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-366	95	5	2	This is a note	2025-03-23 19:45:55.680553	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-367	95	8	3	This is a note	2025-03-23 19:45:55.685227	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-368	95	5	4	This is a note	2025-03-23 19:45:55.689343	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-369	96	3	1	This is a note	2025-03-23 19:45:55.721858	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-370	96	5	2	This is a note	2025-03-23 19:45:55.728089	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-371	96	8	3	This is a note	2025-03-23 19:45:55.732614	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-372	96	5	4	This is a note	2025-03-23 19:45:55.736798	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-373	97	3	1	This is a note	2025-03-23 19:45:55.769151	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-374	97	5	2	This is a note	2025-03-23 19:45:55.776248	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-375	97	8	3	This is a note	2025-03-23 19:45:55.780651	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-376	97	5	4	This is a note	2025-03-23 19:45:55.785259	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-377	98	3	1	This is a note	2025-03-23 19:45:55.816978	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-378	98	5	2	This is a note	2025-03-23 19:45:55.824314	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-379	98	8	3	This is a note	2025-03-23 19:45:55.829121	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-380	98	5	4	This is a note	2025-03-23 19:45:55.833603	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-381	99	3	1	This is a note	2025-03-23 19:45:55.866391	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-382	99	5	2	This is a note	2025-03-23 19:45:55.871639	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-383	99	8	3	This is a note	2025-03-23 19:45:55.875909	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-384	99	5	4	This is a note	2025-03-23 19:45:55.880839	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-385	100	3	1	This is a note	2025-03-23 19:45:55.912199	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-386	100	5	2	This is a note	2025-03-23 19:45:55.918172	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-387	100	8	3	This is a note	2025-03-23 19:45:55.92225	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-388	100	5	4	This is a note	2025-03-23 19:45:55.92701	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-389	101	3	1	This is a note	2025-03-23 19:45:55.959268	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-390	101	5	2	This is a note	2025-03-23 19:45:55.965424	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-391	101	8	3	This is a note	2025-03-23 19:45:55.969613	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-392	101	5	4	This is a note	2025-03-23 19:45:55.97426	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-393	102	3	1	This is a note	2025-03-23 19:45:56.006078	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-394	102	5	2	This is a note	2025-03-23 19:45:56.012253	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-395	102	8	3	This is a note	2025-03-23 19:45:56.016396	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-396	102	5	4	This is a note	2025-03-23 19:45:56.021062	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-397	103	3	1	This is a note	2025-03-23 19:45:56.052769	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-398	103	5	2	This is a note	2025-03-23 19:45:56.058054	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-399	103	8	3	This is a note	2025-03-23 19:45:56.062144	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-400	103	5	4	This is a note	2025-03-23 19:45:56.066621	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-401	104	3	1	This is a note	2025-03-23 19:45:56.099074	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-402	104	5	2	This is a note	2025-03-23 19:45:56.105413	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-403	104	8	3	This is a note	2025-03-23 19:45:56.109686	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-404	104	5	4	This is a note	2025-03-23 19:45:56.114319	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
-405	105	3	1	This is a note	2025-03-23 19:45:56.146428	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",2)
-406	105	5	2	This is a note	2025-03-23 19:45:56.152876	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",1)
-407	105	8	3	This is a note	2025-03-23 19:45:56.157075	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",4)
-408	105	5	4	This is a note	2025-03-23 19:45:56.161909	("{5,6,7,8}","{warm-up,normal,normal,normal}","{10.00,100.00,120.00,140.00}","{5,7,8,9}",3)
+411	108	273	1		2025-04-01 18:28:39.414568	({1},{normal},{300.00},{3},-1)
+412	109	716	1		2025-04-01 18:31:47.020837	({1},{normal},{415.00},{2},-1)
+413	110	273	1		2025-04-09 17:21:35.411209	({1},{normal},{225.00},{5},-1)
+414	111	716	1		2025-04-09 18:44:34.641196	({1},{normal},{315.00},{5},-1)
+415	112	273	1		2025-04-09 18:47:33.470765	({1},{normal},{405.00},{5},-1)
+416	113	273	1		2025-04-09 19:03:54.796719	({1},{normal},{305.00},{5},-1)
+417	114	273	1		2025-04-09 20:25:33.587036	({1},{normal},{250.00},{5},-1)
+418	115	273	1		2025-04-09 20:32:22.386201	({1},{normal},{250.00},{5},-1)
 \.
 
 
@@ -3498,111 +3365,14 @@ COPY public.workout_exercises (id, workout_id, exercise_id, order_exercise, note
 --
 
 COPY public.workouts (id, name, user_id, workout_type, workout_date, notes, average_heart_rate) FROM stdin;
-1	Gillan	1	strength	\N	eget tempus vel pede morbi porttitor lorem id ligula suspendisse ornare consequat lectus	168
-2	Gillan	1	strength	\N	eget tempus vel pede morbi porttitor lorem id ligula suspendisse ornare consequat lectus	168
-3	Ardith	2	strength	\N	consequat morbi a ipsum integer a nibh in quis justo maecenas rhoncus aliquam lacus	116
-4	Bernie	3	strength	\N	mauris enim leo rhoncus sed vestibulum sit amet cursus id	121
-5	Freddy	4	strength	\N	ut dolor morbi vel lectus in quam fringilla rhoncus mauris enim leo rhoncus sed vestibulum sit amet cursus	161
-6	Ronica	5	strength	\N	sit amet lobortis sapien sapien non mi integer ac neque duis bibendum morbi non quam nec dui luctus	137
-7	Mylo	6	strength	\N	dictumst maecenas ut massa quis augue luctus tincidunt nulla mollis molestie lorem	111
-8	Artus	7	strength	\N	posuere cubilia curae donec pharetra magna vestibulum aliquet ultrices erat tortor sollicitudin mi sit	169
-9	Nickola	8	strength	\N	id ornare imperdiet sapien urna pretium nisl ut volutpat sapien arcu sed augue aliquam	114
-10	Cyrille	9	strength	\N	leo maecenas pulvinar lobortis est phasellus sit amet erat nulla tempus vivamus in felis	101
-11	Moyra	10	strength	\N	aliquam augue quam sollicitudin vitae consectetuer eget rutrum at lorem	130
-12	Nell	11	strength	\N	vivamus in felis eu sapien cursus vestibulum proin eu mi nulla ac enim in tempor turpis nec euismod	113
-13	Chase	12	strength	\N	sem mauris laoreet ut rhoncus aliquet pulvinar sed nisl nunc	121
-14	Robbie	13	strength	\N	congue etiam justo etiam pretium iaculis justo in hac habitasse platea dictumst etiam faucibus cursus urna ut tellus nulla ut	170
-15	Coralie	14	strength	\N	pellentesque quisque porta volutpat erat quisque erat eros viverra eget congue eget semper rutrum nulla nunc purus phasellus in felis	100
-16	Liz	15	strength	\N	phasellus in felis donec semper sapien a libero nam dui	159
-17	Imogene	16	strength	\N	velit eu est congue elementum in hac habitasse platea dictumst	167
-18	Felicle	17	strength	\N	sapien non mi integer ac neque duis bibendum morbi non quam nec dui luctus rutrum nulla tellus in sagittis	108
-19	L;urette	18	strength	\N	ultrices mattis odio donec vitae nisi nam ultrices libero non mattis pulvinar nulla pede ullamcorper augue a suscipit	102
-20	Laural	19	strength	\N	neque libero convallis eget eleifend luctus ultricies eu nibh quisque id justo sit amet sapien dignissim vestibulum	152
-21	Zsazsa	20	strength	\N	pellentesque ultrices mattis odio donec vitae nisi nam ultrices libero non mattis pulvinar nulla pede ullamcorper augue a suscipit nulla	139
-22	Alleen	21	strength	\N	erat quisque erat eros viverra eget congue eget semper rutrum nulla nunc purus	136
-23	Darda	22	strength	\N	suspendisse potenti cras in purus eu magna vulputate luctus cum sociis natoque penatibus	101
-24	Jobye	23	strength	\N	pulvinar sed nisl nunc rhoncus dui vel sem sed sagittis nam	163
-25	Melamie	24	strength	\N	sapien iaculis congue vivamus metus arcu adipiscing molestie hendrerit at vulputate vitae nisl aenean lectus pellentesque eget nunc donec quis	148
-26	Levey	25	strength	\N	bibendum morbi non quam nec dui luctus rutrum nulla tellus	122
-27	Maxi	26	strength	\N	quam pharetra magna ac consequat metus sapien ut nunc vestibulum ante ipsum primis	147
-28	Sarah	27	strength	\N	fermentum donec ut mauris eget massa tempor convallis nulla neque	116
-29	Claire	28	strength	\N	massa tempor convallis nulla neque libero convallis eget eleifend luctus	164
-30	Karel	29	strength	\N	tristique fusce congue diam id ornare imperdiet sapien urna pretium nisl ut volutpat	153
-31	Bryana	30	strength	\N	eu massa donec dapibus duis at velit eu est congue elementum in hac habitasse platea dictumst morbi vestibulum velit id	150
-32	Allix	31	strength	\N	sed vel enim sit amet nunc viverra dapibus nulla suscipit	110
-33	Scotti	32	strength	\N	dui nec nisi volutpat eleifend donec ut dolor morbi vel lectus in quam fringilla rhoncus	115
-34	Lisette	33	strength	\N	erat tortor sollicitudin mi sit amet lobortis sapien sapien non mi integer ac neque duis bibendum morbi non	132
-35	Merilee	34	strength	\N	vestibulum vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae	136
-36	Jodi	35	strength	\N	purus sit amet nulla quisque arcu libero rutrum ac lobortis vel dapibus at diam nam tristique tortor eu pede	121
-37	Meridel	36	strength	\N	sollicitudin ut suscipit a feugiat et eros vestibulum ac est lacinia nisi venenatis tristique	141
-38	Leon	37	strength	\N	ut rhoncus aliquet pulvinar sed nisl nunc rhoncus dui vel sem sed sagittis nam congue risus semper	121
-39	Karlyn	38	strength	\N	id consequat in consequat ut nulla sed accumsan felis ut at dolor quis odio consequat varius integer	126
-40	Wilburt	39	strength	\N	et ultrices posuere cubilia curae donec pharetra magna vestibulum aliquet ultrices erat	148
-41	Maura	40	strength	\N	velit eu est congue elementum in hac habitasse platea dictumst morbi vestibulum velit id pretium	104
-42	Jerad	41	strength	\N	sapien in sapien iaculis congue vivamus metus arcu adipiscing molestie hendrerit at vulputate vitae nisl aenean lectus pellentesque	126
-43	Cord	42	strength	\N	amet turpis elementum ligula vehicula consequat morbi a ipsum integer a nibh in quis	149
-44	Tallia	43	strength	\N	libero non mattis pulvinar nulla pede ullamcorper augue a suscipit nulla elit ac nulla sed vel enim sit amet nunc	143
-45	Tiffani	44	strength	\N	sed vel enim sit amet nunc viverra dapibus nulla suscipit ligula in lacus curabitur at ipsum ac tellus semper interdum	161
-46	Andros	45	strength	\N	sapien cursus vestibulum proin eu mi nulla ac enim in tempor turpis nec euismod	106
-47	Errick	46	strength	\N	rhoncus sed vestibulum sit amet cursus id turpis integer aliquet massa id lobortis convallis tortor risus dapibus	150
-48	Glad	47	strength	\N	potenti nullam porttitor lacus at turpis donec posuere metus vitae ipsum aliquam non mauris morbi non lectus	120
-49	Heather	48	strength	\N	felis fusce posuere felis sed lacus morbi sem mauris laoreet ut rhoncus	134
-50	Dion	49	strength	\N	hac habitasse platea dictumst maecenas ut massa quis augue luctus tincidunt nulla mollis molestie lorem	110
-51	Kassie	50	strength	\N	felis donec semper sapien a libero nam dui proin leo odio porttitor id	164
-52	Gillan	1	strength	\N	eget tempus vel pede morbi porttitor lorem id ligula suspendisse ornare consequat lectus	168
-53	Gillan	1	strength	\N	eget tempus vel pede morbi porttitor lorem id ligula suspendisse ornare consequat lectus	168
-54	Gillan	1	strength	\N	eget tempus vel pede morbi porttitor lorem id ligula suspendisse ornare consequat lectus	168
-55	Gillan	1	strength	\N	eget tempus vel pede morbi porttitor lorem id ligula suspendisse ornare consequat lectus	168
-56	Gillan	1	strength	\N	eget tempus vel pede morbi porttitor lorem id ligula suspendisse ornare consequat lectus	168
-57	Ardith	2	strength	\N	consequat morbi a ipsum integer a nibh in quis justo maecenas rhoncus aliquam lacus	116
-58	Bernie	3	strength	\N	mauris enim leo rhoncus sed vestibulum sit amet cursus id	121
-59	Freddy	4	strength	\N	ut dolor morbi vel lectus in quam fringilla rhoncus mauris enim leo rhoncus sed vestibulum sit amet cursus	161
-60	Ronica	5	strength	\N	sit amet lobortis sapien sapien non mi integer ac neque duis bibendum morbi non quam nec dui luctus	137
-61	Mylo	6	strength	\N	dictumst maecenas ut massa quis augue luctus tincidunt nulla mollis molestie lorem	111
-62	Artus	7	strength	\N	posuere cubilia curae donec pharetra magna vestibulum aliquet ultrices erat tortor sollicitudin mi sit	169
-63	Nickola	8	strength	\N	id ornare imperdiet sapien urna pretium nisl ut volutpat sapien arcu sed augue aliquam	114
-64	Cyrille	9	strength	\N	leo maecenas pulvinar lobortis est phasellus sit amet erat nulla tempus vivamus in felis	101
-65	Moyra	10	strength	\N	aliquam augue quam sollicitudin vitae consectetuer eget rutrum at lorem	130
-66	Nell	11	strength	\N	vivamus in felis eu sapien cursus vestibulum proin eu mi nulla ac enim in tempor turpis nec euismod	113
-67	Chase	12	strength	\N	sem mauris laoreet ut rhoncus aliquet pulvinar sed nisl nunc	121
-68	Robbie	13	strength	\N	congue etiam justo etiam pretium iaculis justo in hac habitasse platea dictumst etiam faucibus cursus urna ut tellus nulla ut	170
-69	Coralie	14	strength	\N	pellentesque quisque porta volutpat erat quisque erat eros viverra eget congue eget semper rutrum nulla nunc purus phasellus in felis	100
-70	Liz	15	strength	\N	phasellus in felis donec semper sapien a libero nam dui	159
-71	Imogene	16	strength	\N	velit eu est congue elementum in hac habitasse platea dictumst	167
-72	Felicle	17	strength	\N	sapien non mi integer ac neque duis bibendum morbi non quam nec dui luctus rutrum nulla tellus in sagittis	108
-73	L;urette	18	strength	\N	ultrices mattis odio donec vitae nisi nam ultrices libero non mattis pulvinar nulla pede ullamcorper augue a suscipit	102
-74	Laural	19	strength	\N	neque libero convallis eget eleifend luctus ultricies eu nibh quisque id justo sit amet sapien dignissim vestibulum	152
-75	Zsazsa	20	strength	\N	pellentesque ultrices mattis odio donec vitae nisi nam ultrices libero non mattis pulvinar nulla pede ullamcorper augue a suscipit nulla	139
-76	Alleen	21	strength	\N	erat quisque erat eros viverra eget congue eget semper rutrum nulla nunc purus	136
-77	Darda	22	strength	\N	suspendisse potenti cras in purus eu magna vulputate luctus cum sociis natoque penatibus	101
-78	Jobye	23	strength	\N	pulvinar sed nisl nunc rhoncus dui vel sem sed sagittis nam	163
-79	Melamie	24	strength	\N	sapien iaculis congue vivamus metus arcu adipiscing molestie hendrerit at vulputate vitae nisl aenean lectus pellentesque eget nunc donec quis	148
-80	Levey	25	strength	\N	bibendum morbi non quam nec dui luctus rutrum nulla tellus	122
-81	Maxi	26	strength	\N	quam pharetra magna ac consequat metus sapien ut nunc vestibulum ante ipsum primis	147
-82	Sarah	27	strength	\N	fermentum donec ut mauris eget massa tempor convallis nulla neque	116
-83	Claire	28	strength	\N	massa tempor convallis nulla neque libero convallis eget eleifend luctus	164
-84	Karel	29	strength	\N	tristique fusce congue diam id ornare imperdiet sapien urna pretium nisl ut volutpat	153
-85	Bryana	30	strength	\N	eu massa donec dapibus duis at velit eu est congue elementum in hac habitasse platea dictumst morbi vestibulum velit id	150
-86	Allix	31	strength	\N	sed vel enim sit amet nunc viverra dapibus nulla suscipit	110
-87	Scotti	32	strength	\N	dui nec nisi volutpat eleifend donec ut dolor morbi vel lectus in quam fringilla rhoncus	115
-88	Lisette	33	strength	\N	erat tortor sollicitudin mi sit amet lobortis sapien sapien non mi integer ac neque duis bibendum morbi non	132
-89	Merilee	34	strength	\N	vestibulum vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae	136
-90	Jodi	35	strength	\N	purus sit amet nulla quisque arcu libero rutrum ac lobortis vel dapibus at diam nam tristique tortor eu pede	121
-91	Meridel	36	strength	\N	sollicitudin ut suscipit a feugiat et eros vestibulum ac est lacinia nisi venenatis tristique	141
-92	Leon	37	strength	\N	ut rhoncus aliquet pulvinar sed nisl nunc rhoncus dui vel sem sed sagittis nam congue risus semper	121
-93	Karlyn	38	strength	\N	id consequat in consequat ut nulla sed accumsan felis ut at dolor quis odio consequat varius integer	126
-94	Wilburt	39	strength	\N	et ultrices posuere cubilia curae donec pharetra magna vestibulum aliquet ultrices erat	148
-95	Maura	40	strength	\N	velit eu est congue elementum in hac habitasse platea dictumst morbi vestibulum velit id pretium	104
-96	Jerad	41	strength	\N	sapien in sapien iaculis congue vivamus metus arcu adipiscing molestie hendrerit at vulputate vitae nisl aenean lectus pellentesque	126
-97	Cord	42	strength	\N	amet turpis elementum ligula vehicula consequat morbi a ipsum integer a nibh in quis	149
-98	Tallia	43	strength	\N	libero non mattis pulvinar nulla pede ullamcorper augue a suscipit nulla elit ac nulla sed vel enim sit amet nunc	143
-99	Tiffani	44	strength	\N	sed vel enim sit amet nunc viverra dapibus nulla suscipit ligula in lacus curabitur at ipsum ac tellus semper interdum	161
-100	Andros	45	strength	\N	sapien cursus vestibulum proin eu mi nulla ac enim in tempor turpis nec euismod	106
-101	Errick	46	strength	\N	rhoncus sed vestibulum sit amet cursus id turpis integer aliquet massa id lobortis convallis tortor risus dapibus	150
-102	Glad	47	strength	\N	potenti nullam porttitor lacus at turpis donec posuere metus vitae ipsum aliquam non mauris morbi non lectus	120
-103	Heather	48	strength	\N	felis fusce posuere felis sed lacus morbi sem mauris laoreet ut rhoncus	134
-104	Dion	49	strength	\N	hac habitasse platea dictumst maecenas ut massa quis augue luctus tincidunt nulla mollis molestie lorem	110
-105	Kassie	50	strength	\N	felis donec semper sapien a libero nam dui proin leo odio porttitor id	164
+108	test workout for max	51	strength	2025-04-01 18:28:39.40076		0
+109	Squat test max	51	strength	2025-04-01 18:31:47.015224		120
+110	test workout	51	strength	2025-04-09 17:21:35.382281		120
+111	test workout	53	strength	2025-04-09 18:44:34.630734		100
+112	test workout	54	strength	2025-04-09 18:47:33.465978		100
+113	Workout 1	51	strength	2025-04-09 19:03:54.789757		145
+114	testWorkout	51	strength	2025-04-09 20:25:33.574601		120
+115	test	53	strength	2025-04-09 20:32:22.378502		120
 \.
 
 
@@ -3611,6 +3381,20 @@ COPY public.workouts (id, name, user_id, workout_type, workout_date, notes, aver
 --
 
 SELECT pg_catalog.setval('public.exercises_id_seq', 873, true);
+
+
+--
+-- Name: family_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.family_id_seq', 9, true);
+
+
+--
+-- Name: family_requests_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
+--
+
+SELECT pg_catalog.setval('public.family_requests_id_seq', 10, true);
 
 
 --
@@ -3631,35 +3415,35 @@ SELECT pg_catalog.setval('public.predictiveanalysis_id_seq', 1, false);
 -- Name: user_engagement_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.user_engagement_id_seq', 1, false);
+SELECT pg_catalog.setval('public.user_engagement_id_seq', 65, true);
 
 
 --
 -- Name: user_exercise_max_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.user_exercise_max_id_seq', 203, true);
+SELECT pg_catalog.setval('public.user_exercise_max_id_seq', 211, true);
 
 
 --
 -- Name: user_goals_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.user_goals_id_seq', 1, false);
+SELECT pg_catalog.setval('public.user_goals_id_seq', 3, true);
 
 
 --
 -- Name: user_stats_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.user_stats_id_seq', 55, true);
+SELECT pg_catalog.setval('public.user_stats_id_seq', 59, true);
 
 
 --
 -- Name: users_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.users_id_seq', 56, true);
+SELECT pg_catalog.setval('public.users_id_seq', 62, true);
 
 
 --
@@ -3673,14 +3457,14 @@ SELECT pg_catalog.setval('public.workout_cardio_id_seq', 1, false);
 -- Name: workout_exercises_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.workout_exercises_id_seq', 408, true);
+SELECT pg_catalog.setval('public.workout_exercises_id_seq', 418, true);
 
 
 --
 -- Name: workouts_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.workouts_id_seq', 105, true);
+SELECT pg_catalog.setval('public.workouts_id_seq', 115, true);
 
 
 --
@@ -3689,6 +3473,38 @@ SELECT pg_catalog.setval('public.workouts_id_seq', 105, true);
 
 ALTER TABLE ONLY public.exercises
     ADD CONSTRAINT exercises_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: family family_family_name_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.family
+    ADD CONSTRAINT family_family_name_key UNIQUE (family_name);
+
+
+--
+-- Name: family_members family_members_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.family_members
+    ADD CONSTRAINT family_members_pkey PRIMARY KEY (family_id, user_id);
+
+
+--
+-- Name: family family_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.family
+    ADD CONSTRAINT family_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: family_requests family_requests_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.family_requests
+    ADD CONSTRAINT family_requests_pkey PRIMARY KEY (id);
 
 
 --
@@ -3820,6 +3636,54 @@ ALTER TABLE ONLY public.exercises
 
 
 --
+-- Name: family family_family_admin_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.family
+    ADD CONSTRAINT family_family_admin_fkey FOREIGN KEY (family_admin) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: family_members family_members_family_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.family_members
+    ADD CONSTRAINT family_members_family_id_fkey FOREIGN KEY (family_id) REFERENCES public.family(id) ON DELETE CASCADE;
+
+
+--
+-- Name: family_members family_members_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.family_members
+    ADD CONSTRAINT family_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: family_requests family_requests_family_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.family_requests
+    ADD CONSTRAINT family_requests_family_id_fkey FOREIGN KEY (family_id) REFERENCES public.family(id) ON DELETE CASCADE;
+
+
+--
+-- Name: family_requests family_requests_receiver_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.family_requests
+    ADD CONSTRAINT family_requests_receiver_id_fkey FOREIGN KEY (receiver_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: family_requests family_requests_sender_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.family_requests
+    ADD CONSTRAINT family_requests_sender_id_fkey FOREIGN KEY (sender_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
 -- Name: predictive_exercise predictive_exercise_exercise_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
 --
 
@@ -3841,6 +3705,14 @@ ALTER TABLE ONLY public.predictive_exercise
 
 ALTER TABLE ONLY public.predictiveanalysis
     ADD CONSTRAINT predictiveanalysis_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: strength_goals strength_goals_target_exercise_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.strength_goals
+    ADD CONSTRAINT strength_goals_target_exercise_fkey FOREIGN KEY (target_exercise) REFERENCES public.exercises(id) ON DELETE SET NULL;
 
 
 --
