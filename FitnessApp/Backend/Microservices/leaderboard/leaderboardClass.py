@@ -177,37 +177,38 @@ class Leaderboard():
             logger.debug("Database connection closed")
         
     def get_workout_number_leaderboard(self):
-        logger.debug(f"Getting workout number leaderboard for the last {self.days} days")
+        logger.debug(f"Getting ALL TIME workout number leaderboard")
         conn = None
         cur = None
-        
+
         try:
-            try:
-                logger.debug("Establishing database connection")
-                conn = getConnection()
-            except Exception as e:
-                logger.error(f"Failed to connect to database: {str(e)}")
-                raise ConnectionError(str(e))
-                
+            logger.debug("Establishing database connection")
+            conn = getConnection()
             cur = conn.cursor()
-            
-            get_workout_number_query = sql.SQL("SELECT use.username, COUNT(w.id) FROM workouts w JOIN users use ON w.user_id = use.id WHERE w.date >= %s AND w.date <= %s GROUP BY use.username ORDER BY COUNT(w.id) DESC LIMIT %s")
-            start_date = datetime.now() - timedelta(days=self.days)
-            end_date = datetime.now()
-            
-            logger.debug(f"Executing query with parameters: start_date={start_date}, end_date={end_date}, limit={self.number}")
-            cur.execute(get_workout_number_query, (start_date, end_date, self.number))
+
+            # 🛠 NO WHERE CLAUSE on workout_date
+            get_workout_number_query = sql.SQL("""
+                SELECT use.username, COUNT(w.id)
+                FROM workouts w
+                JOIN users use ON w.user_id = use.id
+                GROUP BY use.username
+                ORDER BY COUNT(w.id) DESC
+                LIMIT %s
+            """)
+
+            logger.debug(f"Executing query with limit={self.number}")
+            cur.execute(get_workout_number_query, (self.number,))
             result = cur.fetchall()
-            
+
             if result:
                 logger.info(f"Found {len(result)} entries for workout number leaderboard")
                 return self.__jsonify_tuple_list__(result, self.keys)
             else:
                 logger.warning("No data found for workout number leaderboard")
-                raise NoLeaderboardDataError("No workout data found for the specified time period")
-                
-        except (ConnectionError, NoLeaderboardDataError):
-            # Re-raise specific exceptions
+                # ✅ Instead of raising an error, just return empty
+                return []
+
+        except (ConnectionError):
             raise
         except Exception as e:
             logger.error(f"Error retrieving workout number leaderboard: {str(e)}")
@@ -219,7 +220,7 @@ class Leaderboard():
             if conn:
                 conn.close()
             logger.debug("Database connection closed")
-    
+
     def get_exercise_leaderboard(self):
         logger.debug(f"Getting exercise weight leaderboard for exercise ID {self.workout} over the last {self.days} days")
         conn = None
@@ -252,7 +253,7 @@ class Leaderboard():
                                             unnest((we.sets).weight) AS weight
                                         FROM workouts w
                                         JOIN workout_exercises we ON we.workout_id = w.id
-                                        WHERE w.date BETWEEN %s AND %s AND we.exercise_id = %s
+                                        WHERE w.workout_date BETWEEN %s AND %s AND we.exercise_id = %s
                                         )
                                         SELECT 
                                             u.username, 
@@ -372,7 +373,7 @@ class Leaderboard():
                                         FROM workouts w
                                         JOIN users u ON w.user_id = u.id
                                         JOIN workout_cardio wc ON w.id = wc.workout_id
-                                        WHERE w.date BETWEEN %s AND %s AND wc.distance >= 1
+                                        WHERE w.workout_date BETWEEN %s AND %s AND wc.distance >= 1
                                         GROUP BY w.user_id, u.username
                                         ORDER BY MIN(wc.duration/wc.distance) ASC
                                         LIMIT %s

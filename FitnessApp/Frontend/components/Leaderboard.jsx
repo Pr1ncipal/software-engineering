@@ -45,6 +45,7 @@ const LeaderboardPage = () => {
   const [showChart, setShowChart] = useState(false);
   const [healthData, setHealthData] = useState({ overall: 0, components: [] });
   
+  
   // Ref to track mounted state
   const isMounted = useRef(true);
   
@@ -134,12 +135,12 @@ const LeaderboardPage = () => {
     }
   };
   
-  const fetchLeaderboardData = async (category, workout = '') => {
+  const fetchLeaderboardData = async (category, workout = '', customDays = selectedDays) => {
     try {
       const headers = await getAuthHeaders();
       const params = new URLSearchParams({
         category,
-        days: selectedDays.toString(),
+        days: customDays.toString(),
         scope: 'global',
         workout: category === '1rm' ? workout : '',
         number: '100',
@@ -160,30 +161,59 @@ const LeaderboardPage = () => {
       return [];
     }
   };
+  
 
   const fetchHealthScore = async () => {
     if (!isMounted.current) return;
-    
+  
     setLoading(true);
     try {
-      const username = await secureStorage.getItem('username');
+      let username = await secureStorage.getItem('username');
+      if (!username) {
+        // BETTER fallback: call get_user_page to get username
+        const userPageResponse = await fetch('http://127.0.0.1:8080/api/user/get_user_page', { headers: await getAuthHeaders() });
+        const userPageData = await userPageResponse.json();
+        
+        username = userPageData?.username || userPageData?.user?.username; // safer
+  
+        if (username) {
+          await secureStorage.setItem('username', username);
+        } else {
+          console.error('Failed to recover username from get_user_page');
+        }
+      }
+  
+
+      
       const [stepsData, benchData, squatData, deadliftData, workoutsData] = await Promise.allSettled([
-        fetchLeaderboardData('steps'),
-        fetchLeaderboardData('1rm', WORKOUT_IDS.bench),
-        fetchLeaderboardData('1rm', WORKOUT_IDS.squat),
-        fetchLeaderboardData('1rm', WORKOUT_IDS.deadlift),
-        fetchLeaderboardData('workouts'),
+        fetchLeaderboardData('steps', '', selectedDays),        // still 7 days for steps
+        fetchLeaderboardData('1rm', WORKOUT_IDS.bench, 365),     // 365 days for lifts (all time)
+        fetchLeaderboardData('1rm', WORKOUT_IDS.squat, 365),
+        fetchLeaderboardData('1rm', WORKOUT_IDS.deadlift, 365),
+        fetchLeaderboardData('workouts', '', 365),               // 365 days for workouts (all time)
       ]);
 
-      const stepsScore = stepsData.status === 'fulfilled' ? calculateUserScore(stepsData.value, username, 15000) : 0;
-      const benchScore = benchData.status === 'fulfilled' ? calculateUserScore(benchData.value, username, 225) : 0;
-      const squatScore = squatData.status === 'fulfilled' ? calculateUserScore(squatData.value, username, 315) : 0;
-      const deadliftScore = deadliftData.status === 'fulfilled' ? calculateUserScore(deadliftData.value, username, 425) : 0;
-      const workoutsScore = workoutsData.status === 'fulfilled' ? calculateWorkoutScore(workoutsData.value, username) : 0;
+  
+      const getSafeValue = (result) => (result.status === 'fulfilled' ? result.value : []);
+  
+      const safeStepsData = getSafeValue(stepsData);
+      const safeBenchData = getSafeValue(benchData);
+      const safeSquatData = getSafeValue(squatData);
+      const safeDeadliftData = getSafeValue(deadliftData);
+      const safeWorkoutsData = getSafeValue(workoutsData);
+      console.log('Steps Data:', safeStepsData);
+      console.log('Bench Data:', safeBenchData);
+      console.log('Squat Data:', safeSquatData);
+      console.log('Deadlift Data:', safeDeadliftData);
+      console.log('Workouts Data:', safeWorkoutsData);
 
-      const strengthScore = Math.round((benchScore + squatScore + deadliftScore) / 3);
-      const overallScore = Math.round((stepsScore * 0.35) + (strengthScore * 0.40) + (workoutsScore * 0.25));
-
+  
+      const stepsScore = calculateStepsScore(safeStepsData, username);
+      const strengthScore = calculateStrengthScore(safeBenchData, safeSquatData, safeDeadliftData, username);
+      const workoutsScore = calculateWorkoutsScore(safeWorkoutsData, username);
+  
+      const overallScore = Math.round((stepsScore * 0.35) + (strengthScore * 0.4) + (workoutsScore * 0.25));
+  
       if (isMounted.current) {
         setHealthData({
           overall: overallScore,
@@ -193,6 +223,13 @@ const LeaderboardPage = () => {
             { name: 'Workouts', value: workoutsScore, color: '#FF9500', legendFontColor: '#7F7F7F', legendFontSize: 12 },
           ],
         });
+        console.log('Updated Health Data:', {
+          stepsScore,
+          strengthScore,
+          workoutsScore,
+          overallScore
+        });
+        
       }
     } catch (error) {
       console.error('Error calculating health score', error);
@@ -202,16 +239,33 @@ const LeaderboardPage = () => {
       }
     }
   };
-
-  const calculateUserScore = (leaderboard, username, goal) => {
-    if (!leaderboard) return 0;
+  
+  
+  
+  const calculateStepsScore = (leaderboard, username) => {
     const user = leaderboard.find(u => u.username === username);
-    if (!user) return 0;
-    return Math.min(100, Math.round((parseFloat(user.value) / goal) * 100));
-  };
+    console.log('Username from secureStorage:', username);
 
-  const calculateWorkoutScore = (leaderboard, username) => {
-    if (!leaderboard) return 0;
+    if (!user) return 0;
+    const avgDailySteps = parseFloat(user.value) / selectedDays;
+    return Math.min(100, Math.round((avgDailySteps / 15000) * 100));
+  };
+  
+  const calculateStrengthScore = (bench, squat, deadlift, username) => {
+    const get1RM = (data, goal) => {
+      const user = data.find(u => u.username === username);
+      if (!user) return 0;
+      return Math.min(1, parseFloat(user.value) / goal);
+    };
+  
+    const benchScore = get1RM(bench, 225);
+    const squatScore = get1RM(squat, 315);
+    const deadliftScore = get1RM(deadlift, 405);
+  
+    return Math.round(((benchScore + squatScore + deadliftScore) / 3) * 100);
+  };
+  
+  const calculateWorkoutsScore = (leaderboard, username) => {
     const user = leaderboard.find(u => u.username === username);
     if (!user) return 0;
     const count = parseInt(user.value, 10);
@@ -220,7 +274,7 @@ const LeaderboardPage = () => {
     if (count === 1) return 33;
     return 0;
   };
-
+  
   // Generate chart data based on leaderboard data
   const generateChartData = (leaderboardData, category) => {
     if (!leaderboardData || leaderboardData.length === 0) return;
@@ -284,17 +338,13 @@ const LeaderboardPage = () => {
   // Handle category change
   const handleCategoryChange = (category) => {
     setActiveCategory(category);
-    if (category === 'health') {
-      // Just set the active category, no need to fetch data
-      setShowChart(true);
-      setData([]);
-      setLoading(false);
-    } else if (category === '1rm') {
+    if (category === '1rm') {
       fetchLeaderboard(category, currentWorkout);
     } else {
       fetchLeaderboard(category);
     }
   };
+  
 
   useEffect(() => {
     // Initial load of data
@@ -400,7 +450,7 @@ const LeaderboardPage = () => {
     if (activeCategory === 'health') {
       return (
         <View style={styles.chartContainer}>
-          <Text style={styles.chartTitle}>Family Health Score</Text>
+          <Text style={styles.chartTitle}>Your Health Score</Text>
           <View style={styles.chartWrapper}>
             <PieChart
               data={healthData.components}
@@ -416,45 +466,31 @@ const LeaderboardPage = () => {
           <View style={styles.healthScoreCircleContainer}>
             <View style={styles.healthScoreCircle}>
               <Text style={styles.healthScoreText}>{healthData.overall}</Text>
-              <Text style={styles.healthScoreLabel}>OVERALL SCORE</Text>
+              <Text style={styles.healthScoreLabel}>OVERALL</Text>
             </View>
           </View>
           <View style={styles.chartDivider} />
-          <Text style={styles.chartSubtitle}>Score Breakdown</Text>
-          <View style={styles.scoreBreakdown}>
-            {healthData.components.map((item, index) => (
-              <View key={index} style={styles.breakdownItem}>
-                <Text style={styles.breakdownLabel}>{item.name}</Text>
-                <View style={styles.progressBarContainer}>
-                  <View style={[styles.progressBar, { width: `${item.value}%`, backgroundColor: item.color }]} />
-                </View>
-                <Text style={styles.breakdownValue}>{item.value}%</Text>
-              </View>
-            ))}
-          </View>
-          <View style={styles.chartDivider} />
+    
+          {/* Optional: Strengths/Weaknesses insights */}
           <View style={styles.insightsContainer}>
-            <Text style={styles.insightsTitle}>Family Insights</Text>
+            <Text style={styles.insightsTitle}>Insights</Text>
             <View style={styles.insightRow}>
-              <Ionicons name="trending-up" size={24} color="#4CD964" />
-              <Text style={styles.insightText}>Family activity up 12% this week</Text>
-            </View>
-            <View style={styles.insightRow}>
-              <Ionicons name="star" size={24} color="#FFCC00" />
+              <Ionicons name="star" size={24} color="#FFD700" />
               <Text style={styles.insightText}>
-                {healthData.components.sort((a, b) => b.value - a.value)[0]?.name || 'Workouts'} is your strongest category
+                Strongest: {healthData.components.sort((a, b) => b.value - a.value)[0]?.name}
               </Text>
             </View>
             <View style={styles.insightRow}>
-              <Ionicons name="fitness" size={24} color="#FF9500" />
+              <Ionicons name="trending-down" size={24} color="#FF3B30" />
               <Text style={styles.insightText}>
-                Suggested focus: Increase {healthData.components.sort((a, b) => a.value - b.value)[0]?.name || 'Strength'} training
+                Needs Focus: {healthData.components.sort((a, b) => a.value - b.value)[0]?.name}
               </Text>
             </View>
           </View>
         </View>
       );
     }
+    
     
     if (!chartData || data.length === 0) return null;
     
@@ -637,7 +673,7 @@ const LeaderboardPage = () => {
           </View>
           
           <View style={styles.tabContainer}>
-            {['steps', '1rm', 'workouts', 'pace', 'health'].map((category) => (
+            {['steps', '1rm', 'workouts', 'health'].map((category) => (
               <TouchableOpacity
                 key={category}
                 style={[styles.tab, activeCategory === category && styles.activeTab]}
