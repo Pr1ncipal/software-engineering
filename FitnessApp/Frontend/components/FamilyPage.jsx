@@ -806,7 +806,9 @@ const FamilyPage = () => {
           minHeight: '100vh',
           background: 'linear-gradient(to bottom, #FDA085, #007AFF, #B3E5FC)',
           display: 'flex',
-          flexDirection: 'column'
+          flexDirection: 'column',
+          overflow: 'auto', // Add this to enable scrolling
+          position: 'relative' // Add this to maintain proper positioning of elements
         }}
     >
       {/* Notifications bell */}

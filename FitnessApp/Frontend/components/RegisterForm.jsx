@@ -5,6 +5,7 @@ import CryptoJS from "crypto-js";
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import { secureStorage } from '@/utils/secureStorage';
+import { Box } from '@mui/material';
 
 const showAlert = (title, message, buttons = [{ text: 'OK' }]) => {
   if (Platform.OS === 'web') {
@@ -207,9 +208,12 @@ export default function RegisterForm({ onLogin }) {
   );
 
   return (
-    <LinearGradient colors={['#007AFF', '#FFCC80']} style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.scrollViewContent}>
-        <View style={styles.outerContainer}>
+    <View style={{ height: '100vh', width: '100%', overflow: 'auto' }}>
+      <LinearGradient 
+        colors={['#FDA085', '#007AFF', '#B3E5FC']} 
+        style={{ minHeight: '100%', width: '100%' }}
+      >
+        <View style={[styles.outerContainer, { paddingTop: 60, paddingBottom: 100 }]}>
           <View style={[styles.container, isSmallScreen ? styles.containerSmall : styles.containerLarge]}>
             <TouchableOpacity onPress={() => navigation.navigate('Login')} style={styles.backButton}>
               <Text style={styles.backButtonText}>← Back to Login</Text>
@@ -219,200 +223,210 @@ export default function RegisterForm({ onLogin }) {
 
 
             <Text style={styles.label}>Name:</Text>
-           <View style={styles.nameContainer}>
-             <View style={styles.nameField}>
-               <TextInput
-                 style={[
-                   styles.input,
-                   errors.first_name ? styles.inputError : null,
-                   isSmallScreen ? styles.inputSmall : {}
-                 ]}
-                 placeholder="First Name"
-                 value={formData.first_name}
-                 onChangeText={text => handleChange('first_name', text)}
-                 maxLength={20}
-               />
-               {errors.first_name && <Text style={styles.errorText}>{errors.first_name}</Text>}
-             </View>
+            <View style={styles.nameContainer}>
+              <View style={styles.nameField}>
+                <TextInput
+                  style={[
+                    styles.input,
+                    errors.first_name ? styles.inputError : null,
+                    isSmallScreen ? styles.inputSmall : {}
+                  ]}
+                  placeholder="First Name"
+                  value={formData.first_name}
+                  onChangeText={text => handleChange('first_name', text)}
+                  maxLength={20}
+                />
+                {errors.first_name && <Text style={styles.errorText}>{errors.first_name}</Text>}
+              </View>
             
-             <View style={styles.nameField}>
-               <TextInput
-                 style={[
-                   styles.input,
-                   errors.last_name ? styles.inputError : null,
-                   isSmallScreen ? styles.inputSmall : {}
-                 ]}
-                 placeholder="Last Name"
-                 value={formData.last_name}
-                 onChangeText={text => handleChange('last_name', text)}
-                 maxLength={30}
-               />
-               {errors.last_name && <Text style={styles.errorText}>{errors.last_name}</Text>}
-             </View>
-           </View>
+              <View style={styles.nameField}>
+                <TextInput
+                  style={[
+                    styles.input,
+                    errors.last_name ? styles.inputError : null,
+                    isSmallScreen ? styles.inputSmall : {}
+                  ]}
+                  placeholder="Last Name"
+                  value={formData.last_name}
+                  onChangeText={text => handleChange('last_name', text)}
+                  maxLength={30}
+                />
+                {errors.last_name && <Text style={styles.errorText}>{errors.last_name}</Text>}
+              </View>
+            </View>
           
-           <Text style={styles.label}>Email:</Text>
-           <TextInput
-             style={[
-               styles.input,
-               errors.email ? styles.inputError : null,
-               isSmallScreen ? styles.inputSmall : {}
-             ]}
-             placeholder="Email"
-             value={formData.email}
-             keyboardType="email-address"
-             onChangeText={text => handleChange('email', text)}
-           />
-           {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
+            <Text style={styles.label}>Email:</Text>
+            <TextInput
+              style={[
+                styles.input,
+                errors.email ? styles.inputError : null,
+                isSmallScreen ? styles.inputSmall : {}
+              ]}
+              placeholder="Email"
+              value={formData.email}
+              keyboardType="email-address"
+              onChangeText={text => handleChange('email', text)}
+            />
+            {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
           
-           <Text style={styles.label}>Username:</Text>
-           <TextInput
-             style={[
-               styles.input,
-               errors.username ? styles.inputError : null,
-               isSmallScreen ? styles.inputSmall : {}
-             ]}
-             placeholder="Username"
-             value={formData.username}
-             onChangeText={text => handleChange('username', text)}
-             maxLength={20}
-           />
-           {errors.username && <Text style={styles.errorText}>{errors.username}</Text>}
+            <Text style={styles.label}>Username:</Text>
+            <TextInput
+              style={[
+                styles.input,
+                errors.username ? styles.inputError : null,
+                isSmallScreen ? styles.inputSmall : {}
+              ]}
+              placeholder="Username"
+              value={formData.username}
+              onChangeText={text => handleChange('username', text)}
+              maxLength={20}
+            />
+            {errors.username && <Text style={styles.errorText}>{errors.username}</Text>}
           
-           <Text style={styles.label}>Password:</Text>
-           <TextInput
-             style={[
-               styles.input,
-               errors.password ? styles.inputError : null,
-               isSmallScreen ? styles.inputSmall : {}
-             ]}
-             placeholder="Password (8+ characters)"
-             secureTextEntry
-             value={formData.password}
-             onChangeText={text => handleChange('password', text)}
-           />
-           {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
+            <Text style={styles.label}>Password:</Text>
+            <TextInput
+              style={[
+                styles.input,
+                errors.password ? styles.inputError : null,
+                isSmallScreen ? styles.inputSmall : {}
+              ]}
+              placeholder="Password (8+ characters)"
+              secureTextEntry
+              value={formData.password}
+              onChangeText={text => handleChange('password', text)}
+            />
+            {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
 
 
-           <Text style={styles.label}>Date of Birth:</Text>
-           <View style={[
-             styles.pickerContainer,
-             isSmallScreen ? styles.pickerContainerSmall : {}
-           ]}>
-             <RenderPicker
-               style={[
-                 styles.picker,
-                 isSmallScreen ? styles.pickerSmall : {}
-               ]}
-               selectedValue={formData.month}
-               onValueChange={(value) => handleChange('month', value)}
-               items={months.map((month) => <Picker.Item key={month.value} label={month.label} value={month.value} />)}
-             />
-             <RenderPicker
-               style={[
-                 styles.picker,
-                 isSmallScreen ? styles.pickerSmall : {}
-               ]}
-               selectedValue={formData.day}
-               onValueChange={(value) => handleChange('day', value)}
-               items={days.map((day) => <Picker.Item key={day} label={day} value={day} />)}
-             />
-             <RenderPicker
-               style={[
-                 styles.picker,
-                 isSmallScreen ? styles.pickerSmall : {}
-               ]}
-               selectedValue={formData.year}
-               onValueChange={(value) => handleChange('year', value)}
-               items={years.map((year) => <Picker.Item key={year} label={year.toString()} value={year.toString()} />)}
-             />
-           </View>
+            <Text style={styles.label}>Date of Birth:</Text>
+            <View style={[
+              styles.pickerContainer,
+              isSmallScreen ? styles.pickerContainerSmall : {}
+            ]}>
+              <RenderPicker
+                style={[
+                  styles.picker,
+                  isSmallScreen ? styles.pickerSmall : {}
+                ]}
+                selectedValue={formData.month}
+                onValueChange={(value) => handleChange('month', value)}
+                items={months.map((month) => <Picker.Item key={month.value} label={month.label} value={month.value} />)}
+              />
+              <RenderPicker
+                style={[
+                  styles.picker,
+                  isSmallScreen ? styles.pickerSmall : {}
+                ]}
+                selectedValue={formData.day}
+                onValueChange={(value) => handleChange('day', value)}
+                items={days.map((day) => <Picker.Item key={day} label={day} value={day} />)}
+              />
+              <RenderPicker
+                style={[
+                  styles.picker,
+                  isSmallScreen ? styles.pickerSmall : {}
+                ]}
+                selectedValue={formData.year}
+                onValueChange={(value) => handleChange('year', value)}
+                items={years.map((year) => <Picker.Item key={year} label={year.toString()} value={year.toString()} />)}
+              />
+            </View>
 
 
-           <Text style={styles.label}>Sex:</Text>
-           <RenderPicker
-             style={[
-               styles.input,
-               isSmallScreen ? styles.inputSmall : {}
-             ]}
-             selectedValue={formData.sex}
-             onValueChange={(value) => handleChange('sex', value)}
-             items={[
-               <Picker.Item key="M" label="Male" value="M" />,
-               <Picker.Item key="F" label="Female" value="F" />
-             ]}
-           />
+            <Text style={styles.label}>Sex:</Text>
+            <RenderPicker
+              style={[
+                styles.input,
+                isSmallScreen ? styles.inputSmall : {}
+              ]}
+              selectedValue={formData.sex}
+              onValueChange={(value) => handleChange('sex', value)}
+              items={[
+                <Picker.Item key="M" label="Male" value="M" />,
+                <Picker.Item key="F" label="Female" value="F" />
+              ]}
+            />
 
 
-           <Text style={styles.label}>Height:</Text>
-           <View style={[
-             styles.pickerContainer,
-             isSmallScreen ? styles.pickerContainerSmall : {}
-           ]}>
-             <RenderPicker
-               style={[
-                 styles.picker,
-                 isSmallScreen ? styles.pickerSmall : {}
-               ]}
-               selectedValue={formData.feet}
-               onValueChange={(value) => handleChange('feet', value)}
-               items={feet.map((ft) => <Picker.Item key={ft} label={ft} value={ft} />)}
-             />
-             <RenderPicker
-               style={[
-                 styles.picker,
-                 isSmallScreen ? styles.pickerSmall : {}
-               ]}
-               selectedValue={formData.inches}
-               onValueChange={(value) => handleChange('inches', value)}
-               items={inches.map((inch) => <Picker.Item key={inch} label={inch} value={inch} />)}
-             />
-           </View>
+            <Text style={styles.label}>Height:</Text>
+            <View style={[
+              styles.pickerContainer,
+              isSmallScreen ? styles.pickerContainerSmall : {}
+            ]}>
+              <RenderPicker
+                style={[
+                  styles.picker,
+                  isSmallScreen ? styles.pickerSmall : {}
+                ]}
+                selectedValue={formData.feet}
+                onValueChange={(value) => handleChange('feet', value)}
+                items={feet.map((ft) => <Picker.Item key={ft} label={ft} value={ft} />)}
+              />
+              <RenderPicker
+                style={[
+                  styles.picker,
+                  isSmallScreen ? styles.pickerSmall : {}
+                ]}
+                selectedValue={formData.inches}
+                onValueChange={(value) => handleChange('inches', value)}
+                items={inches.map((inch) => <Picker.Item key={inch} label={inch} value={inch} />)}
+              />
+            </View>
 
 
-           <Text style={styles.label}>Weight:</Text>
-           <TextInput
-             style={[
-               styles.input,
-               errors.weight ? styles.inputError : null,
-               isSmallScreen ? styles.inputSmall : {}
-             ]}
-             placeholder="Weight (in lbs)"
-             keyboardType="numeric"
-             value={formData.weight}
-             onChangeText={text => handleChange('weight', text)}
-           />
-           {errors.weight && <Text style={styles.errorText}>{errors.weight}</Text>}
+            <Text style={styles.label}>Weight:</Text>
+            <TextInput
+              style={[
+                styles.input,
+                errors.weight ? styles.inputError : null,
+                isSmallScreen ? styles.inputSmall : {}
+              ]}
+              placeholder="Weight (in lbs)"
+              keyboardType="numeric"
+              value={formData.weight}
+              onChangeText={text => handleChange('weight', text)}
+            />
+            {errors.weight && <Text style={styles.errorText}>{errors.weight}</Text>}
 
 
-           <View style={styles.buttonContainer}>
-             <Button title="Register" onPress={handleSubmit} />
-           </View>
-         </View>
-       </View>
-     </ScrollView>
-     </LinearGradient>
- );
+            <View style={styles.buttonContainer}>
+              <Button title="Register" onPress={handleSubmit} />
+            </View>
+          </View>
+        </View>
+      </LinearGradient>
+    </View>
+  );
 }
 
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: 'transparent',
+    width: '100%',
+    height: '100vh', // Explicit height for web
+  },
+  scrollView: {
+    flex: 1,
+    width: '100%',
   },
   scrollViewContent: {
     flexGrow: 1,
-    paddingVertical: 20,
+    paddingBottom: 50,
   },
   outerContainer: {
-    flex: 1,
+    width: '100%',
+    minHeight: '100%',
+    paddingTop: 60,
+    paddingBottom: 100,
     alignItems: 'center',
     justifyContent: 'center',
-    width: '100%',
   },
+  
+  // Keep your other styles the same
   container: {
-    marginBottom: 20,
+    width: '90%', // Make container take most of the width on all screens
+    marginBottom: 50, // Add more bottom margin
     padding: 20,
     backgroundColor: 'white',
     borderRadius: 16,
