@@ -414,21 +414,27 @@ const StepsCalendar = () => {
       
       // Create JWT payload using the token as the secret
       const payload = {
-        goal: goal,
+        target_steps: goal,
+        goal_type: 'steps',
+        achieve_by: '2025-12-31', // Example date, adjust as needed
         timestamp: new Date().getTime()
       };
       
       // Create JWT token
       const jwt = encode(payload, token);
       
+      // Get authentication headers
+      const authHeaders = getAuthHeaders(token);
+      
       // Send goal to API
-      const url = 'http://localhost:8080/api/user/set_step_goal';
+      const url = 'http://localhost:8080/api/user/create_goal';
       const response = await fetch(url, {
         method: 'POST',
         headers: {
-          'Authorization': `ApiKey ${jwt}`,
+          ...authHeaders,
           'Content-Type': 'application/json'
-        }
+        },
+        body: JSON.stringify({ token: jwt })
       });
       
       if (!response.ok) {

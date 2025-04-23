@@ -172,7 +172,7 @@ def create_goal():
     request_id = getattr(request, 'request_id', 'unknown')
     
     try:
-        goalTypes = ["weight", "cardio", "strength"]
+        goalTypes = ["weight", "cardio", "strength", "steps"]
         logger.info(f"Request {request_id}: Processing create_goal request")
         data, id = get_data_jwt(request)
         

@@ -111,7 +111,7 @@ const ChooseExercise = ({ onExerciseSelect }) => {
     useEffect(() => {
         setAllExercises([]);
         setFilteredExercises([]);
-        setCurrentPage(1);
+        setCurrentPage(0);
         setHasMore(true);
     }, [selectedMuscleGroup]);
     
@@ -155,6 +155,7 @@ const ChooseExercise = ({ onExerciseSelect }) => {
                 
                 if (data.page) {
                     setHasMore(true);
+                    setCurrentPage(data.page);
                 } else {
                     setHasMore(false);
                 }

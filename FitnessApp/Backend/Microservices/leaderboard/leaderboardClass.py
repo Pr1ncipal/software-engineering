@@ -106,7 +106,6 @@ class Leaderboard():
         conn = None
         cur = None
         
-        
         try:
             try:
                 logger.debug("Establishing database connection")
@@ -117,7 +116,22 @@ class Leaderboard():
                 
             cur = conn.cursor()
             
-            get_steps_query = sql.SQL("""WITH ranked_users AS (
+            # First check if the target user has data
+            check_user_query = sql.SQL("""
+                SELECT COUNT(*) 
+                FROM user_steps us 
+                WHERE us.user_id = %s AND us.date_performed BETWEEN %s AND %s
+            """)
+            
+            start_date = datetime.now() - timedelta(days=self.days)
+            end_date = datetime.now()
+            
+            cur.execute(check_user_query, (self.key, start_date, end_date))
+            user_has_data = cur.fetchone()[0] > 0
+            
+            if user_has_data:
+                # Original query for when target user has data
+                get_steps_query = sql.SQL("""WITH ranked_users AS (
                                             SELECT 
                                                 us.user_id,
                                                 u.username,
@@ -148,16 +162,28 @@ class Leaderboard():
                                         ORDER BY 
                                             ru.rank;
                                     """)
-            start_date = datetime.now() - timedelta(days=self.days)
-            end_date = datetime.now()
+                cur.execute(get_steps_query, (start_date, end_date, self.key, self.number, self.number, self.number))
+            else:
+                # Fallback query for when target user has no data - show top users
+                get_steps_query = sql.SQL("""
+                    SELECT 
+                        u.username,
+                        ROUND(AVG(us.steps)::numeric, 2) AS avg_steps,
+                        RANK() OVER (ORDER BY AVG(us.steps) DESC) AS rank
+                    FROM user_steps us
+                    JOIN users u ON us.user_id = u.id
+                    WHERE us.date_performed BETWEEN %s AND %s
+                    GROUP BY us.user_id, u.username
+                    ORDER BY avg_steps DESC
+                    LIMIT %s
+                """)
+                cur.execute(get_steps_query, (start_date, end_date, self.number))
             
-            logger.debug(f"Executing query with parameters: start_date={start_date}, end_date={end_date}, limit={self.number}")
-            cur.execute(get_steps_query, (start_date, end_date, self.key, self.number, self.number, self.number))
             result = cur.fetchall()
             
             if result:
                 logger.info(f"Found {len(result)} entries for steps leaderboard")
-                return self.__jsonify_tuple_list__(result, self.keys)
+                return self.__jsonify_tuple_list__(result, self.keys + ["rank"])  # Add rank to keys
             else:
                 logger.warning("No data found for steps leaderboard")
                 raise NoLeaderboardDataError("No step data found for the specified time period")

@@ -164,7 +164,6 @@ class Workout():
                 logger.info(f"Successfully fetched user activity for ID {self.user_id}")
             else:
                 logger.warning(f"No user found with ID {self.user_id}")
-                raise UserNotFoundError()
             
             # Update last login and day streak
             if last_login is None:
@@ -913,7 +912,7 @@ class Workout():
             muscle_filter = ""
             if muscle_group:
                 # More flexible muscle group matching
-                muscle_filter = "AND (LOWER(%s) = ANY(LOWER(primary_muscle)) OR LOWER(%s) = ANY(LOWER(secondary_muscles)))"
+                muscle_filter = "AND (LOWER(%s) = ANY(LOWER(primary_muscle::muscle_group_enum)) OR LOWER(%s) = ANY(LOWER(secondary_muscles::muscle_group_enum)))"
                 params.extend([muscle_group.lower(), muscle_group.lower()])
             
             # Complete query

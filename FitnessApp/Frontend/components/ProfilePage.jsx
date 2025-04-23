@@ -295,10 +295,10 @@ const ProfilePage = () => {
       const token = encode(updateData, secret);
 
       // Submit the update request
-      const response = await fetch('http://localhost:8080/api/user/update_weight', {
+      const response = await fetch('http://localhost:8080/api/user/add_user_stats', {
         method: 'POST',
         headers: headers,
-        body: JSON.stringify({ token })
+        body: JSON.stringify({ token: token })
       });
 
       if (!response.ok) {
@@ -315,8 +315,51 @@ const ProfilePage = () => {
       // Close the modal
       setModalVisible(false);
 
-      // Refresh the profile data
+      // Immediately update local state for instant feedback
+      if (updateData.height) {
+        // Create a copy of current weight data and update the last entry
+        const updatedCurrentWeight = [...userData.current_weight];
+        if (updatedCurrentWeight.length > 0) {
+          const lastEntry = { ...updatedCurrentWeight[updatedCurrentWeight.length - 1] };
+          lastEntry.height = updateData.height;
+          updatedCurrentWeight[updatedCurrentWeight.length - 1] = lastEntry;
+          
+          // Update the state
+          setUserData(prevData => ({
+            ...prevData,
+            current_weight: updatedCurrentWeight
+          }));
+        }
+      }
+
+      if (updateData.weight) {
+        // Add new weight entry
+        const newWeightEntry = {
+          weight: updateData.weight.toString(),
+          date: new Date().toISOString(),
+          height: userData.current_weight.length > 0 ? 
+            userData.current_weight[userData.current_weight.length - 1].height : 0
+        };
+        
+        // Update the state with the new entry
+        setUserData(prevData => ({
+          ...prevData,
+          current_weight: [...prevData.current_weight, newWeightEntry]
+        }));
+      }
+
+      if (updateData.goal_weight) {
+        // Update goal weight in state
+        setUserData(prevData => ({
+          ...prevData,
+          goal_weight: updateData.goal_weight.toString()
+        }));
+      }
+
+      // Then refresh all data from server to ensure consistency
       fetchProfileData();
+      fetchPrediction();
+      fetchWeightChart();
 
     } catch (error) {
       console.error('Error in updateWeightHeight:', error);
@@ -437,8 +480,10 @@ const ProfilePage = () => {
       setTargetExercise('');
       setTargetExerciseName('');
 
-      // Refresh the profile data
+      // Refresh all relevant data
       fetchProfileData();
+      fetchPrediction();
+      fetchWeightChart();
 
     } catch (error) {
       console.error('Error creating goal:', error);
@@ -549,12 +594,15 @@ const ProfilePage = () => {
       });
     }
 
+    // Format dates consistently as MM/DD
+    const labels = allWeights.map(w => {
+      const date = new Date(w.date);
+      return `${date.getMonth() + 1}/${date.getDate()}`;
+    });
+
     // Format for the chart
     return {
-      labels: allWeights.map(w => {
-        const date = new Date(w.date);
-        return `${date.getMonth() + 1}/${date.getDate()}`;
-      }),
+      labels: labels,
       datasets: [
         {
           data: allWeights.map(w => w.weight),
@@ -1300,15 +1348,53 @@ const ProfilePage = () => {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Update Weight & Height</Text>
 
+            {/* Replace your current height input implementation with this dropdown version */}
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Height (inches)</Text>
-              <TextInput
-                style={styles.input}
-                value={height}
-                onChangeText={setHeight}
-                keyboardType="numeric"
-                placeholder="Enter height in inches"
-              />
+              <Text style={styles.inputLabel}>Height</Text>
+              <View style={styles.heightInputContainer}>
+                {/* Feet Dropdown */}
+                <View style={styles.heightDropdownWrapper}>
+                  <View style={styles.pickerContainer}>
+                    <Picker
+                      selectedValue={height ? Math.floor(parseInt(height) / 12).toString() : "5"}
+                      onValueChange={(value) => {
+                        const feetValue = parseInt(value) || 0;
+                        const inchesValue = height ? (parseInt(height) % 12) : 0;
+                        const totalInches = (feetValue * 12) + inchesValue;
+                        setHeight(totalInches.toString());
+                      }}
+                      style={styles.heightPicker}
+                    >
+                      {Array.from({length: 8}, (_, i) => i + 1).map(feet => (
+                        <Picker.Item key={feet} label={`${feet} ft`} value={feet.toString()} />
+                      ))}
+                    </Picker>
+                  </View>
+                </View>
+                
+                {/* Inches Dropdown */}
+                <View style={styles.heightDropdownWrapper}>
+                  <View style={styles.pickerContainer}>
+                    <Picker
+                      selectedValue={height ? (parseInt(height) % 12).toString() : "0"}
+                      onValueChange={(value) => {
+                        const inchesValue = parseInt(value) || 0;
+                        const feetValue = height ? Math.floor(parseInt(height) / 12) : 5; // Default to 5ft if not set
+                        const totalInches = (feetValue * 12) + inchesValue;
+                        setHeight(totalInches.toString());
+                      }}
+                      style={styles.heightPicker}
+                    >
+                      {Array.from({length: 12}, (_, i) => i).map(inch => (
+                        <Picker.Item key={inch} label={`${inch} in`} value={inch.toString()} />
+                      ))}
+                    </Picker>
+                  </View>
+                </View>
+              </View>
+              <Text style={styles.heightHelperText}>
+                Total: {height || "0"} inches
+              </Text>
             </View>
 
             <View style={styles.inputGroup}>
@@ -2057,6 +2143,38 @@ const styles = StyleSheet.create({
   goalEmphasis: {
     fontWeight: "bold",
     color: "#2ecc71",
+  },
+  heightInputContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+  },
+  heightDropdownWrapper: {
+    flex: 1,
+    marginRight: 4,
+  },
+  heightPicker: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    fontSize: 16,
+    backgroundColor: "#f9f9f9",
+    textAlign: "center",
+    minWidth: 50,
+  },
+  heightUnitText: {
+    fontSize: 16,
+    color: "#555",
+    marginLeft: 5,
+  },
+  heightHelperText: {
+    fontSize: 12,
+    color: "#888",
+    marginTop: 5,
+    textAlign: "center",
   },
 });
 
