@@ -153,12 +153,13 @@ const ChooseExercise = ({ onExerciseSelect }) => {
                     return;
                 }
                 
-                if (data.page) {
+                if (data.exercises && data.exercises.length > 0) {
                     setHasMore(true);
-                    setCurrentPage(data.page);
                 } else {
                     setHasMore(false);
                 }
+                // Only use the page from response for debugging, not for setting state
+                console.log(`Received page ${data.page}, our currentPage is ${currentPage}`);
                 
                 const transformedExercises = data.exercises.map(exercise => ({
                     id: exercise.id,
@@ -168,8 +169,8 @@ const ChooseExercise = ({ onExerciseSelect }) => {
                     secondary_muscle: exercise.secondary_muscle || []
                 }));
                 
-                const newAllExercises = currentPage === 1 
-                    ? transformedExercises 
+                const newAllExercises = currentPage === 0
+                    ? transformedExercises // Only replace on first page (page 0)
                     : [...allExercises, ...transformedExercises];
                 
                 newAllExercises.sort((a, b) => a.name.localeCompare(b.name));

@@ -912,7 +912,7 @@ class Workout():
             muscle_filter = ""
             if muscle_group:
                 # More flexible muscle group matching
-                muscle_filter = "AND (LOWER(%s) = ANY(LOWER(primary_muscle::muscle_group_enum)) OR LOWER(%s) = ANY(LOWER(secondary_muscles::muscle_group_enum)))"
+                muscle_filter = "AND (LOWER(%s)::text = ANY(SELECT LOWER(m::text) FROM unnest(primary_muscle) m) OR LOWER(%s)::text = ANY(SELECT LOWER(m::text) FROM unnest(secondary_muscles) m))"
                 params.extend([muscle_group.lower(), muscle_group.lower()])
             
             # Complete query
